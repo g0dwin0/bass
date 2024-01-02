@@ -1,0 +1,16 @@
+build/
+.vscode/
+.idea
+.cache/
+.clang-format
+roms/
+lib/*
+compile_commands.json
+*.txt
+*.log
+*.ini
+TODO.md
+callgrind.*
+saves/
+run.sh
+arm-docs/
