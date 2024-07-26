@@ -14,3 +14,4 @@ callgrind.*
 saves/
 run.sh
 arm-docs/
+.gdb_history
