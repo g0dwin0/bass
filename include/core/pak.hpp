@@ -1,0 +1,53 @@
+#pragma once
+
+#include "common.hpp"
+
+struct Pak {
+
+  std::vector<u8> data;
+
+  union {
+    u8 header_bytes[192];
+    struct {
+      // 32bit ARM branch opcode
+      u8 entry_point[4];
+
+      // compressed bitmap, required.
+      u8 logo[156];
+
+      // game title in ASCII (12 characters)
+      char game_title[12];
+
+      // game code (shorthand 4 characters)
+      char game_code[4];
+
+      // maker code (shorthand 2 characters)
+      char maker_code[2];
+
+      // fixed value (0x96 for valid roms)
+      u8 RESERVED;
+
+      // unit device code (0=GBA)
+      u8 unit_code;
+
+      // DEVICE TYPE
+      u8 device_type;
+
+      // should be 7 zeroes on valid roms
+      u8 RESERVED[7];
+
+      // software/game version number
+      u8 software_version;
+
+      // complement check / header checksum
+      u8 complement_check;
+
+      //
+      u8 RESERVED[2];
+    };
+
+  } info;
+
+  void load_data(std::vector<u8>&);
+  void log_cart_info();
+};
