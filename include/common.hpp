@@ -1,11 +1,16 @@
 #pragma once
 #define FMT_HEADER_ONLY
+#define CONCAT(x, y) x ## y
+#define EXPAND(x, y) CONCAT(x, y)
+#define RESERVED EXPAND(reserved, __LINE__)
+
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include "spdlog/spdlog.h"
 #include "fmt/core.h"
 
 

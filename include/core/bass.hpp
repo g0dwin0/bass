@@ -1,12 +1,13 @@
 #pragma once
-#include "core/mmu.hpp"
+#include "core/cpu.hpp"
+#include "core/bus.hpp"
+#include "core/pak.hpp"
+//
+struct Bass {
+    
+  ARM7TDMI cpu;
+  Bus bus;
+  Pak pak;
 
-namespace Bass {
-
-  struct Instance {
-    Instance() { mmu.bus = &bus; };
-
-    Bus bus;
-    MMU mmu;
-  };
-}  // namespace Bass
+  Bass();
+};
