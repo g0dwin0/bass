@@ -2,8 +2,8 @@
 #include "spdlog/spdlog.h"
 
 Bass::Bass() {
-    spdlog::debug("setting pak ptr");
     bus.pak = &pak;
-    spdlog::debug("setting bus ptr");
     cpu.bus = &bus;
+    bus.ppu = &ppu;
+    spdlog::debug("pointers to device set");
 }
