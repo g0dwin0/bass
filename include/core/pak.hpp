@@ -1,9 +1,10 @@
 #pragma once
-
+#define GAME_TITLE_LENGTH 12
+#define GAME_CODE_LENGTH 4
+#define MAKER_CODE_LENGTH 2
 #include "common.hpp"
 
 struct Pak {
-
   std::vector<u8> data;
 
   union {
@@ -16,13 +17,13 @@ struct Pak {
       u8 logo[156];
 
       // game title in ASCII (12 characters)
-      char game_title[12];
+      char game_title[GAME_TITLE_LENGTH];
 
       // game code (shorthand 4 characters)
-      char game_code[4];
+      char game_code[GAME_CODE_LENGTH];
 
       // maker code (shorthand 2 characters)
-      char maker_code[2];
+      char maker_code[MAKER_CODE_LENGTH];
 
       // fixed value (0x96 for valid roms)
       u8 RESERVED;
@@ -42,7 +43,7 @@ struct Pak {
       // complement check / header checksum
       u8 complement_check;
 
-      //
+      // reserved
       u8 RESERVED[2];
     };
 
