@@ -1,5 +1,6 @@
 #include "ppu.hpp"
 
+#include "utils.h"
 enum class DISP_REG : u32 {
   DISPCNT  = 0x4000000,
   DISPSTAT = 0x4000004,
@@ -30,6 +31,16 @@ enum class DISP_REG : u32 {
   BG3PD    = 0x4000036,
 
 };
+
+void PPU::tick() {
+  
+  for (size_t i = 0, j = 0; i < ((240 * 160)); i++, j += 2) {
+    frame_buffer[i] = BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1));
+  }
+  // fmt::println("fb 0: {:#010x}", frame_buffer.at(0));
+  // frame_buffer.at(0)
+  // bus->VRAM
+}
 
 void PPU::handle_write(const u32 address, u16 value) {
   auto reg = (DISP_REG)(address);
@@ -172,8 +183,8 @@ void PPU::handle_write(const u32 address, u16 value) {
       break;
     }
     default: {
-        SPDLOG_CRITICAL("could not cast: {:#x}", address);
-        exit(-1);
+      SPDLOG_CRITICAL("could not cast: {:#x}", address);
+      exit(-1);
     }
   }
 }

@@ -16,7 +16,7 @@ ARM7TDMI::ARM7TDMI() {
 void ARM7TDMI::flush_pipeline() {
   pipeline = {};
 
-  spdlog::debug("pipeline flushed");
+  // spdlog::debug("pipeline flushed");
 }
 InstructionInfo ARM7TDMI::decode(InstructionInfo& instr) {
   instr.condition = (Condition)(instr.opcode >> 28);
@@ -91,8 +91,8 @@ InstructionInfo ARM7TDMI::decode(InstructionInfo& instr) {
     }
 
     instr.mnemonic =
-        fmt::format("{}rh{} r{},[{:#x}]", instr.L ? "ld" : "st",
-                    condition_map.at(instr.condition), (u8)instr.Rd, c_address
+        fmt::format("{}rh{} r{},[r{}], +#${:#x} [#${:#x}]", instr.L ? "ld" : "st",
+                    condition_map.at(instr.condition), (u8)instr.Rd, (u8)instr.Rn, (u8)instr.Rm, c_address
 
         );
 
@@ -336,9 +336,16 @@ void ARM7TDMI::execute(InstructionInfo& instr) {
     SPDLOG_CRITICAL("could not execute instruction {:#10X}", instr.opcode);
     exit(-1);
   }
+    // spdlog::info("{}", instr.mnemonic);
   if (check_condition(instr)) {
-    spdlog::info("{}", instr.mnemonic);
     instr.func_ptr(*this, instr);
+  } else {
+    fmt::println("N: {} Z: {} C:{} V: {}",
+  +regs.CPSR.SIGN_FLAG,
+  +regs.CPSR.ZERO_FLAG,
+  +regs.CPSR.CARRY_FLAG,
+  +regs.CPSR.OVERFLOW_FLAG);
+    fmt::println("failed: {}", instr.mnemonic);
   }
 }
 

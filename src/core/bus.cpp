@@ -12,8 +12,8 @@ u32 Bus::shift_32(const std::vector<u8>& vec, const u32 address) {
 
 std::array<uint8_t, 2> u16_to_u8s(u32 input) {
   return {
+      static_cast<uint8_t>(input & 0xFF),
       static_cast<uint8_t>((input >> 8) & 0xFF),
-      static_cast<uint8_t>(input & 0xFF)  
   };
 }
 
@@ -70,7 +70,6 @@ u32 Bus::read32(u32 address) {
 };
 
 void Bus::write16(const u32 address, u16 value) {
-  SPDLOG_INFO("[W] {:#x} => {:#x}", address, value);
   switch (address) {
     case 0x02000000 ... 0x0203FFFF: {
       // internal work ram read
@@ -108,13 +107,15 @@ void Bus::write16(const u32 address, u16 value) {
 
     case 0x07000000 ... 0X070003FF: {
       // OAM
-      set16(VRAM, address - 0x07000000, value);
+      set16(OAM, address - 0x07000000, value);
       break;
     }
 
     default: {
       spdlog::warn("unused/oob memory write: {:#X}", address);
-      break;
+      return;
+      // break;
     }
   }
+  SPDLOG_INFO("[W] {:#x} => {:#x}", address, value);
 }

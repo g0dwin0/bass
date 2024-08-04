@@ -5,6 +5,10 @@
 #include "common.hpp"
 
 struct Pak {
+  Pak() {
+    data.resize(0x2000000, 0);
+  }
+
   std::vector<u8> data;
 
   union {

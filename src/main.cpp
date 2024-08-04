@@ -13,7 +13,9 @@
 
 int main() {
   Bass bass;
-  // Frontend f{&bass};
+
+  Frontend f{&bass};
+
   spdlog::set_level(spdlog::level::debug);
 
   std::string filename = "/home/toast/Projects/bass/roms/panda.gba";
@@ -24,17 +26,25 @@ int main() {
 
   bass.bus.pak->load_data(file);
 
-  for (size_t i = 0; i < 32; i++) {
+  for (size_t i = 0; i < 0x70000; i++) {
     bass.cpu.step();
   }
-  
+  // long long ctr = 0;
+  while (f.state.running) {
+    f.handle_events();
+    f.render_frame();
+    // bass.cpu.step();
 
-  // while (f.state.running) {
-  //   f.handle_events();
-  //   f.render_frame();
-  // }
+    // bass.cpu.step();
+    bass.ppu.tick();
 
-  // f.shutdown();
+    // if(ctr % 100000 == 0) {
+    //   bass.ppu.frame_ready
+    // }
+    // ctr++;
+  }
+
+  f.shutdown();
 
   return 0;
 }

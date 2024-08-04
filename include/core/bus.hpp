@@ -2,6 +2,8 @@
 
 #include "common.hpp"
 #include "pak.hpp"
+struct Bus;
+struct PPU;
 #include "ppu.hpp"
 
 struct Bus {
@@ -16,7 +18,7 @@ struct Bus {
 
 
   Bus()
-      : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), IO(0x500), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400)  {
+      : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), IO(0x500), VRAM(0x180000), PALETTE_RAM(0x400), OAM(0x400)  {
     spdlog::debug("created bus");
   }
 

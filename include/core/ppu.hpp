@@ -1,20 +1,38 @@
 #pragma once
 
+
+#include "bus.hpp"
 #include "common.hpp"
 
-enum class MODE { BITMAP_MODE_3 = 3, BITMAP_MODE_4 = 4, BITMAP_MODE_5 = 5 };
+enum class BG_MODE {
+  TILE_MAP_MODE_0 = 0,
+  TILE_MAP_MODE_1 = 1,
+  TILE_MAP_MODE_2 = 2,
+  BITMAP_MODE_3   = 3,
+  BITMAP_MODE_4   = 4,
+  BITMAP_MODE_5   = 5
+};
 
 struct PPU {
   PPU() {
-    frame.resize((240 * 160) * 2);
+    
     spdlog::debug("PPU initialized");
   }
 
+  Bus* bus = nullptr;
+
   void handle_write(const u32 address, u16 value);
   void handle_read();
-  
 
-  std::vector<u8> frame;
+  void tick();
+  
+  u32* frame_buffer = new u32[153600];
+  
+  /* note: Allocating large arrays on the *stack* seems to cause issues.
+  // std::array<u32, (240*160)> frame_buffer;
+  // std::array<u8, (240*160) * 2> frame_buffer;
+  */
+  
 
   union {
     u16 v;

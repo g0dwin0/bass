@@ -6,6 +6,8 @@ OBJS_IMGUI = $(OBJ_IMGUI)/imgui_demo.o $(OBJ_IMGUI)/imgui_draw.o $(OBJ_IMGUI)/im
 OBJS = $(OBJ_DIR)/main.o $(OBJ_DIR)/frontend.o $(OBJ_DIR)/file_dialog.o $(OBJ_DIR)/pak.o $(OBJ_DIR)/bass.o $(OBJ_DIR)/cpu.o $(OBJ_DIR)/arm.o $(OBJ_DIR)/thumb.o $(OBJ_DIR)/bus.o $(OBJ_DIR)/ppu.o 
 CC=g++
 # CPPFLAGS += -fsanitize=undefined,address -D_GLIBCXX_DEBUG
+# CPPFLAGS += -O2
+
 
 PROJ_NAME = bass
 all: final
