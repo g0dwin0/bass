@@ -5,7 +5,7 @@ uint8_t convert5to8(uint8_t value5) {
     return (value5 << 3) | (value5 >> 2);
 }
 
-// Function to convert BGR555 to RGB888 ignoring the alpha bit and return the RGB888 value
+
 uint32_t BGR555toRGB888(uint8_t lsb, uint8_t msb) {
 
     uint16_t bgr555 = (static_cast<uint16_t>(msb) << 8) | lsb;

@@ -19,6 +19,8 @@ struct State {
 
   bool debugger_open = true;
   bool cpu_info_open = true;
+  bool ppu_info_open = true;
+  
   ImGuiIO* io        = nullptr;
 };
 struct Frontend {
@@ -37,6 +39,9 @@ struct Frontend {
   void shutdown();
   void show_debugger();
   void show_cpu_info();
+  void show_ppu_info();
+  
+  u32 get_pitch_from_mode();
 
   explicit Frontend(Bass*);
 };

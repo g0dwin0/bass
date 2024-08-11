@@ -12,7 +12,9 @@
 #include "tinyfiledialogs.h"
 // #include "utils.h"
 
-static MemoryEditor mem_edit_1;
+static MemoryEditor iwram_view;
+static MemoryEditor vram_view;
+static MemoryEditor palette_view;
 
 void Frontend::handle_events() {
   SDL_Event event;
@@ -48,6 +50,18 @@ void Frontend::handle_events() {
   }
 }
 
+// u32 Frontend::get_pitch_from_mode() {
+//   switch(bass->ppu.DISPCNT.BG_MODE) {
+//     case 3: {
+//       return 240 * 4;
+//     }
+//     case 4: {
+//       return 240 * 2;
+//     }
+
+//   }
+// }
+
 void Frontend::show_debugger() {
   ImGui::Begin("DEBUGGER", &state.debugger_open, 0);
 
@@ -60,15 +74,40 @@ void Frontend::show_cpu_info() {
     ImGui::Text("%s",
                 fmt::format("r{:d}: {:#010x}", i, bass->cpu.regs.r[i]).c_str());
   }
-  ImGui::Text("%s", fmt::format("N: {} Z: {} C:{} V: {}",
-  +bass->cpu.regs.CPSR.SIGN_FLAG,
-  +bass->cpu.regs.CPSR.ZERO_FLAG,
-  +bass->cpu.regs.CPSR.CARRY_FLAG,
-  +bass->cpu.regs.CPSR.OVERFLOW_FLAG
-  
-  ).c_str());
-  
+  ImGui::Text(
+      "%s", fmt::format(
+                "N: {} Z: {} C: {} V: {}", +bass->cpu.regs.CPSR.SIGN_FLAG,
+                +bass->cpu.regs.CPSR.ZERO_FLAG, +bass->cpu.regs.CPSR.CARRY_FLAG,
+                +bass->cpu.regs.CPSR.OVERFLOW_FLAG
+
+                )
+                .c_str());
+
+  ImGui::BeginDisabled(true);
+  ImGui::Text("CPSR: %#010x", bass->cpu.regs.CPSR.value);
+  ImGui::Text("CPU MODE: %s", bass->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
+  ImGui::Text("OPERATING MODE: %s",
+              fmt::format("{}", mode_map.at((u8)bass->cpu.regs.CPSR.MODE_BITS))
+                  .c_str());
+
+  ImGui::EndDisabled();
+
+  ImGui::Separator();
+
+  ImGui::Text("FIQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.FIQ_DISABLE);
+  ImGui::Text("IRQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.IRQ_DISABLE);
+
   if (ImGui::Button("STEP")) { bass->cpu.step(); }
+  ImGui::End();
+}
+void Frontend::show_ppu_info() {
+  ImGui::Begin("PPU INFO", &state.cpu_info_open, 0);
+
+  ImGui::Text("BG MODE: %#010x", bass->ppu.DISPCNT.BG_MODE);
+  if (ImGui::Button("Set VBLANK")) { bass->ppu.DISPSTAT.VBLANK_FLAG = 1; }
+  if (ImGui::Button("Reset VBLANK")) { bass->ppu.DISPSTAT.VBLANK_FLAG = 0; }
+
+  ImGui::Separator();
   ImGui::End();
 }
 
@@ -110,10 +149,18 @@ void Frontend::render_frame() {
   // show_menubar();
   // bool t = true;
   // ImGui::ShowDemoWindow(&t);
-  // show_cpu_info();
+  show_cpu_info();
+  show_ppu_info();
   // show_debugger();
-  // mem_edit_1.DrawWindow("Memory Editor", bass->bus.VRAM.data(),
-  //                       bass->bus.VRAM.size());
+  iwram_view.DrawWindow("IWRAM View", bass->bus.IWRAM.data(),
+                        bass->bus.IWRAM.size());
+
+  vram_view.DrawWindow("VRAM View", bass->bus.VRAM.data(),
+                       bass->bus.VRAM.size());
+
+  palette_view.DrawWindow("Palette RAM View", bass->bus.PALETTE_RAM.data(),
+                          bass->bus.PALETTE_RAM.size());
+
   // Rendering
   ImGui::Render();
   SDL_RenderSetScale(renderer, state.io->DisplayFramebufferScale.x,
@@ -146,7 +193,7 @@ Frontend::Frontend(Bass* c) {
 
   this->window =
       SDL_CreateWindow("bass", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                       240 * 2, 160 * 2, window_flags);
+                       240 * 4, 160 * 4, window_flags);
   this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
   // Setup Dear ImGui context
