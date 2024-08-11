@@ -3,7 +3,7 @@ CPPFLAGS = -g -Ilib/imgui -Ilib/ -Ilib/cli11 -Ilib/imgui/backends -Ilib/tinyfile
 OBJ_DIR = build/obj
 OBJ_IMGUI = $(OBJ_DIR)/imgui
 OBJS_IMGUI = $(OBJ_IMGUI)/imgui_demo.o $(OBJ_IMGUI)/imgui_draw.o $(OBJ_IMGUI)/imgui_impl_sdlrenderer2.o $(OBJ_IMGUI)/imgui_impl_sdl2.o $(OBJ_IMGUI)/imgui_tables.o $(OBJ_IMGUI)/imgui_widgets.o $(OBJ_IMGUI)/imgui.o
-OBJS = $(OBJ_DIR)/main.o $(OBJ_DIR)/frontend.o $(OBJ_DIR)/file_dialog.o $(OBJ_DIR)/pak.o $(OBJ_DIR)/bass.o $(OBJ_DIR)/cpu.o $(OBJ_DIR)/arm.o $(OBJ_DIR)/thumb.o $(OBJ_DIR)/bus.o $(OBJ_DIR)/ppu.o 
+OBJS = $(OBJ_DIR)/main.o $(OBJ_DIR)/frontend.o $(OBJ_DIR)/file_dialog.o $(OBJ_DIR)/pak.o $(OBJ_DIR)/bass.o $(OBJ_DIR)/cpu.o $(OBJ_DIR)/arm.o $(OBJ_DIR)/thumb.o $(OBJ_DIR)/bus.o $(OBJ_DIR)/ppu.o
 CC=g++
 # CPPFLAGS += -fsanitize=undefined,address -D_GLIBCXX_DEBUG
 # CPPFLAGS += -O2
@@ -23,7 +23,7 @@ $(OBJ_DIR)/main.o: src/main.cpp include/common.hpp
 $(OBJ_DIR)/bass.o: src/core/bass.cpp include/core/bass.hpp
 	$(CC) $(CPPFLAGS) -c src/core/bass.cpp -o $(OBJ_DIR)/bass.o
 
-$(OBJ_DIR)/cpu.o: src/core/cpu.cpp include/core/cpu.hpp include/core/registers.hpp include/core/instructions/instruction.hpp 
+$(OBJ_DIR)/cpu.o: src/core/cpu.cpp include/core/cpu.hpp include/core/registers.hpp include/core/instructions/instruction.hpp src/core/shifter.cpp
 	$(CC) $(CPPFLAGS) -c src/core/cpu.cpp -o $(OBJ_DIR)/cpu.o
 
 $(OBJ_DIR)/arm.o: src/core/instructions/arm.cpp  include/core/instructions/arm.hpp 
