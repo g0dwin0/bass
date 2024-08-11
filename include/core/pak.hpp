@@ -3,13 +3,14 @@
 #define GAME_CODE_LENGTH 4
 #define MAKER_CODE_LENGTH 2
 #include "common.hpp"
+#include <vector>
 
 struct Pak {
   Pak() {
     data.resize(0x2000000, 0);
   }
 
-  std::vector<u8> data;
+  std::vector<u8> data; // swap out for heap allocated array
 
   union {
     u8 header_bytes[192];

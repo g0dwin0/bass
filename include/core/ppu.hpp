@@ -3,6 +3,7 @@
 
 #include "bus.hpp"
 #include "common.hpp"
+#include "spdlog/spdlog.h"
 
 enum class BG_MODE {
   TILE_MAP_MODE_0 = 0,

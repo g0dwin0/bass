@@ -25,7 +25,7 @@ enum Condition : u8 {
   NV
 };
 
-inline std::unordered_map<Condition, std::string> condition_map = {
+inline const std::unordered_map<Condition, std::string_view> condition_map = {
     {   EQ,    "eq"},
     {   NE,    "ne"},
     {CS_HS, "cs_hs"},
@@ -40,14 +40,36 @@ inline std::unordered_map<Condition, std::string> condition_map = {
     {   LT,    "lt"},
     {   GT,    "gt"},
     {   LE,    "le"},
-    {   AL,    ""},
+    {   AL,      ""},
     {   NV,    "nv"},
+};
+inline const std::unordered_map<u8, std::string_view> mode_map = {
+    { 0x0,         "OLD USER"},
+    { 0x1,          "OLD FIQ"},
+    { 0x2,          "OLD IRQ"},
+    { 0x3,   "OLD SUPERVISOR"},
+    {0x10,             "USER"},
+    {0x11,              "FIQ"},
+    {0x12,              "IRQ"},
+    {0x13, "SUPERVISOR (SWI)"},
+    {0x17,            "ABORT"},
+    {0x1B,        "UNDEFINED"},
+    {0x1F,           "SYSTEM"}
 };
 
 struct Registers {
+  Registers() {
+    CPSR.value = 0x00000003;
+    r[13]      = 0x03007f00;
+  }
+
   struct {
+    // R13 (SP)
+    // R14 (LR)
+    // R15 (PC)
+
     u32 r[16] = {};
-    
+
     u32 r8_fiq;
     u32 r9_fiq;
     u32 r10_fiq;
@@ -78,6 +100,7 @@ struct Registers {
       u32 value;
       struct {
         u8 MODE_BITS       : 5;
+        // Designates if CPU is in THUMB mode (1) or ARM mode (0)
         u8 STATE_BIT       : 1;
         u8 FIQ_DISABLE     : 1;
         u8 IRQ_DISABLE     : 1;
@@ -87,10 +110,10 @@ struct Registers {
         u8 JAZELLE_MODE    : 1;
         u8                 : 2;
         u8 STICKY_OVERFLOW : 1;
-        u8 OVERFLOW_FLAG   : 1;
-        u8 CARRY_FLAG      : 1;
-        u8 ZERO_FLAG       : 1;
-        u8 SIGN_FLAG       : 1;
+        bool OVERFLOW_FLAG : 1;
+        bool CARRY_FLAG    : 1;
+        bool ZERO_FLAG     : 1;
+        bool SIGN_FLAG     : 1;
       };
     } CPSR;
   };
