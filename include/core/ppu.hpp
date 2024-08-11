@@ -22,7 +22,7 @@ struct PPU {
   Bus* bus = nullptr;
 
   void handle_write(const u32 address, u16 value);
-  void handle_read();
+  u32 handle_read(const u32 address);
 
   void tick();
   
@@ -63,7 +63,7 @@ struct PPU {
   } GREEN_SWAP;
 
   union {
-    u16 v;
+    u16 v = 0;
     struct {
       u8 VBLANK_FLAG          : 1;
       u8 HBLANK_FLAG          : 1;
