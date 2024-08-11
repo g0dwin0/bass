@@ -13,8 +13,9 @@ namespace ARM::Instructions {
   void CMN(ARM7TDMI& c, InstructionInfo& instr);
   void CMP(ARM7TDMI& c, InstructionInfo& instr);
   void EOR(ARM7TDMI& c, InstructionInfo& instr);
-  void LDMIA(ARM7TDMI& c, InstructionInfo& instr);
+  void LDM(ARM7TDMI& c, InstructionInfo& instr);
   void LDR(ARM7TDMI& c, InstructionInfo& instr);
+  void STR(ARM7TDMI& c, InstructionInfo& instr);
   void LDRB(ARM7TDMI& c, InstructionInfo& instr);
   void LDRH(ARM7TDMI& c, InstructionInfo& instr);
   void LSL(ARM7TDMI& c, InstructionInfo& instr);
@@ -27,6 +28,10 @@ namespace ARM::Instructions {
   void MSR(ARM7TDMI& c, InstructionInfo& instr);
   void MRS(ARM7TDMI& c, InstructionInfo& instr);
   void STRH(ARM7TDMI& c, InstructionInfo& instr);
+  void STM(ARM7TDMI& c, InstructionInfo& instr);
+  void ORR(ARM7TDMI& c, InstructionInfo& instr);
+  void TST(ARM7TDMI& c, InstructionInfo& instr);
+  
   
   
   
