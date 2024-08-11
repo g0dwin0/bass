@@ -1,11 +1,12 @@
 #pragma once
 #include <fstream>
 #include <vector>
-
+#include <iterator>
 #include "common.hpp"
+#include "fmt/core.h"
 
-inline std::vector<u8> read_file(std::string filename) {
-  std::ifstream file(filename, std::ios::binary);
+inline std::vector<u8> read_file(std::string_view filename) {
+  std::ifstream file(filename.data(), std::ios::binary);
 
   if (!file.good()) {
     throw std::runtime_error(
