@@ -5,7 +5,7 @@
 #include "common.hpp"
 #include "spdlog/spdlog.h"
 
-enum class BG_MODE {
+enum BG_MODE {
   TILE_MAP_MODE_0 = 0,
   TILE_MAP_MODE_1 = 1,
   TILE_MAP_MODE_2 = 2,
@@ -16,7 +16,8 @@ enum class BG_MODE {
 
 struct PPU {
   PPU() {
-    
+    std::memset(frame_buffer, 0, sizeof(frame_buffer) * 4);
+
     spdlog::debug("PPU initialized");
   }
 
@@ -25,9 +26,11 @@ struct PPU {
   void handle_write(const u32 address, u16 value);
   u32 handle_read(const u32 address);
 
-  void tick();
+  void draw();
   
-  u32* frame_buffer = new u32[153600];
+  u32 get_color_by_index(const u8 x); 
+
+  u32* frame_buffer = new u32[38400];
   
   /* note: Allocating large arrays on the *stack* seems to cause issues.
   // std::array<u32, (240*160)> frame_buffer;

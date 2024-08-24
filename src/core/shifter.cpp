@@ -1,29 +1,102 @@
+#include <iostream>
 #include <limits>
 #include <stdexcept>
 
 #include "core/cpu.hpp"
-#include "utils/bitwise.hpp"
 
-std::pair<u32, bool> ARM7TDMI::shift(SHIFT_MODE mode, u32 value, u8 amount) {
+u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount,
+                    bool amount_from_reg, bool never_rrx) {
   switch (mode) {
     case LSL: {
-      u64 s_m = value << amount;
-      return {value << amount, s_m > std::numeric_limits<u32>::max()};
+      SPDLOG_DEBUG("Value: {}", value);
+      SPDLOG_DEBUG("Amount: {}", amount);
+      if (amount == 0) {
+        SPDLOG_DEBUG("[LSL] shift amount is 0, returning inital value of {:#010x}",
+                     value);
+        return value;
+      }
+      if (amount > 32) {
+        reset_carry();
+        return 0;
+      }
+
+      u64 s_m = (value << amount);
+      (value & (1 << (32 - amount))) != 0 ? set_carry() : reset_carry();
+
+      SPDLOG_DEBUG(s_m);
+      SPDLOG_DEBUG(
+          "performed LSL with value: {:#010x}, by LSL'd by amount: {} result: {:#010x}",
+          value, amount, s_m);
+      return s_m;
     }
     case LSR: {
-      // u64 s_m = value >> amount;
-      return {value >> amount, true};
+      if (amount == 0 && !amount_from_reg) amount = 32;
+
+      if (amount == 0) return value;
+
+      u64 s_m = (value >> amount);
+      SPDLOG_DEBUG(
+          "performed LSR with value: {:#010x}, by LSR'd by amount: {} result: {:#010x}",
+          value, amount, s_m);
+
+      (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+
+      return s_m;
     }
     case ASR: {
-      // throw std::runtime_error("cannot perform ASR in barrel shifter");
+      if (amount == 0 && amount_from_reg) return value;
+      if (amount == 0) {
+        u32 ret_val = (value & 0x80000000) ? 0xFFFFFFFF : 0x00000000;
 
-      return {0, 0};
+        (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+
+        return ret_val;
+      }
+
+      i32 m = (static_cast<i32>(value)) >> amount;
+      
+      SPDLOG_DEBUG(
+          "performed ASR with value: {:#010x}, by ASR'd by amount: {} result: {:#010x}",
+          value, amount, m);
+
+      (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+
+      return static_cast<u32>(m);
     }
     case ROR: {
-      return {rotateRight(value, amount * 2), false};
+      if (amount == 0 && amount_from_reg) return value;
+
+      bool is_rrx = false;
+      if (amount == 0 && !never_rrx) {
+        SPDLOG_DEBUG("IS RRX!");
+        is_rrx = true;
+        amount = 1;
+      }
+      if(amount == 0) return value;
+      if (amount > 32) amount %= 32;
+
+      u32 r = std::rotr(static_cast<u32>(value), amount);
+
+      SPDLOG_DEBUG(
+          "performed ROR with value: {:#010x}, by ROR'd by amount: {} result: {:#010x}",
+          value, amount, r);
+
+      if (is_rrx) {  // RRX
+        
+        r &= ~(1 << 31);
+        
+        r |= (regs.CPSR.CARRY_FLAG << 31);
+        
+        (value & 1) == 1 ? set_carry() : reset_carry();
+        return r;
+      }
+
+      (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+
+      return r;
     }
     default: {
-      return {0, 0};
+      throw std::runtime_error("invalid shift mode");
     }
   }
 }

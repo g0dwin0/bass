@@ -1,39 +1,177 @@
 #include "instructions/arm.hpp"
 
+#include <cassert>
+#include <limits>
+
 #include "cpu.hpp"
 #include "instructions/instruction.hpp"
 #include "spdlog/spdlog.h"
 #include "utils/bitwise.hpp"
 
-// using namespace ARM::Instructions;
-enum PSR_LOC {
-  CPSR,      // CPSR
-  SPSR_MODE  // SPSR of the current mode
-};
-
 void ARM::Instructions::B(ARM7TDMI& c, InstructionInfo& instr) {
-  if (instr.L) { c.regs.r[14] = c.regs.r[15] - 8; }
+  if (instr.L) { c.regs.r[14] = c.regs.r[15] - 4; }
 
-  int x = instr.offset;
-
-  if (x & 0x800000) { x -= 0x1000000; }
-  x *= 4;
-
-  // SPDLOG_INFO("{:#x}",c.regs.r[15] + (signed_value - 4));
-  c.regs.r[15] += (x - 4);
+  // fmt::println("r15: {:#x}", c.regs.r[15]);
+  c.regs.r[15] += (instr.offset);
+  // fmt::println("r15: {:#x}", c.regs.r[15]);
+  c.regs.r[15] &= ~1;
 
   c.flush_pipeline();
+  // c.refill_pipeline();
+}
+
+void ARM::Instructions::BX(ARM7TDMI& c, InstructionInfo& instr) {
+  // 0001b: BX{cond}  Rn    ;PC=Rn, T=Rn.0   (ARMv4T and ARMv5 and up)
+
+  // c.regs.set_reg(15, c.regs.r[instr.Rn] & ~1);
+  c.regs.r[15] = (c.regs.r[instr.Rn] & ~1);
+
+  SPDLOG_INFO("R15: {:#010x}", c.regs.r[15]);
+
+  c.regs.CPSR.STATE_BIT = (c.regs.r[instr.Rn] & 0b1);
+
+  c.regs.CPSR.STATE_BIT ? SPDLOG_INFO("entered THUMB mode") : SPDLOG_INFO("entered ARM mode");
+
+  c.flush_pipeline();
+
+  return;
+}
+
+void ARM::Instructions::NOP([[gnu::unused]] ARM7TDMI& c, [[gnu::unused]] InstructionInfo& instr) { return; }
+void ARM::Instructions::AND(ARM7TDMI& c, InstructionInfo& instr) {
+  // instr.print_params();
+
+  c.regs.r[instr.Rd] &= instr.op2;
+assert(instr.S == 0);
+  if (instr.S) {
+    c.regs.r[instr.Rd] == 0 ? c.set_zero() : c.reset_zero();
+    c.reset_carry();
+    c.reset_negative();
+  }
+  return;
+}
+
+void ARM::Instructions::EOR(ARM7TDMI& c, InstructionInfo& instr) { c.regs.r[instr.Rd] = c.regs.r[instr.Rn] ^ instr.op2; assert(instr.S == 0);}
+void ARM::Instructions::BIC(ARM7TDMI& c, InstructionInfo& instr) { c.regs.r[instr.Rd] &= ~(instr.op2);
+assert(instr.S == 0); }
+
+void ARM::Instructions::RSB(ARM7TDMI& c, InstructionInfo& instr) { c.regs.r[instr.Rd] = instr.op2 - c.regs.r[instr.Rn]; assert(instr.S == 0);}
+
+void ARM::Instructions::SUB(ARM7TDMI& c, InstructionInfo& instr) {
+  instr.op2 = c.handle_shifts(instr);
+
+  u64 l = c.regs.r[instr.Rn] - instr.op2;
+
+  if (instr.S) {
+    l >= 0x80000000 ? c.set_negative() : c.reset_negative();
+    l == 0 ? c.set_zero() : c.reset_zero();
+    (c.regs.r[instr.Rd] >= instr.op2) ? c.set_carry() : c.reset_carry();
+    (c.regs.r[instr.Rd] >= 0x80000000 && (l < 0x80000000)) ? c.set_overflow() : c.reset_overflow();
+
+    if (instr.Rd == 15) { c.regs.load_spsr_to_cpsr(); }
+  }
+
+  c.regs.r[instr.Rd] = (c.regs.r[instr.Rn] - instr.op2);
+}
+
+void ARM::Instructions::SBC(ARM7TDMI& c, InstructionInfo& instr) {
+  int l = (c.regs.r[instr.Rd] - instr.op2) + (c.regs.CPSR.CARRY_FLAG - 1);
+  fmt::println("L (calced int): {}", l);
+
+  if (instr.S) {
+    l < 0 ? c.set_negative() : c.reset_negative();
+    l == 0 ? c.set_zero() : c.reset_zero();
+    l >= 0 ? c.set_carry() : c.reset_carry();
+    ((c.regs.r[instr.Rd] >= 0x80000000) && l >= 0) ? c.set_overflow() : c.reset_overflow();
+  }
+  c.regs.r[instr.Rd] = (c.regs.r[instr.Rn] - instr.op2) + (c.regs.CPSR.CARRY_FLAG - 1);
+}
+
+void ARM::Instructions::MVN(ARM7TDMI& c, InstructionInfo& instr) {
+  c.regs.r[instr.Rd] = ~instr.op2;
+
+  if (instr.S) {
+    c.regs.r[instr.Rd] == 0 ? c.set_zero() : c.reset_zero();
+    (c.regs.r[instr.Rd] & 0x80000000) != 0 ? c.set_negative() : c.reset_negative();
+  }
+}
+
+void ARM::Instructions::ADC(ARM7TDMI& c, InstructionInfo& instr) {
+  // instr.print_params();
+  bool o_carry = c.regs.CPSR.CARRY_FLAG;  // Carry from barrel shifter should
+                                          // not be used for this instruction.
+  instr.op2 = c.handle_shifts(instr);
+
+  u64 t_v = c.regs.r[instr.Rn];
+  fmt::println("t_v: {}", t_v);
+
+  SPDLOG_DEBUG("OP2: {:#010x}", instr.op2);
+  SPDLOG_DEBUG("Rn: {:#010x}", c.regs.r[instr.Rn]);
+  SPDLOG_DEBUG("CARRY: {:#010x}", +o_carry);
+
+  fmt::println("t_v: {:#010x}", c.regs.r[instr.Rn] + instr.op2 + (o_carry ? 1 : 0));
+
+  c.regs.r[instr.Rd] = (c.regs.r[instr.Rn] + instr.op2 + o_carry);
+
+  if (instr.S) {
+    c.regs.r[instr.Rd] == 0 ? c.set_zero() : c.reset_zero();
+    ((t_v < 0x80000000) && (t_v + instr.op2 + o_carry) >= 0x80000000) ? c.set_overflow() : c.reset_overflow();
+    ((t_v + instr.op2 + o_carry) >= std::numeric_limits<u32>::max()) ? c.set_carry() : c.reset_carry();
+    (c.regs.r[instr.Rd] >= 0x80000000) ? c.set_negative() : c.reset_negative();
+  }
+}
+
+void ARM::Instructions::TEQ(ARM7TDMI& c, InstructionInfo& instr) {
+  instr.op2 = c.handle_shifts(instr);
+
+  u32 m = c.regs.r[instr.Rn] ^ instr.op2;
+
+  m >= 0x80000000 ? c.set_negative() : c.reset_negative();
+  m == 0 ? c.set_zero() : c.reset_zero();
+  // (c.regs.r[instr.Rd] >= instr.op2) ? c.set_carry() : c.reset_carry();
 }
 
 void ARM::Instructions::MOV(ARM7TDMI& c, InstructionInfo& instr) {
-  if (instr.S) fmt::println("should change status");
+  instr.op2 = c.handle_shifts(instr);
+
   c.regs.r[instr.Rd] = instr.op2;
+
+  if (instr.S) {
+    fmt::println("op 2: {:#x}", instr.op2);
+    instr.op2 == 0 ? c.set_zero() : c.reset_zero();
+    (instr.op2 & 0x80000000) != 0 ? c.set_negative() : c.reset_negative();
+  }
+  if (instr.Rd == 15) {
+    SPDLOG_INFO("FLUSHING PIPE");
+    c.flush_pipeline();
+  }
 }
 void ARM::Instructions::ADD(ARM7TDMI& c, InstructionInfo& instr) {
-  c.regs.r[instr.Rd] = c.regs.r[instr.Rn] + instr.op2;
+  // ADD{cond}{S} Rd,Rn,Op2 ;* ;add               Rd = Rn+Op2
+  // instr.print_params();
+  instr.op2 = c.handle_shifts(instr);
+
+  u64 t_v = c.regs.r[instr.Rn];
+
+  // fmt::println("t_v: {}", t_v);
+
+  // fmt::println("t_v: {}", c.regs.r[instr.Rn] + instr.op2);
+
+  c.regs.r[instr.Rd] = (c.regs.r[instr.Rn] + instr.op2);
+
+  // fmt::println("r: {:#010x}", r);
+
+  if (instr.S) {
+    c.regs.r[instr.Rd] == 0 ? c.set_zero() : c.reset_zero();
+    ((t_v < 0x80000000) && t_v + instr.op2 >= 0x80000000) ? c.set_overflow() : c.reset_overflow();
+
+    ((t_v + instr.op2) >= std::numeric_limits<u32>::max()) ? c.set_carry() : c.reset_carry();
+  }
 }
 
 void ARM::Instructions::TST(ARM7TDMI& c, InstructionInfo& instr) {
+  instr.op2 = c.handle_shifts(instr);
+
   u8 d = c.regs.r[instr.Rn] & instr.op2;
 
   d == 0 ? c.set_zero() : c.reset_zero();
@@ -45,15 +183,16 @@ void ARM::Instructions::TST(ARM7TDMI& c, InstructionInfo& instr) {
 void ARM::Instructions::STRH(ARM7TDMI& c, InstructionInfo& instr) {
   u32 address = c.regs.r[instr.Rn];
 
-  u8 immediate_offset =
-      (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
+  u8 immediate_offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
 
   // Rn - base register
   // Rm - offset register (immediate value if I is set)
   // Rd - source/destination register
   // instr.print_params();
-
+  if (address >= 0x60000000 && address <= 0x60017FFF) { SPDLOG_INFO("VRAM WRITE: {:#010x} => {}", c.regs.r[instr.Rn], instr.I ? immediate_offset : c.regs.r[instr.Rm]); }
   if (instr.P == 0) {
+    address = c.align_address(address, HALFWORD);
+
     c.bus->write16(address, c.regs.r[instr.Rd] & 0xffff);
 
     if (instr.U) {
@@ -65,53 +204,168 @@ void ARM::Instructions::STRH(ARM7TDMI& c, InstructionInfo& instr) {
     }
 
   } else {
+    bool base_is_destination = false;
+    u32 written_val          = c.regs.r[instr.Rd];
+    if (instr.Rd == instr.Rn) { base_is_destination = true; }
+
     if (instr.U) {
       if (instr.W) {
         c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
         address = c.regs.r[instr.Rn];
       } else {
-        address = c.regs.r[instr.Rn] +
-                  (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn] + (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
       }
     } else {
       if (instr.W) {
         c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
         address = c.regs.r[instr.Rn];
       } else {
-        address = c.regs.r[instr.Rn] -
-                  (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn] - (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
       }
     }
-
-    c.bus->write16(address, c.regs.r[instr.Rd] & 0xffff);
+    address = c.align_address(address, HALFWORD);
+    c.bus->write16(address, base_is_destination ? written_val : c.regs.r[instr.Rd] & 0xffff);
   }
 }
 
 void ARM::Instructions::STR(ARM7TDMI& c, InstructionInfo& instr) {
-  (void)(c);
-  (void)(instr);
-  exit(-1);
+  // instr.print_params();
+  // exit(-1);
+  u32 address = c.regs.r[instr.Rn];
+
+  // if (instr.B) throw std::runtime_error("strb not implemented");
+  if (instr.I == 1) throw std::runtime_error("str [shift reg] not implemented");
+
+  // u8 shift_type = (instr.opcode & 0x60) >> 5;
+
+  // u32 shifted_register_value = c.shift()
+
+  // Rn - base register
+  // Rm - offset register (immediate value if I is set)
+  // Rd - source/destination register
+  // instr.print_params();
+
+  SPDLOG_DEBUG("[STR] RD: {}", +instr.Rd);
+  u8 added_value = 0;
+  if (instr.Rd == 15) { added_value += 4; }
+
+  if (instr.P == 0) {
+    SPDLOG_DEBUG("[STR] P is 0!");
+    instr.B ? c.bus->write8(address, c.regs.r[instr.Rd]) : c.bus->write32(address, c.regs.r[instr.Rd] + added_value);
+
+    if (instr.U) {
+      c.regs.r[instr.Rn] += (instr.I == 0 ? instr.offset : c.regs.r[instr.Rm]);
+      address = c.regs.r[instr.Rn];
+    } else {
+      c.regs.r[instr.Rn] -= (instr.I == 0 ? instr.offset : c.regs.r[instr.Rm]);
+      address = c.regs.r[instr.Rn];
+    }
+
+  } else {
+    SPDLOG_DEBUG("[STR] P is 1!");
+    bool base_is_destination = false;
+    u32 written_val          = c.regs.r[instr.Rd];
+    if (instr.Rd == instr.Rn) { base_is_destination = true; }
+
+    if (instr.U) {
+      if (instr.W) {
+        c.regs.r[instr.Rn] += (instr.I == 0 ? instr.offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn];
+      } else {
+        address = c.regs.r[instr.Rn] + (instr.I == 0 ? instr.offset : c.regs.r[instr.Rm]);
+      }
+    } else {
+      if (instr.W) {
+        c.regs.r[instr.Rn] -= (instr.I == 0 ? instr.offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn];
+      } else {
+        address = c.regs.r[instr.Rn] - (instr.I == 0 ? instr.offset : c.regs.r[instr.Rm]);
+      }
+    }
+
+    address = c.align_address(address, WORD);
+    instr.B ? c.bus->write8(address, base_is_destination ? written_val : c.regs.r[instr.Rd]) : c.bus->write32(address, base_is_destination ? written_val : c.regs.r[instr.Rd] + added_value);
+    // c.bus->write32(address, c.regs.r[instr.Rd]);
+  }
 }
-void ARM::Instructions::LDR(ARM7TDMI& c, InstructionInfo& instr) {
+
+void ARM::Instructions::CMN(ARM7TDMI& c, InstructionInfo& instr) {
+  instr.op2 = c.handle_shifts(instr);
+
+  u32 r = c.regs.r[instr.Rn] + instr.op2;
+
+  r >= 0x80000000 ? c.set_negative() : c.reset_negative();
+  r == 0 ? c.set_zero() : c.reset_zero();
+  (c.regs.r[instr.Rn] >= instr.op2) ? c.set_carry() : c.reset_carry();
+  (c.regs.r[instr.Rn] >= 0x80000000 && (r < 0x80000000)) ? c.set_overflow() : c.reset_overflow();
+}
+
+void ARM::Instructions::RSC(ARM7TDMI& c, InstructionInfo& instr) { c.regs.r[instr.Rd] = (instr.op2 - c.regs.r[instr.Rn]) + (c.regs.CPSR.CARRY_FLAG - 1); }
+void ARM::Instructions::LDR(ARM7TDMI& c,
+                            InstructionInfo& _instr) {  // TODO: Re-write this, too long and unnecessarily complex
   // Rn - base register
   // Rd - Source / Destination Register (where we're writing to)
 
   // LDR - Load data from memory into register [Rd]
+  // instr.print_params();
 
-  u32 c_address = 0;
+  // assert(instr.B == 0);
+  // assert(instr.I == 0);
 
-  if (instr.P == 0) {
-    c.regs.r[instr.Rd] = c.bus->read32(c.regs.r[instr.Rn]);
+  InstructionInfo instr = _instr;  // Pipeline flush invalidates reference due
+                                   // to pipeline change, copy necessary
 
-    if (instr.U) {
-      c.regs.r[instr.Rn] += instr.offset;
-      // address = c.regs.r[instr.Rn];
+  if (instr.I) {
+    instr.I = 0;
+
+    if (instr.shift_type == ROR && instr.shift_amount == 0) {
+      // c.shift'''
+      instr.offset = c.shift(ARM7TDMI::ROR, c.regs.r[instr.Rm], instr.shift_amount, false);
     } else {
-      c.regs.r[instr.Rn] -= instr.offset;
-      // address = c.regs.r[instr.Rn];
+      instr.offset = c.handle_shifts(instr);
     }
+  }
 
+  u32 c_address                   = c.regs.r[instr.Rn];
+  u8 misaligned_load_rotate_value = (c_address & 3) * 8;
+  SPDLOG_DEBUG("[LDR] RD: {}", +instr.Rd);
+  SPDLOG_DEBUG("[LDR] RN: {}", +instr.Rn);
+
+  SPDLOG_DEBUG("[LDR] instr offset: {:#010x}", instr.offset);
+
+  // if (instr.Rd == 15) { c.flush_pipeline(); }
+  // misaligned_load_rotate_value = c_address
+  // SPDLOG_DEBUG("address (pre-alignment) {:#010x}", c_address);
+  if (instr.P == 0) {  // Forced writeback
+    SPDLOG_DEBUG("[LDR] P = 0");
+    misaligned_load_rotate_value = (c_address & 3) * 8;
+
+    if (misaligned_load_rotate_value) { SPDLOG_DEBUG("misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+    SPDLOG_DEBUG("loading from {:#010x}", c.align_address(c_address, WORD));
+    c_address = c.align_address(c_address, WORD);
+
+    c.regs.r[instr.Rd] = instr.B ? c.bus->read8(c_address) : c.bus->read32(c_address);
+
+    c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+    SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
+
+    if (instr.Rd == 15) { c.flush_pipeline(); }
+
+    if (!(instr.Rd == instr.Rn)) {
+      if (instr.U) {
+        c.regs.r[instr.Rn] += instr.offset;
+        // address = c.regs.r[instr.Rn];
+      } else {
+        c.regs.r[instr.Rn] -= instr.offset;
+        // address = c.regs.r[instr.Rn];
+      }
+    }
+    fmt::println("DONE!");
+    return;
   } else {
+    SPDLOG_DEBUG("[LDR] P = 1");
     if (instr.U) {
       if (instr.W) {
         c.regs.r[instr.Rn] += instr.offset;
@@ -129,92 +383,427 @@ void ARM::Instructions::LDR(ARM7TDMI& c, InstructionInfo& instr) {
     }
   }
 
-  c.regs.r[instr.Rd] = c.bus->read32(c_address);
+  misaligned_load_rotate_value = (c_address & 3) * 8;
+  SPDLOG_DEBUG("[LDR] loading from {:#010x}", c_address);
+  if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDR] misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+  c_address          = c.align_address(c_address, WORD);
+  c.regs.r[instr.Rd] = instr.B ? c.bus->read8(c_address) : c.bus->read32(c_address);
+  c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+  if (instr.Rd == 15) { c.flush_pipeline(); }
 }
 
-void ARM::Instructions::LDRH(ARM7TDMI& c, InstructionInfo& instr) { // TODO: implement writeback logic
-  u32 c_address = c.regs.r[instr.Rn]; 
+void ARM::Instructions::LDRSB(ARM7TDMI& c,
+                              InstructionInfo& _instr) {  // TODO: Re-write this, too long and unnecessarily complex
+  // Rn - base register
+  // Rd - Source / Destination Register (where we're writing to)
 
-  // fmt::println("r0: {:#010x}", c.regs.r[0]);
-  // fmt::println("r1: {:#010x}", c.regs.r[1]);
-  // fmt::println("r2: {:#010x}", c.regs.r[2]);
-  // fmt::println("r3: {:#010x}", c.regs.r[3]);
-  // fmt::println("W: {:#010x}", (u8)instr.W);
+  // LDR - Load data from memory into register [Rd]
+  // instr.print_params();
 
-  // fmt::println("Rn + Rm := {:#010x}", (c.regs.r[instr.Rn] +
-  // c.regs.r[instr.Rm]) & 0xffff);
+  // assert(instr.I == 0);
 
-  // if(instr.P) {
-  //   c_address += c.regs.r[instr.Rm];
+  InstructionInfo instr = _instr;  // Pipeline flush invalidates reference due
+                                   // to pipeline change, copy necessary
+  // assert(instr.B == 1);
+
+  // if (instr.I) {
+  //   instr.I = 0;
+
+  //   if (instr.shift_type == ROR && instr.shift_amount == 0) {
+  //     instr.offset = c.shift(ARM7TDMI::ROR, c.regs.r[instr.Rm],
+  //     instr.shift_amount, false);
+  //   } else {
+  //     instr.offset = c.handle_shifts(instr);
+  //   }
   // }
-  c.regs.r[instr.Rd] = c.bus->read32(c_address) & 0xffff;
-  if (instr.P == 0) { c.regs.r[instr.Rn] += instr.Rm; }
+
+  u32 c_address                   = c.regs.r[instr.Rn];
+  u8 misaligned_load_rotate_value = (c_address & 3) * 8;
+
+  SPDLOG_DEBUG("[LDRSB] RD: {}", +instr.Rd);
+  SPDLOG_DEBUG("[LDRSB] RN: {}", +instr.Rn);
+  SPDLOG_DEBUG("[LDRSB] ADDRESS: {}", c_address);
+  SPDLOG_DEBUG("[LDRSB] instr offset: {:#010x}", instr.offset);
+
+  if (instr.P == 0) {  // Forced writeback
+    SPDLOG_DEBUG("[LDRSB] P = 0");
+    misaligned_load_rotate_value = (c_address & 3) * 8;
+
+    if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDRSB] misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+    SPDLOG_DEBUG("[LDRSB] loading from {:#010x}", c.align_address(c_address, HALFWORD));
+    c_address = c.align_address(c_address, HALFWORD);
+
+    c.regs.r[instr.Rd] = c.bus->read8(c_address);
+
+    c.regs.r[instr.Rd] &= ~0xffffff00;
+    if ((c.regs.r[instr.Rd] & (1 << 7))) { c.regs.r[instr.Rd] |= 0xffffff00; }
+
+    c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+    SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
+
+    if (instr.Rd == 15) { c.flush_pipeline(); }
+
+    SPDLOG_DEBUG("hi.... Rn is still: {}", +instr.Rn);
+
+    if (!(instr.Rd == instr.Rn)) {
+      if (instr.U) {
+        c.regs.r[instr.Rn] += instr.offset;
+        // address = c.regs.r[instr.Rn];
+      } else {
+        c.regs.r[instr.Rn] -= instr.offset;
+        // address = c.regs.r[instr.Rn];
+      }
+    }
+    fmt::println("DONE!");
+    return;
+  } else {
+    SPDLOG_DEBUG("[LDRSB] P = 1");
+    if (instr.U) {
+      if (instr.W) {
+        c.regs.r[instr.Rn] += instr.offset;
+        c_address = c.regs.r[instr.Rn];
+      } else {
+        c_address = c.regs.r[instr.Rn] + instr.offset;
+      }
+    } else {
+      if (instr.W) {
+        c.regs.r[instr.Rn] -= instr.offset;
+        c_address = c.regs.r[instr.Rn];
+      } else {
+        c_address = c.regs.r[instr.Rn] - instr.offset;
+      }
+    }
+  }
+
+  misaligned_load_rotate_value = (c_address & 3) * 8;
+  SPDLOG_DEBUG("loading from {:#010x}", c_address);
+  if (misaligned_load_rotate_value) { SPDLOG_DEBUG("misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+  c_address          = c.align_address(c_address, WORD);
+  c.regs.r[instr.Rd] = c.bus->read8(c_address);
+  c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+  c.regs.r[instr.Rd] &= ~0xffffff00;
+  if ((c.regs.r[instr.Rd] & (1 << 7))) { c.regs.r[instr.Rd] |= 0xffffff00; }
+  SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
+
+  if (instr.Rd == 15) { c.flush_pipeline(); }
+  // c.regs.r[instr.Rd] = c.bus->read32(c_address);
 }
 
-void ARM::Instructions::CMP(ARM7TDMI& c, InstructionInfo& instr) {
-  //  CMP - set condition codes on Op1 - Op2
+void ARM::Instructions::LDRSH(ARM7TDMI& c,
+                              InstructionInfo& instr) {  // TODO: implement writeback logic
 
-  i32 r = c.regs.r[instr.Rn] - instr.op2;
+  u32 address = c.regs.r[instr.Rn];  // Read address from base register
 
-  (r == 0) ? c.regs.CPSR.ZERO_FLAG = 1 : c.regs.CPSR.ZERO_FLAG = 0;
-  (r < 0) ? c.regs.CPSR.SIGN_FLAG = 1 : c.regs.CPSR.SIGN_FLAG = 0;
-  c.regs.CPSR.CARRY_FLAG    = (instr.op2 < c.regs.r[instr.Rn]) ? 1 : 0;
-  c.regs.CPSR.OVERFLOW_FLAG = 0;
-}
-void ARM::Instructions::ORR(ARM7TDMI& c, InstructionInfo& instr) {
-  c.regs.r[instr.Rd] = c.regs.r[instr.Rn] | instr.op2;
+  u8 immediate_offset             = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
+  u8 misaligned_load_rotate_value = 0;
 
-  if (instr.S) {
-    (c.regs.r[instr.Rd] == 0) ? c.regs.CPSR.ZERO_FLAG = 1
-                              : c.regs.CPSR.ZERO_FLAG = 0;
+  // Rn - base register
+  // Rm - offset register (immediate value if I is set)
+  // Rd - source/destination register
+  // instr.print_params();
+
+  if (instr.P == 0) {
+    misaligned_load_rotate_value = (address & 3) * 8;
+
+    if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDRSH] misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+    address = c.align_address(address,
+                              HALFWORD);  // Force align address before reading.
+
+    c.regs.r[instr.Rd] = c.bus->read16(address);
+
+    c.regs.r[instr.Rd] &= ~0xffff0000;
+    if ((c.regs.r[instr.Rd] & (1 << 15))) { c.regs.r[instr.Rd] |= 0xffff0000; }
+
+    c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+    // SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
+
+    if (instr.Rd == 15) { c.flush_pipeline(); }
+
+    if (instr.U) {                                                              // On post increment, write back is always enabled.
+      c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);  // Increase base register (post indexing)
+      address = c.regs.r[instr.Rn];
+    } else {
+      c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);  // Decrease base register (post indexing)
+      address = c.regs.r[instr.Rn];
+    }
+
+  } else {
+    if (instr.U) {
+      if (instr.W) {
+        c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn];
+      } else {
+        address = c.regs.r[instr.Rn] + (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+      }
+    } else {
+      if (instr.W) {
+        c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn];
+      } else {
+        address = c.regs.r[instr.Rn] - (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+      }
+    }
+
+    // misaligned_load_rotate_value = (address & 3) * 8;
+
+    // if (misaligned_load_rotate_value) {
+    //   SPDLOG_DEBUG("[LDRSH] misaligned rotate value: {}",
+    //                misaligned_load_rotate_value);
+    // }
+
+    // address            = c.align_address(address,
+    //                                      HALFWORD);  // Force align address
+    //                                      before reading.
+
+    if ((address & 1) != 0) {  // check if address is misaligned
+      SPDLOG_DEBUG("[LDRSH] address is misaligned");
+      c.regs.r[instr.Rd] = c.bus->read8(address);
+      if ((c.regs.r[instr.Rd] & (1 << 7))) {  // Sign extend
+        c.regs.r[instr.Rd] |= 0xffffff00;
+      }
+
+    } else {
+      c.regs.r[instr.Rd] = c.bus->read16(address);
+      SPDLOG_DEBUG("before unsetting top 16 bits: {:#010x}", c.regs.r[instr.Rd]);
+      // c.regs.r[instr.Rd] &= ~0xffff0000;
+      if ((c.regs.r[instr.Rd] & (1 << 15))) { c.regs.r[instr.Rd] |= 0xffff0000; }
+
+      c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+      // SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
+
+      if (instr.Rd == 15) { c.flush_pipeline(); }
+    }
   }
 }
 
+void ARM::Instructions::LDRH(ARM7TDMI& c,
+                             InstructionInfo& instr) {  // TODO: implement writeback logic
+
+  u32 address = c.regs.r[instr.Rn];  // Read address from base register
+
+  u8 immediate_offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
+
+  // Rn - base register
+  // Rm - offset register (immediate value if I is set)
+  // Rd - source/destination register
+  // instr.print_params();
+
+  u8 misaligned_load_rotate_value = (address & 3) * 8;
+
+  if (instr.P == 0) {
+    misaligned_load_rotate_value = (address & 3) * 8;
+
+    if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDRH] misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+    SPDLOG_DEBUG("[LDRH] loading from {:#010x}", c.align_address(address, HALFWORD));
+    address            = c.align_address(address, HALFWORD);
+    c.regs.r[instr.Rd] = c.bus->read16(address);
+
+    c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+    if (instr.Rd == 15) { c.flush_pipeline(); }
+
+    if (!(instr.Rd == instr.Rn)) {
+      if (instr.U) {                                                              // On post increment, write back is always enabled.
+        c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);  // Increase base register (post indexing)
+        address = c.regs.r[instr.Rn];
+      } else {
+        c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);  // Decrease base register (post indexing)
+        address = c.regs.r[instr.Rn];
+      }
+    }
+  } else {
+    if (instr.U) {
+      if (instr.W) {
+        c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn];
+      } else {
+        address = c.regs.r[instr.Rn] + (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+      }
+    } else {
+      if (instr.W) {
+        c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn];
+      } else {
+        address = c.regs.r[instr.Rn] - (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+      }
+    }
+
+    misaligned_load_rotate_value = (address & 3) * 8;
+
+    if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDRH] misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+    SPDLOG_DEBUG("[LDRH] loading from {:#010x}", c.align_address(address, HALFWORD));
+    address            = c.align_address(address, HALFWORD);
+    c.regs.r[instr.Rd] = c.bus->read16(address);
+
+    c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
+
+    if (instr.Rd == 15) { c.flush_pipeline(); }
+
+    // c.regs.r[instr.Rd] = c.bus->read16(address);
+    // assert(0);
+    // c.bus->write16(address, c.regs.r[instr.Rd] & 0xffff);
+  }
+}
+
+void ARM::Instructions::CMP(ARM7TDMI& c, InstructionInfo& instr) {
+  // instr.print_params();
+  //  CMP - set condition codes on Op1 - Op2
+  instr.op2 = c.handle_shifts(instr);
+
+  u32 r = c.regs.r[instr.Rn] - instr.op2;
+  // SPDLOG_DEBUG("HERE");
+  (r == 0) ? c.set_zero() : c.reset_zero();
+  (r >= 0x80000000) ? c.set_negative() : c.reset_negative();
+  (c.regs.r[instr.Rn] >= 0x80000000 && (r < 0x80000000)) ? c.set_overflow() : c.reset_overflow();
+  (c.regs.r[instr.Rn] >= instr.op2) ? c.set_carry() : c.reset_carry();
+  // ((r >= 0x80000000 && c.regs.r[instr.Rn] < 0x80000000) ||(r < 0x80000000 &&
+  // c.regs.r[instr.Rn] >= 0x80000000) ) ? c.set_overflow()
+  //                                                      : c.reset_overflow();
+  // (r < 0) ? c.set_negative() : c.reset_negative();
+
+  // SPDLOG_DEBUG("HERE2");
+  if (instr.Rd == 15 && instr.S) { c.regs.load_spsr_to_cpsr(); }
+  // SPDLOG_DEBUG("HERE3");
+  // c.regs.CPSR.CARRY_FLAG    = (instr.op2 <= c.regs.r[instr.Rn]) ? 1 : 0;
+  // c.regs.CPSR.OVERFLOW_FLAG = 0;
+}
+void ARM::Instructions::ORR(ARM7TDMI& c, InstructionInfo& instr) {
+  c.regs.r[instr.Rd] = c.regs.r[instr.Rn] | instr.op2;
+assert(instr.S == 0);
+  if (instr.S) { 
+    
+    (c.regs.r[instr.Rd] == 0) ? c.set_zero() : c.reset_zero(); 
+    }
+}
+
+void ARM::Instructions::MRS(ARM7TDMI& c, InstructionInfo& instr) { c.regs.r[instr.Rd] = c.regs.CPSR.value; }
+
 void ARM::Instructions::MSR(ARM7TDMI& c, InstructionInfo& instr) {
   // SPDLOG_INFO(instr.P);
-  u32 amount             = (instr.opcode & 0xff);
-  u8 shift_amount        = (instr.opcode & 0b111100000000) >> 8;
-  bool modify_flag_field = (instr.opcode & (1 << 19));
-  // bool modify_status_field    = (instr.opcode & (1 << 18));
-  // bool modify_extension_field = (instr.opcode & (1 << 17));
-  bool modify_control_field = (instr.opcode & (1 << 16));
+  // fmt::println("opcode: {:#010x}", instr.opcode);
+  u32 amount      = (instr.opcode & 0xff);
+  u8 shift_amount = (instr.opcode & 0b111100000000) >> 8;
+  // fmt::println("amount: {:#010x}", amount);
+  // fmt::println("shift amount: {:#010x}", shift_amount);
 
-  amount = rotateRight(amount, shift_amount * 2);
+  bool modify_flag_field    = (instr.opcode & (1 << 19)) ? true : false;
+  bool modify_control_field = (instr.opcode & (1 << 16)) ? true : false;
 
-  // fmt::println(
-  //     "{}{}{}{}", modify_flag_field ? "f" : "", modify_status_field ? "s" :
-  //     "", modify_extension_field ? "x" : "", modify_control_field ? "c" :
-  //     "");
+  // TODO: replace with shift function
 
-  switch (instr.P) {
-    case PSR_LOC::CPSR: {
-      if (instr.I) {  // We use the immediate value (amount)
-        u32 amount      = (instr.opcode & 0xff);
-        u8 shift_amount = (instr.opcode & 0b111100000000) >> 8;
+  u32 op_value = rotateRight(amount, shift_amount * 2);
 
-        amount = rotateRight(amount, shift_amount * 2);
+  fmt::println("P: {}", +instr.P);
 
+  switch (instr.P) {  // CPSR = 0, SPSR = 1
+    case PSR::CPSR: {
+      // if (instr.I) {  // We use the immediate value (amount)
         if (modify_flag_field) {
-          c.regs.CPSR.value &= ~0xFF000000;
-          c.regs.CPSR.value |= (amount & 0xFF000000);
+          c.regs.CPSR.value &= ~0xF0000000;
+          c.regs.CPSR.value |= (op_value & 0xF0000000);
         }
         if (modify_control_field) {
+          op_value |= 0x10;
+          SPDLOG_DEBUG("new control field: {:#x}", op_value & 0x000000FF);
+          c.regs.copy((SYSTEM_MODE)(op_value & 0x1f));
           c.regs.CPSR.value &= ~0x000000FF;
-          c.regs.CPSR.value |= (amount & 0x000000FF);
+          c.regs.CPSR.value |= (op_value & 0x000000FF);
         }
+      break;
       }
 
-      break;
-    };
+    // };
 
-    case PSR_LOC::SPSR_MODE: {
-      SPDLOG_CRITICAL("SPSR NOT IMPLEMENTED");
-      exit(-1);
+    case PSR::SPSR_MODE: {
+      switch (c.regs.CPSR.MODE_BITS) {
+        case USER:
+        case SYSTEM: {
+          assert(0);
+          break;
+        }
+        case FIQ: {
+          if (modify_flag_field) {
+            c.regs.SPSR_fiq &= ~0xF0000000;
+            c.regs.SPSR_fiq |= (amount & 0xF0000000);
+          }
+          if (modify_control_field) {
+            amount |= 0x10;
+            SPDLOG_DEBUG("new control field: {:#x}", amount & 0x000000FF);
+
+            c.regs.SPSR_fiq &= ~0x000000FF;
+            c.regs.SPSR_fiq |= (amount & 0x000000FF);
+          }
+          break;
+        }
+        case IRQ: {
+          if (modify_flag_field) {
+            c.regs.SPSR_irq &= ~0xF0000000;
+            c.regs.SPSR_irq |= (amount & 0xF0000000);
+          }
+          if (modify_control_field) {
+            amount |= 0x10;
+            SPDLOG_DEBUG("new control field: {:#x}", amount & 0x000000FF);
+            c.regs.SPSR_irq &= ~0x000000FF;
+            c.regs.SPSR_irq |= (amount & 0x000000FF);
+          }
+          break;
+        }
+        case SUPERVISOR: {
+          if (modify_flag_field) {
+            c.regs.SPSR_svc &= ~0xF0000000;
+            c.regs.SPSR_svc |= (amount & 0xF0000000);
+          }
+          if (modify_control_field) {
+            amount |= 0x10;
+            SPDLOG_DEBUG("new control field: {:#x}", amount & 0x000000FF);
+            c.regs.SPSR_svc &= ~0x000000FF;
+            c.regs.SPSR_svc |= (amount & 0x000000FF);
+          }
+          break;
+        }
+        case ABORT: {
+          if (modify_flag_field) {
+            c.regs.SPSR_abt &= ~0xF0000000;
+            c.regs.SPSR_abt |= (amount & 0xF0000000);
+          }
+          if (modify_control_field) {
+            amount |= 0x10;
+            SPDLOG_DEBUG("new control field: {:#x}", amount & 0x000000FF);
+            c.regs.SPSR_abt &= ~0x000000FF;
+            c.regs.SPSR_abt |= (amount & 0x000000FF);
+          }
+          break;
+        }
+        case UNDEFINED: {
+          if (modify_flag_field) {
+            c.regs.SPSR_und &= ~0xF0000000;
+            c.regs.SPSR_und |= (amount & 0xF0000000);
+          }
+          if (modify_control_field) {
+            amount |= 0x10;
+            SPDLOG_DEBUG("new control field: {:#x}", amount & 0x000000FF);
+            c.regs.SPSR_und &= ~0x000000FF;
+            c.regs.SPSR_und |= (amount & 0x000000FF);
+          }
+          break;
+        }
+      }
       break;
     };
 
     default: {
-      SPDLOG_CRITICAL("INVALID RM PASSED: {}", (u8)instr.Rm);
+      SPDLOG_CRITICAL("INVALID RM PASSED: {}", +instr.Rm);
     }
   }
 }
@@ -224,65 +813,435 @@ void ARM::Instructions::STM(ARM7TDMI& c, InstructionInfo& instr) {
 
   std::vector<u8> reg_list;
 
-  // instr.print_params();
+  bool forced_writeback       = false;
+  bool base_first_in_reg_list = false;
+  (void)(base_first_in_reg_list);
 
-  for (size_t idx = 16; idx != SIZE_MAX; idx--) {
+  for (size_t idx = 0; idx < 16; idx++) {
     if (reg_list_v & (1 << idx)) {
+      if (idx == instr.Rn && reg_list.empty()) { base_first_in_reg_list = true; }
+
       reg_list.push_back(idx);
-
-      if (instr.P) {
-        if (idx == 15) {
-          c.regs.r[instr.Rn] += instr.U ? 4 : -4;
-          c.bus->write32(c.regs.r[instr.Rn], instr.loc + 12);
-        } else {
-          c.regs.r[instr.Rn] += instr.U ? 4 : -4;
-          c.bus->write32(c.regs.r[instr.Rn], c.regs.r[idx]);
-        }
-      } else {
-        if (idx == 15) {
-          c.bus->write32(c.regs.r[instr.Rn], instr.loc + 12);
-          c.regs.r[instr.Rn] += instr.U ? 4 : -4;
-        } else {
-          c.bus->write32(c.regs.r[instr.Rn], c.regs.r[idx]);
-          c.regs.r[instr.Rn] += instr.U ? 4 : -4;
-        }
-      }
-      fmt::println("instr loc: {:#010x}", instr.loc + 12);
-
-      // fmt::print("r{} ", idx);
     }
   }
-  SPDLOG_DEBUG("register list: r{}", fmt::join(reg_list, ",r"));
 
+  if (reg_list.empty()) {
+    SPDLOG_DEBUG("[STM] reg list empty, pushing 15");
+    reg_list.push_back(15);
+    // flush_queued     = true;
+    forced_writeback = true;
+    instr.W          = 0;
+    // return;
+  }
+
+  SPDLOG_DEBUG("[STM] unaligned address: {:#010x}", c.regs.r[instr.Rn]);
+  u32 base = c.regs.r[instr.Rn];  // Base
+  // u32 new_base = 0;
+  SPDLOG_DEBUG("[STM] aligned address: {:#010x}", base);
+
+  if (instr.P == 1 && instr.U == 0) {  // Pre-decrement
+    SPDLOG_DEBUG("hit pre-decrement [DB]");
+
+    base -= (reg_list.size() * 4);
+
+    u8 pass = 0;
+
+    if (forced_writeback) {
+      c.regs.r[instr.Rn] -= 0x40;
+      base -= 0x40;
+      SPDLOG_DEBUG("NEW RN: {:#010x}", c.regs.r[instr.Rn]);
+      reg_list.push_back(15);
+    }
+
+    for (const auto& r_num : reg_list) {
+      if (instr.Rn == r_num) { SPDLOG_DEBUG("Rn{} IN STMDB: {:#010x}", +instr.Rn, c.regs.r[instr.Rn]); }
+      if (instr.S) {
+        c.bus->write32(c.align_address(base + (pass * 4), BOUNDARY::WORD), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+      } else {
+        c.bus->write32(c.align_address(base + (pass * 4), BOUNDARY::WORD), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base : c.regs.r[r_num]);
+      }
+      pass++;
+    }
+
+    if (instr.W && !forced_writeback) { c.regs.r[instr.Rn] = base; }
+    return;
+  }
+
+  if (instr.P == 1 && instr.U == 1) {  // Pre-increment
+    SPDLOG_DEBUG("[STM] hit pre-increment");
+
+    SPDLOG_DEBUG("[STMIB] {:#010x}", base);
+
+    u8 pass = 0;
+
+    if (forced_writeback) { reg_list.push_back(15); }
+
+    for (const auto& r_num : reg_list) {
+      pass++;
+      if (instr.S) {
+        c.bus->write32((base + (pass * 4)), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+      } else {
+        c.bus->write32((base + (pass * 4)), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base + (reg_list.size()) * 4 : c.regs.r[r_num]);
+      }
+    }
+
+    if (forced_writeback) {
+      c.regs.r[instr.Rn] += 0x40;
+      base += 0x40;
+      SPDLOG_DEBUG("NEW RN: {:#010x}", c.regs.r[instr.Rn]);
+    }
+
+    base += (reg_list.size() * 4);
+    SPDLOG_DEBUG("STMIB BASE: {:#010x}", base);
+
+    if (instr.W && !forced_writeback) {
+      SPDLOG_DEBUG("write back is first in rlist?: {}", base_first_in_reg_list);
+      SPDLOG_DEBUG("[STMIB] writing back: {:#010x}", base);
+      c.regs.r[instr.Rn] = base;
+    }
+    return;
+  }
+
+  if (instr.P == 0 && instr.U == 0) {  // Post-decrement (DA)
+    SPDLOG_DEBUG("hit post-decrement");
+
+    base -= (reg_list.size() * 4);
+
+    u8 pass = 0;
+
+    if (forced_writeback) {
+      c.regs.r[instr.Rn] -= 0x40;
+      base -= 0x40;
+      SPDLOG_DEBUG("NEW RN: {:#010x}", c.regs.r[instr.Rn]);
+      reg_list.push_back(15);
+    }
+
+    for (const auto& r_num : reg_list) {
+      pass++;
+      if (instr.S) {
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+      } else {
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base : c.regs.r[r_num]);
+      }
+    }
+
+    if (instr.W && !forced_writeback) { c.regs.r[instr.Rn] = base; }
+
+    return;
+  }
+
+  if (instr.P == 0 && instr.U == 1) {  // Post-increment
+    SPDLOG_DEBUG("[STMIA] hit post-increment");
+
+    u8 pass = 0;
+    for (const auto& r_num : reg_list) {
+      if (instr.S) {
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+      } else {
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? (base + (reg_list.size() * 4)) : c.regs.r[r_num]);
+      }
+      pass++;
+    }
+
+    base += (reg_list.size() * 4);
+    SPDLOG_DEBUG("STMIA BASE: {:#010x}", base);
+    if (forced_writeback) { c.regs.r[instr.Rn] += 0x40; }
+    if (instr.W && !forced_writeback) { c.regs.r[instr.Rn] = base; }
+
+    return;
+  }
+
+  SPDLOG_CRITICAL("invalid STM mode");
+  assert(0);
   return;
+}
+
+void ARM::Instructions::UMULL(ARM7TDMI& c, InstructionInfo& instr) {
+  u64 res = static_cast<uint64_t>(c.regs.r[instr.Rm]) * c.regs.r[instr.Rs];
+
+  // Rd = Hi
+  // Rn = Lo
+
+  c.regs.r[instr.Rd] = res >> 32;
+  c.regs.r[instr.Rn] = res & 0xffffffff;
+
+  if (instr.S) {
+    (res & 0x8000000000000000) ? c.set_negative() : c.reset_negative();
+    res == 0 ? c.set_zero() : c.reset_zero();
+
+    // assert(0);
+  }
+}
+
+void ARM::Instructions::SMULL(ARM7TDMI& c, InstructionInfo& instr) {
+  i32 rm = c.regs.r[instr.Rm];
+  i32 rs = c.regs.r[instr.Rs];
+
+  SPDLOG_DEBUG("RM: {}", rm);
+  SPDLOG_DEBUG("RS: {}", rs);
+
+  SPDLOG_DEBUG("res: {}", rm * rs);
+
+  i64 res = rm * rs;
+
+  // Rd = Hi
+  // Rn = Lo
+
+  c.regs.r[instr.Rd] = res >> 32;
+  c.regs.r[instr.Rn] = res & 0xffffffff;
+
+  if (instr.S) {
+    (res & 0x8000000000000000) ? c.set_negative() : c.reset_negative();
+    res == 0 ? c.set_zero() : c.reset_zero();
+
+    // assert(0);
+  }
+}
+
+void ARM::Instructions::SMLAL(ARM7TDMI& c, InstructionInfo& instr) {
+  i64 rm = static_cast<i32>(static_cast<u32>(c.regs.r[instr.Rm]));
+  i64 rs = static_cast<i32>(static_cast<u32>(c.regs.r[instr.Rs]));
+
+  i64 big_number = (static_cast<u64>(c.regs.r[instr.Rd]) << 32) + c.regs.r[instr.Rn];
+
+  i64 res = (rm * rs) + big_number;
+
+  i32 hi = (big_number & 0xFFFFFFFF00000000) >> 32;
+  i32 lo = big_number & 0xFFFFFFFF;
+
+  c.regs.r[instr.Rd] = res >> 32;
+  c.regs.r[instr.Rn] = res & 0xffffffff;
+
+  SPDLOG_DEBUG("RM: {}", rm);
+  SPDLOG_DEBUG("RS: {}", rs);
+  SPDLOG_DEBUG("Rd(Hi): {}", c.regs.r[instr.Rd]);
+  SPDLOG_DEBUG("Rn(Lo): {}", c.regs.r[instr.Rn]);
+
+  SPDLOG_DEBUG("calculated hi: {:#010x}", hi);
+  SPDLOG_DEBUG("calculated lo: {:#010x}", lo);
+
+  SPDLOG_DEBUG("big_number: {}", big_number);
+
+  // SPDLOG_DEBUG("big num: {:#010x}", big_number);
+
+  SPDLOG_DEBUG("res: {}", res);
+
+  if (instr.S) {
+    (res & 0x8000000000000000) ? c.set_negative() : c.reset_negative();
+    res == 0 ? c.set_zero() : c.reset_zero();
+
+    // assert(0);
+  }
+}
+
+void ARM::Instructions::UMLAL(ARM7TDMI& c, InstructionInfo& instr) {
+  // Rd = Hi
+  // Rn = Lo
+
+  u64 big_number = (static_cast<u64>(c.regs.r[instr.Rd]) << 32) + c.regs.r[instr.Rn];
+  u64 res        = big_number + (static_cast<u64>(c.regs.r[instr.Rm]) * static_cast<u64>(c.regs.r[instr.Rs]));
+
+  c.regs.r[instr.Rd] = res >> 32;
+  c.regs.r[instr.Rn] = res & 0xffffffff;
+
+  if (instr.S) {
+    (res & 0x8000000000000000) ? c.set_negative() : c.reset_negative();
+    res == 0 ? c.set_zero() : c.reset_zero();
+
+    // assert(0);
+  }
+}
+
+void ARM::Instructions::MLA(ARM7TDMI& c, InstructionInfo& instr) {
+  c.regs.r[instr.Rd] = (c.regs.r[instr.Rm] * c.regs.r[instr.Rs]) + c.regs.r[instr.Rn];
+
+  if (instr.S) {
+    c.regs.r[instr.Rd] == 0 ? c.set_zero() : c.reset_zero();
+    c.regs.r[instr.Rd] >= 0x80000000 ? c.set_negative() : c.reset_negative();
+  }
+}
+void ARM::Instructions::MUL(ARM7TDMI& c, InstructionInfo& instr) {
+  c.regs.r[instr.Rd] = (c.regs.r[instr.Rm] * c.regs.r[instr.Rs]);
+
+  if (instr.S) {
+    c.regs.r[instr.Rd] == 0 ? c.set_zero() : c.reset_zero();
+    c.regs.r[instr.Rd] >= 0x80000000 ? c.set_negative() : c.reset_negative();
+  }
 }
 
 void ARM::Instructions::LDM(ARM7TDMI& c, InstructionInfo& instr) {
   u16 reg_list_v = instr.opcode & 0xFFFF;
-
   std::vector<u8> reg_list;
+  bool flush_queued     = false;
+  bool forced_writeback = false;
 
-  // instr.print_params();
+  bool in_reg_list = false;
 
   for (size_t idx = 0; idx < 16; idx++) {
     if (reg_list_v & (1 << idx)) {
+      if (idx == instr.Rn) { in_reg_list = true; }
+      if (idx == 15) { flush_queued = true; }
       reg_list.push_back(idx);
-
-      if (instr.P) {
-        // c.bus->write32(c.regs.r[instr.Rn], c.regs.r[idx]);
-
-        //
-        c.regs.r[instr.Rn] += instr.U ? 4 : -4;
-        c.regs.r[idx] = c.bus->read32(c.regs.r[instr.Rn]);
-      } else {
-        c.regs.r[idx] = c.bus->read32(c.regs.r[instr.Rn]);
-        c.regs.r[instr.Rn] += instr.U ? 4 : -4;
-      }
-
-      if (idx == 15) c.flush_pipeline();
     }
   }
-  SPDLOG_DEBUG("register list: r{}", fmt::join(reg_list, ",r"));
 
-  return;
+  if (reg_list.empty()) {
+    SPDLOG_DEBUG("[LDM] reg list empty, pushing 15 PC: {:#010x}", c.regs.r[15]);
+    reg_list.push_back(15);
+    flush_queued     = true;
+    forced_writeback = true;
+    instr.W          = 0;
+    // return;
+  }
+
+  SPDLOG_DEBUG("[LDM] unaligned address: {:#010x}", c.regs.r[instr.Rn]);
+  u32 address = c.align_address(c.regs.r[instr.Rn], WORD);  // Base
+  SPDLOG_DEBUG("[LDM] aligned address: {:#010x}", address);
+
+  if (instr.P == 0 && instr.U == 1) {  // Post-increment
+    SPDLOG_INFO("post increment");
+    u8 pass = 0;
+
+    for (const auto& r_num : reg_list) {
+      if (instr.S) {
+        c.regs.user_system_bank[r_num] = c.bus->read32(address + (pass * 4));
+        // if(forced_writeback) {
+        //   c.regs.user_system_bank[instr.Rn] += 4;
+        // }
+      } else {
+        c.regs.r[r_num] = c.bus->read32(address + (pass * 4));
+        // if(forced_writeback) {
+        //   c.regs.r[instr.Rn] += 4;
+        // }
+      }
+      pass++;
+    }
+
+    if (instr.W) {
+      if (!in_reg_list) c.regs.r[instr.Rn] += (reg_list.size() * 4);
+    }
+    if (flush_queued) { c.flush_pipeline(); }
+    if (forced_writeback && !in_reg_list) {
+      c.regs.r[instr.Rn] += 0x40;
+      return;
+    }
+    return;
+  }
+
+  if (instr.P == 0 && instr.U == 0) {  // Post-decrement
+    SPDLOG_DEBUG("hit post decrement");
+    u8 pass = 0;
+
+    address -= (reg_list.size() * 4);
+
+    for (const auto& r_num : reg_list) {
+      pass++;
+
+      if (instr.S) {
+        c.regs.user_system_bank[r_num] = c.bus->read32(address + (pass * 4));
+      } else {
+        c.regs.r[r_num] = c.bus->read32(address + (pass * 4));
+      }
+    }
+
+    if (instr.W && !in_reg_list) { c.regs.r[instr.Rn] -= (reg_list.size() * 4); }
+    if (flush_queued) { c.flush_pipeline(); }
+    if (forced_writeback) {
+      c.regs.r[instr.Rn] -= 0x40;
+      return;
+    }
+    return;
+  }
+
+  if (instr.P == 1 && instr.U == 0) {  // Pre-decrement
+    SPDLOG_DEBUG("hit pre decrement");
+    // assert(0);
+    u8 pass = 0;
+
+    address -= (reg_list.size() * 4);
+
+    for (const auto& r_num : reg_list) {
+      if (instr.S) {
+        c.regs.user_system_bank[r_num] = c.bus->read32(address + (pass * 4));
+      } else {
+        c.regs.r[r_num] = c.bus->read32(address + (pass * 4));
+      }
+      pass++;
+    }
+
+    if (instr.W && !in_reg_list) { c.regs.r[instr.Rn] -= (reg_list.size() * 4); }
+    if (flush_queued) { c.flush_pipeline(); }
+    if (forced_writeback) {
+      c.regs.r[instr.Rn] -= 0x40;
+      return;
+    }
+    return;
+  }
+
+  if (instr.P == 1 && instr.U == 1) {  // Pre-increment (IB)
+    SPDLOG_DEBUG("hit pre increment (IB)");
+
+    u8 pass = 0;
+
+    for (const auto& r_num : reg_list) {
+      pass++;
+      if (instr.S) {
+        c.regs.user_system_bank[r_num] = c.bus->read32(address + (pass * 4));
+      } else {
+        c.regs.r[r_num] = c.bus->read32(address + (pass * 4));
+      }
+    }
+
+    if (instr.W && !in_reg_list) { c.regs.r[instr.Rn] += (pass * 4); }
+    if (flush_queued) { c.flush_pipeline(); }
+    if (forced_writeback) { c.regs.r[instr.Rn] += 0x40; }
+    return;
+  }
+
+  SPDLOG_CRITICAL("invalid LDM mode");
+  assert(0);
+}
+
+void ARM::Instructions::DIV_STUB([[gnu::unused]] ARM7TDMI& c, [[gnu::unused]] InstructionInfo& instr) {
+  /*
+  SWI 06h (GBA) or SWI 09h (NDS7/NDS9/DSi7/DSi9) - Div
+Signed Division, r0/r1.
+
+  r0  signed 32bit Number
+  r1  signed 32bit Denom
+
+Return:
+
+  r0  Number DIV Denom ;signed
+  r1  Number MOD Denom ;signed
+  r3  ABS (Number DIV Denom) ;unsigned
+*/
+
+  SPDLOG_DEBUG("running stubbed DIV bios function");
+
+  i32 a = static_cast<i32>(c.regs.r[0]);
+  i32 b = static_cast<i32>(c.regs.r[1]);
+
+  c.regs.r[0] = a / b;
+  c.regs.r[1] = a % b;
+  c.regs.r[3] = abs(a / b);
+}
+
+void ARM::Instructions::SWP(ARM7TDMI& c, InstructionInfo& instr) {
+  u8 misaligned_load_rotate_value = (c.regs.r[instr.Rn] & 3) * 8;
+
+  if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[SWP] misaligned rotate value: {}", misaligned_load_rotate_value); }
+
+  bool same_dest = false;
+  u32 old_rm     = c.regs.r[instr.Rm];
+
+  if (instr.Rd == instr.Rm) {
+    same_dest = true;
+    SPDLOG_DEBUG("same dest, value to write: {:#010x}", old_rm);
+  }
+
+  u32 address = c.align_address(c.regs.r[instr.Rn], WORD);
+
+  c.regs.r[instr.Rd] = std::rotr(instr.B ? c.bus->read8(address) : c.bus->read32(address), misaligned_load_rotate_value);
+  instr.B ? c.bus->write8(address, same_dest ? old_rm : c.regs.r[instr.Rm]) : c.bus->write32(address, same_dest ? old_rm : c.regs.r[instr.Rm]);
 }

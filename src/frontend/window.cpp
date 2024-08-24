@@ -12,9 +12,12 @@
 #include "tinyfiledialogs.h"
 // #include "utils.h"
 
-static MemoryEditor iwram_view;
-static MemoryEditor vram_view;
-static MemoryEditor palette_view;
+// static MemoryEditor iwram_view;
+// static MemoryEditor vram_view;
+// static MemoryEditor palette_view;
+// static MemoryEditor pak_view;
+// static MemoryEditor frame_buffer_view;
+static MemoryEditor editor_instance;
 
 void Frontend::handle_events() {
   SDL_Event event;
@@ -50,45 +53,80 @@ void Frontend::handle_events() {
   }
 }
 
-// u32 Frontend::get_pitch_from_mode() {
-//   switch(bass->ppu.DISPCNT.BG_MODE) {
-//     case 3: {
-//       return 240 * 4;
-//     }
-//     case 4: {
-//       return 240 * 2;
-//     }
-
-//   }
-// }
-
 void Frontend::show_debugger() {
   ImGui::Begin("DEBUGGER", &state.debugger_open, 0);
+  const char* regions[] = { // TODO: add mirrors & other pak wait states
+      "Region: [0x00000000 - 0x00003FFF] BIOS",
+      "Region: [0x02000000 - 0x0203FFFF] EWRAM",
+      "Region: [0x03000000 - 0x03007FFF] IWRAM",
+      "Region: [0x04000000 - 0x040003FE] IO",
+      "Region: [0x05000000 - 0x050003FF] BG/OBJ Palette RAM",
+      "Region: [0x06000000 - 0x06017FFF] VRAM",
+      "Region: [0x07000000 - 0x070003FF] OAM",
+      "Region: [0x08000000 - 0x09FFFFFF] Game Pak ROM (WS0)",
+      "Region: [0x0E000000 - 0x0E00FFFF] Game Pak SRAM",
+  };
+  const std::vector<u8>* memory_partitions[] = {
+    &bass->bus.BIOS,
+    &bass->bus.EWRAM,
+    &bass->bus.IWRAM,
+    &bass->bus.IO,
+    &bass->bus.PALETTE_RAM,
+    &bass->bus.VRAM,
+    &bass->bus.OAM,
+    &bass->bus.pak->data,
+    &bass->bus.SRAM,
+    
+  };
 
+  static int SelectedItem = 0;
+
+
+  if(ImGui::Combo("Regions", &SelectedItem, regions, IM_ARRAYSIZE(regions))) {
+    SPDLOG_DEBUG("switched to: {}", regions[SelectedItem]);
+  }
+  // editor_instance.HighlightFn
+  editor_instance.OptShowAscii = false;
+  editor_instance.DrawContents((void*)memory_partitions[SelectedItem]->data(), memory_partitions[SelectedItem]->size());
   ImGui::End();
 }
 
 void Frontend::show_cpu_info() {
   ImGui::Begin("CPU INFO", &state.cpu_info_open, 0);
+  ImGui::Columns(4, "Registers");
   for (u8 i = 0; i < 16; i++) {
+    if (i % 4 == 0 && i != 0) ImGui::NextColumn();
     ImGui::Text("%s",
                 fmt::format("r{:d}: {:#010x}", i, bass->cpu.regs.r[i]).c_str());
   }
-  ImGui::Text(
-      "%s", fmt::format(
-                "N: {} Z: {} C: {} V: {}", +bass->cpu.regs.CPSR.SIGN_FLAG,
-                +bass->cpu.regs.CPSR.ZERO_FLAG, +bass->cpu.regs.CPSR.CARRY_FLAG,
-                +bass->cpu.regs.CPSR.OVERFLOW_FLAG
+  ImGui::Columns(1);
+  ImGui::Separator();
+  bool zero     = bass->cpu.regs.CPSR.ZERO_FLAG;
+  bool negative = bass->cpu.regs.CPSR.SIGN_FLAG;
+  bool carry    = bass->cpu.regs.CPSR.CARRY_FLAG;
+  bool overflow = bass->cpu.regs.CPSR.OVERFLOW_FLAG;
 
-                )
-                .c_str());
+  ImGui::BeginDisabled(true);
+  ImGui::Spacing();
+  ImGui::SameLine();
+  ImGui::Checkbox("Zero", &zero);
+  ImGui::SameLine();
+  ImGui::Checkbox("Negative", &negative);
+  ImGui::SameLine();
+  ImGui::Checkbox("Carry", &carry);
+  ImGui::SameLine();
+  ImGui::Checkbox("Overflow", &overflow);
+  ImGui::EndDisabled();
 
   ImGui::BeginDisabled(true);
   ImGui::Text("CPSR: %#010x", bass->cpu.regs.CPSR.value);
+  ImGui::Text("SPSR: %#010x",
+              bass->cpu.regs.get_spsr(bass->cpu.regs.CPSR.MODE_BITS));
+
   ImGui::Text("CPU MODE: %s", bass->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
-  ImGui::Text("OPERATING MODE: %s",
-              fmt::format("{}", mode_map.at((u8)bass->cpu.regs.CPSR.MODE_BITS))
-                  .c_str());
+  ImGui::Text(
+      "OPERATING MODE: %s",
+      fmt::format("{}", mode_map.at(bass->cpu.regs.CPSR.MODE_BITS)).c_str());
 
   ImGui::EndDisabled();
 
@@ -106,7 +144,7 @@ void Frontend::show_ppu_info() {
   ImGui::Text("BG MODE: %#010x", bass->ppu.DISPCNT.BG_MODE);
   if (ImGui::Button("Set VBLANK")) { bass->ppu.DISPSTAT.VBLANK_FLAG = 1; }
   if (ImGui::Button("Reset VBLANK")) { bass->ppu.DISPSTAT.VBLANK_FLAG = 0; }
-
+  if (ImGui::Button("Draw")) { bass->ppu.draw(); }
   ImGui::Separator();
   ImGui::End();
 }
@@ -151,15 +189,20 @@ void Frontend::render_frame() {
   // ImGui::ShowDemoWindow(&t);
   show_cpu_info();
   show_ppu_info();
-  // show_debugger();
-  iwram_view.DrawWindow("IWRAM View", bass->bus.IWRAM.data(),
-                        bass->bus.IWRAM.size());
+  show_debugger();
 
-  vram_view.DrawWindow("VRAM View", bass->bus.VRAM.data(),
-                       bass->bus.VRAM.size());
+  // iwram_view.DrawWindow("IWRAM View", bass->bus.IWRAM.data(),
+  //                       bass->bus.IWRAM.size());
 
-  palette_view.DrawWindow("Palette RAM View", bass->bus.PALETTE_RAM.data(),
-                          bass->bus.PALETTE_RAM.size());
+  // vram_view.DrawWindow("VRAM View", bass->bus.VRAM.data(),
+  //                      bass->bus.VRAM.size());
+
+  // palette_view.DrawWindow("Palette RAM View", bass->bus.PALETTE_RAM.data(),
+  //                         bass->bus.PALETTE_RAM.size());
+  // pak_view.DrawWindow("Pak View", bass->bus.pak->data.data(),
+  //                     bass->bus.pak->data.size());
+  // frame_buffer_view.DrawWindow("Frame Buffer View", bass->bus.ppu->frame_buffer,
+  //                              38400);
 
   // Rendering
   ImGui::Render();
@@ -193,7 +236,7 @@ Frontend::Frontend(Bass* c) {
 
   this->window =
       SDL_CreateWindow("bass", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                       240 * 4, 160 * 4, window_flags);
+                       240 * 5, 160 * 5, window_flags);
   this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
   // Setup Dear ImGui context

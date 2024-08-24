@@ -1,6 +1,7 @@
 #include "ppu.hpp"
 
 #include "utils.h"
+
 enum class DISP_REG : u32 {
   DISPCNT  = 0x4000000,
   DISPSTAT = 0x4000004,
@@ -31,19 +32,51 @@ enum class DISP_REG : u32 {
   BG3PD    = 0x4000036,
 
 };
+u32 PPU::get_color_by_index(const u8 x) {
+  u16 r  = bus->read16(0x05000000 + (x * 2));
+  u8 lsb = r & 0xFF;
+  u8 msb = ((r >> 8) & 0xFF);
+  // fmt::println("LSB: {:#x}", lsb);
+  // fmt::println("MSB: {:#x}", msb);
 
-void PPU::tick() {
+  u32 f = BGR555toRGB888(lsb, msb);
+  // fmt::println("{:#x}", f);
+  // if (f != 0) exit(-1);
+  // return BGR555toRGB888(lsb, msb);
+  return f;
+}
+void PPU::draw() {
+  switch (DISPCNT.BG_MODE) {
+    case BG_MODE::BITMAP_MODE_3: {
+      fmt::println("draw called");
+      for (size_t i = 0, j = 0; i < (240 * 160); i++, j += 2) {
+        frame_buffer[i] = BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1));
+      }
+      break;
+    };
+    case BG_MODE::BITMAP_MODE_4: {
+      std::memset(frame_buffer, 0, 38400);
+      for (size_t i = 0; i < (240 * 160); i++) {
+        frame_buffer[i]  = get_color_by_index(bus->VRAM.at(i));
+
+        // fmt::println("color read: {:#x}", color);
+        // // exit(-1);
+        // = color;
+      }
+      break;
+    }
+
+    default: {
+      exit(-1);
+    }
+  }
   // Mode 3
-  // for (size_t i = 0, j = 0; i < ((240 * 160)); i++, j += 2) {
-  //   frame_buffer[i] = BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1));
-  // }
 
-
-  //Mode 4
-  // for (size_t i = 0, j = 0; i < ((240 * 160)); i++, j += 2) {
-  //   bus->PALETTE_RAM[]
-  //   frame_buffer[i] = BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1));
-  // }
+  // Mode 4
+  //  for (size_t i = 0, j = 0; i < ((240 * 160)); i++, j += 2) {
+  //    bus->PALETTE_RAM[]
+  //    frame_buffer[i] = BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1));
+  //  }
 
   // fmt::println("fb 0: {:#010x}", frame_buffer.at(0));
   // frame_buffer.at(0)
@@ -202,34 +235,90 @@ u32 PPU::handle_read(const u32 address) {
   spdlog::set_level(spdlog::level::trace);
 
   switch (reg) {
-    case DISP_REG::DISPCNT: { return DISPCNT.v; }
-    case DISP_REG::DISPSTAT: { return DISPSTAT.v; }
-    case DISP_REG::VCOUNT: { return VCOUNT.v; }
-    case DISP_REG::BG0CNT: { return BG0CNT.v; }
-    case DISP_REG::BG1CNT: { return BG1CNT.v; }
-    case DISP_REG::BG2CNT: { return BG2CNT.v; }
-    case DISP_REG::BG3CNT: { return BG3CNT.v; }
-    case DISP_REG::BG0HOFS: { return BG0HOFS.v; }
-    case DISP_REG::BG0VOFS: { return BG0VOFS.v; }
-    case DISP_REG::BG1HOFS: { return BG1HOFS.v; }
-    case DISP_REG::BG1VOFS: { return BG1VOFS.v; }
-    case DISP_REG::BG2HOFS: { return BG2HOFS.v; }
-    case DISP_REG::BG2VOFS: { return BG2VOFS.v; }
-    case DISP_REG::BG3HOFS: { return BG3HOFS.v; }
-    case DISP_REG::BG3VOFS: { return BG3VOFS.v; }
-    case DISP_REG::BG2X_L: { return BG2X_L.v; }
-    case DISP_REG::BG2X_H: { return BG2X_H.v; }
-    case DISP_REG::BG2Y_L: { return BG2Y_L.v; }
-    case DISP_REG::BG2Y_H: { return BG2Y_H.v; }
-    case DISP_REG::BG2PA: { return BG2PA.v; }
-    case DISP_REG::BG2PB: { return BG2PB.v; }
-    case DISP_REG::BG2PC: { return BG2PC.v; }
-    case DISP_REG::BG2PD: { return BG2PD.v; }
-    case DISP_REG::BG3PA: { return BG3PA.v; }
-    case DISP_REG::BG3PB: { return BG3PB.v; }
-    case DISP_REG::BG3PC: { return BG3PC.v; }
-    case DISP_REG::BG3PD: { return BG3PD.v; }
-    default: { fmt::println("could not read PPU register with address: {:#x}", address); return 0;}
+    case DISP_REG::DISPCNT: {
+      return DISPCNT.v;
+    }
+    case DISP_REG::DISPSTAT: {
+      return DISPSTAT.v;
+    }
+    case DISP_REG::VCOUNT: {
+      return VCOUNT.v;
+    }
+    case DISP_REG::BG0CNT: {
+      return BG0CNT.v;
+    }
+    case DISP_REG::BG1CNT: {
+      return BG1CNT.v;
+    }
+    case DISP_REG::BG2CNT: {
+      return BG2CNT.v;
+    }
+    case DISP_REG::BG3CNT: {
+      return BG3CNT.v;
+    }
+    case DISP_REG::BG0HOFS: {
+      return BG0HOFS.v;
+    }
+    case DISP_REG::BG0VOFS: {
+      return BG0VOFS.v;
+    }
+    case DISP_REG::BG1HOFS: {
+      return BG1HOFS.v;
+    }
+    case DISP_REG::BG1VOFS: {
+      return BG1VOFS.v;
+    }
+    case DISP_REG::BG2HOFS: {
+      return BG2HOFS.v;
+    }
+    case DISP_REG::BG2VOFS: {
+      return BG2VOFS.v;
+    }
+    case DISP_REG::BG3HOFS: {
+      return BG3HOFS.v;
+    }
+    case DISP_REG::BG3VOFS: {
+      return BG3VOFS.v;
+    }
+    case DISP_REG::BG2X_L: {
+      return BG2X_L.v;
+    }
+    case DISP_REG::BG2X_H: {
+      return BG2X_H.v;
+    }
+    case DISP_REG::BG2Y_L: {
+      return BG2Y_L.v;
+    }
+    case DISP_REG::BG2Y_H: {
+      return BG2Y_H.v;
+    }
+    case DISP_REG::BG2PA: {
+      return BG2PA.v;
+    }
+    case DISP_REG::BG2PB: {
+      return BG2PB.v;
+    }
+    case DISP_REG::BG2PC: {
+      return BG2PC.v;
+    }
+    case DISP_REG::BG2PD: {
+      return BG2PD.v;
+    }
+    case DISP_REG::BG3PA: {
+      return BG3PA.v;
+    }
+    case DISP_REG::BG3PB: {
+      return BG3PB.v;
+    }
+    case DISP_REG::BG3PC: {
+      return BG3PC.v;
+    }
+    case DISP_REG::BG3PD: {
+      return BG3PD.v;
+    }
+    default: {
+      fmt::println("could not read PPU register with address: {:#x}", address);
+      return 0;
+    }
   }
 }
-

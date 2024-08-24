@@ -5,15 +5,12 @@
 #include "bass.hpp"
 #include "common.hpp"
 #include "imgui.h"
+
+
 struct State {
   SDL_Texture* ppu_texture = nullptr;
-  // std::array<u8, (240 * 160) * 2>* frame_buf_ptr = nullptr;
-  // std::array<u32, (240 * 160)>* frame_buf_ptr = nullptr;
   u32* frame_buf_ptr = nullptr;
   
-  
-  
-
   const u8* keyboardState = SDL_GetKeyboardState(nullptr);
   bool running            = true;
 
@@ -41,7 +38,5 @@ struct Frontend {
   void show_cpu_info();
   void show_ppu_info();
   
-  u32 get_pitch_from_mode();
-
   explicit Frontend(Bass*);
 };
