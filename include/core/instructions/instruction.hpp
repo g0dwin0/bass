@@ -1,5 +1,6 @@
 #pragma once
 
+#include "bus.hpp"
 #include "common.hpp"
 #include "registers.hpp"
 struct ARM7TDMI;
@@ -31,17 +32,21 @@ struct InstructionInfo {
   u8 shift_amount = 0;
   u8 shift_type   = 0;
 
-  u8 imm = 0;
+  u32 imm    = 0;
   u8 rotate = 0;
-  
-  
+
   bool shift_value_is_register = false;
+
+  // bool shift_value_is_register = false;
 
   // Shift By Register, Shift By Immediate
 
   Condition condition = Condition::AL;
 
   std::string mnemonic = "";
+  
+  bool empty = false;
+  bool pc_relative = false;
 
   void (*func_ptr)(ARM7TDMI& c, InstructionInfo& instr) = NULL;
   void print_params() {

@@ -10,7 +10,7 @@ void Pak::load_data(std::vector<u8>& f) {
   for (size_t i = 0; i < 192; i++) {
     info.header_bytes[i] = f.at(i);
   }
-  log_cart_info();
+  // log_cart_info();
 
   // fmt::println("pak sz after loading rom: {:#x}", data.size());
 };

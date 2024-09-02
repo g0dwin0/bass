@@ -1,11 +1,12 @@
 #pragma once
 
 #include "common.hpp"
+#include "io.hpp"
 #include "pak.hpp"
 struct Bus;
 struct PPU;
 #include "ppu.hpp"
-#include "spdlog/spdlog.h"
+
 struct Bus {
   // memory/devices
   std::vector<u8> BIOS;
@@ -16,19 +17,18 @@ struct Bus {
   std::vector<u8> PALETTE_RAM;
   std::vector<u8> OAM;
   std::vector<u8> SRAM;
-  
 
   u32 cycles_elapsed = 0;
 
-  Bus()
-      : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), IO(0x500), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000)  {
-    spdlog::debug("created bus");
+  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), IO(0x500), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) {
+    BIOS = read_file("roms/gba_bios.bin");
+    // spdlog::debug("created bus");
   }
 
   Pak* pak = nullptr;
   PPU* ppu = nullptr;
 
-  u8 read8(u32 address);
+  u8 read8(u32 address); // TODO: implement labels
   u16 read16(u32 address);
   u32 read32(u32 address);
 

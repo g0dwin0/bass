@@ -1,25 +1,26 @@
 #pragma once
+#define ENTRY_POINT_LEN 4
+#define BITMAP_SIZE 156
 #define GAME_TITLE_LENGTH 12
 #define GAME_CODE_LENGTH 4
 #define MAKER_CODE_LENGTH 2
-#include "common.hpp"
 #include <vector>
 
-struct Pak {
-  Pak() {
-    data.resize(0x2000000, 0);
-  }
+#include "common.hpp"
 
-  std::vector<u8> data; // swap out for heap allocated array
+struct Pak {
+  Pak() : data(0x2000000) {}
+
+  std::vector<u8> data;  // swap out for heap allocated array
 
   union {
     u8 header_bytes[192];
     struct {
       // 32bit ARM branch opcode
-      u8 entry_point[4];
+      u8 entry_point[ENTRY_POINT_LEN];
 
       // compressed bitmap, required.
-      u8 logo[156];
+      u8 logo[BITMAP_SIZE];
 
       // game title in ASCII (12 characters)
       char game_title[GAME_TITLE_LENGTH];

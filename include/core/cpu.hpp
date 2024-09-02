@@ -47,9 +47,12 @@ struct ARM7TDMI {
 
   [[nodiscard]] InstructionInfo fetch(const u32 address);
   [[nodiscard]] InstructionInfo decode(InstructionInfo& op);
+  
+  [[nodiscard]] InstructionInfo arm_decode(InstructionInfo& op);
+  [[nodiscard]] InstructionInfo thumb_decode(InstructionInfo& op);
+  
 
   void flush_pipeline();
-  // void refill_pipeline();
 
   u16 step();
   void print_pipeline();

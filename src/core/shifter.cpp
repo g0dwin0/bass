@@ -1,5 +1,3 @@
-#include <iostream>
-#include <limits>
 #include <stdexcept>
 
 #include "core/cpu.hpp"
@@ -9,7 +7,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount,
   switch (mode) {
     case LSL: {
       SPDLOG_DEBUG("Value: {}", value);
-      SPDLOG_DEBUG("Amount: {}", amount);
+      SPDLOG_DEBUG("Shift Amount: {}", amount);
       if (amount == 0) {
         SPDLOG_DEBUG("[LSL] shift amount is 0, returning inital value of {:#010x}",
                      value);
@@ -23,7 +21,6 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount,
       u64 s_m = (value << amount);
       (value & (1 << (32 - amount))) != 0 ? set_carry() : reset_carry();
 
-      SPDLOG_DEBUG(s_m);
       SPDLOG_DEBUG(
           "performed LSL with value: {:#010x}, by LSL'd by amount: {} result: {:#010x}",
           value, amount, s_m);
@@ -35,9 +32,9 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount,
       if (amount == 0) return value;
 
       u64 s_m = (value >> amount);
-      SPDLOG_DEBUG(
-          "performed LSR with value: {:#010x}, by LSR'd by amount: {} result: {:#010x}",
-          value, amount, s_m);
+      // SPDLOG_DEBUG(
+      //     "performed LSR with value: {:#010x}, by LSR'd by amount: {} result: {:#010x}",
+      //     value, amount, s_m);
 
       (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
 
@@ -53,7 +50,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount,
         return ret_val;
       }
 
-      i32 m = (static_cast<i32>(value)) >> amount;
+      s32 m = (static_cast<s32>(value)) >> amount;
       
       SPDLOG_DEBUG(
           "performed ASR with value: {:#010x}, by ASR'd by amount: {} result: {:#010x}",
@@ -68,7 +65,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount,
 
       bool is_rrx = false;
       if (amount == 0 && !never_rrx) {
-        SPDLOG_DEBUG("IS RRX!");
+        // SPDLOG_DEBUG("IS RRX!");
         is_rrx = true;
         amount = 1;
       }

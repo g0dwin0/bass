@@ -6,34 +6,9 @@
 #include "common.hpp"
 #include "spdlog/spdlog.h"
 
-enum SYSTEM_MODE : u8 {
-  USER       = 0x10,
-  FIQ        = 0x11,
-  IRQ        = 0x12,
-  SUPERVISOR = 0x13,
-  ABORT      = 0x17,
-  UNDEFINED  = 0x1B,
-  SYSTEM     = 0x1F
-};
+enum BANK_MODE : u8 { USER = 0x10, FIQ = 0x11, IRQ = 0x12, SUPERVISOR = 0x13, ABORT = 0x17, UNDEFINED = 0x1B, SYSTEM = 0x1F };
 
-enum Condition : u8 {
-  EQ,
-  NE,
-  CS,
-  CC,
-  MI,
-  PL,
-  VS,
-  VC,
-  HI,
-  LS,
-  GE,
-  LT,
-  GT,
-  LE,
-  AL,
-  NV
-};
+enum Condition : u8 { EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL, NV };
 
 inline const std::unordered_map<Condition, std::string_view> condition_map = {
     {EQ, "eq"},
@@ -53,7 +28,7 @@ inline const std::unordered_map<Condition, std::string_view> condition_map = {
     {AL,   ""},
     {NV, "nv"},
 };
-inline const std::unordered_map<SYSTEM_MODE, std::string_view> mode_map = {
+inline const std::unordered_map<BANK_MODE, std::string_view> mode_map = {
     {      USER,             "USER"},
     {       FIQ,              "FIQ"},
     {       IRQ,              "IRQ"},
@@ -62,20 +37,22 @@ inline const std::unordered_map<SYSTEM_MODE, std::string_view> mode_map = {
     { UNDEFINED,        "UNDEFINED"},
     {    SYSTEM,           "SYSTEM"}
 };
-
+enum CPU_MODE : u8 { ARM_MODE, THUMB_MODE };
 struct Registers {
   Registers() {
-    CPSR.value = 0x00000010;
+    CPSR.MODE_BITS = SYSTEM;
+    CPSR.STATE_BIT = ARM_MODE;
+    r[14]      = 0x08000000;
 
     // initialize stack pointers
-    r[13]      = 0x03007F00;
-    irq_r[13]  = 0x03007FA0;
-    svc_r[13]  = 0x03007FE0;
+    r[13]     = 0x03007F00;
+    irq_r[13] = 0x03007FA0;
+    svc_r[13] = 0x03007FE0;
   }
 
-  void copy(SYSTEM_MODE);
+  void copy(BANK_MODE);
   void load_spsr_to_cpsr();
-  u32 get_spsr(SYSTEM_MODE m);
+  u32 get_spsr(BANK_MODE m);
   struct {
     // R13 (SP)
     // R14 (LR)
@@ -99,9 +76,8 @@ struct Registers {
     union {
       u32 value;
       struct {
-        SYSTEM_MODE MODE_BITS : 5;
-        // Designates if CPU is in THUMB mode (1) or ARM mode (0)
-        u8 STATE_BIT          : 1;
+        BANK_MODE MODE_BITS : 5;
+        CPU_MODE STATE_BIT    : 1;
         u8 FIQ_DISABLE        : 1;
         u8 IRQ_DISABLE        : 1;
         u8 ABORT_DISABLE      : 1;

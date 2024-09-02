@@ -17,27 +17,19 @@ enum BG_MODE {
 struct PPU {
   PPU() {
     std::memset(frame_buffer, 0, sizeof(frame_buffer) * 4);
-
-    spdlog::debug("PPU initialized");
+    // spdlog::debug("PPU initialized");
   }
-
   Bus* bus = nullptr;
+  u32* frame_buffer = new u32[38400];
 
   void handle_write(const u32 address, u16 value);
-  u32 handle_read(const u32 address);
+  [[nodiscard]] u32 handle_read(const u32 address);
+
+  [[nodiscard]] u32 get_color_by_index(const u8 x); 
 
   void draw();
-  
-  u32 get_color_by_index(const u8 x); 
 
-  u32* frame_buffer = new u32[38400];
   
-  /* note: Allocating large arrays on the *stack* seems to cause issues.
-  // std::array<u32, (240*160)> frame_buffer;
-  // std::array<u8, (240*160) * 2> frame_buffer;
-  */
-  
-
   union {
     u16 v;
     struct {

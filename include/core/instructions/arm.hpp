@@ -68,9 +68,17 @@ namespace ARM::Instructions {
   void MRS(ARM7TDMI& c, InstructionInfo& instr);
   void MSR(ARM7TDMI& c, InstructionInfo& instr);
 
-  void NOP(ARM7TDMI& c, InstructionInfo& instr);
   
   // Temporary HLE BIOS functions
   void DIV_STUB(ARM7TDMI& c, InstructionInfo& instr);
+  
+  // Software Interrupt
+  void SWI(ARM7TDMI& c, InstructionInfo& instr);
+
+  void NOP(ARM7TDMI& c, InstructionInfo& instr);
+
+
+  void BLL(ARM7TDMI& c, InstructionInfo& instr);
+  void BLH(ARM7TDMI& c, InstructionInfo& instr);
   
 }  // namespace ARM::Instructions
