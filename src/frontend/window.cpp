@@ -10,13 +10,7 @@
 #include "imgui_memory_edit.h"
 #include "spdlog/spdlog.h"
 #include "tinyfiledialogs.h"
-// #include "utils.h"
 
-// static MemoryEditor iwram_view;
-// static MemoryEditor vram_view;
-// static MemoryEditor palette_view;
-// static MemoryEditor pak_view;
-// static MemoryEditor frame_buffer_view;
 static MemoryEditor editor_instance;
 
 void Frontend::handle_events() {
@@ -87,7 +81,11 @@ void Frontend::show_debugger() {
   }
   // editor_instance.HighlightFn
   editor_instance.OptShowAscii = false;
+  editor_instance.ReadOnly = true;
   editor_instance.DrawContents((void*)memory_partitions[SelectedItem]->data(), memory_partitions[SelectedItem]->size());
+
+
+  ImGui::Text("Cycles Consumed: UNIMPL");
   ImGui::End();
 }
 
