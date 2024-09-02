@@ -33,7 +33,8 @@ void Bus::set32(std::vector<u8>& vec, u32 address, u32 value) {
 }
 
 u8 Bus::read8(u32 address) {
-  fmt::println("[R8] {:#010x}", address);
+  // fmt::println("[R8] {:#010x}", address);
+
   u32 v;
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
@@ -86,7 +87,7 @@ u8 Bus::read8(u32 address) {
     }
 
     default: {
-      spdlog::warn("unused/oob memory read: {:#X}", address);
+      spdlog::warn("[R8] unused/oob memory read: {:#X}", address);
       return 0xFF;
     }
   }
@@ -99,11 +100,13 @@ u16 Bus::read16(u32 address) {
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      return shift_16(BIOS, address);
+      v = shift_16(BIOS, address);
+      break;
     }
 
     case 0x02000000 ... 0x0203FFFF: {
-      return shift_16(EWRAM, address - 0x02000000);
+      v = shift_16(EWRAM, address - 0x02000000);
+      break;
     }
 
     case 0x03000000 ... 0x03007FFF: {
@@ -134,22 +137,24 @@ u16 Bus::read16(u32 address) {
 
     case 0x08000000 ... 0x09FFFFFF: {
       // game pak read (ws0)
-      return shift_16(pak->data, address - 0x08000000);
+      v = shift_16(pak->data, address - 0x08000000);
+      break;
     }
 
     case 0x0A000000 ... 0x0BFFFFFF: {
       // game pak read (ws1)
-      return shift_16(pak->data, address - 0x0A000000);
+      v = shift_16(pak->data, address - 0x0A000000);
+      break;
     }
 
     case 0x0C000000 ... 0x0DFFFFFF: {
       // game pak read (ws2)
-      return shift_16(pak->data, address - 0x0C000000);
+      v = shift_16(pak->data, address - 0x0C000000);
+      break;
     }
 
     default: {
-      spdlog::warn("unused/oob memory read: {:#X}", address);
-      assert(-1);
+      spdlog::warn("[R16] unused/oob memory read: {:#X}", address);
       return 0xFFFF;
     }
   }
@@ -157,19 +162,19 @@ u16 Bus::read16(u32 address) {
   return v;
 };
 u32 Bus::read32(u32 address) {
-  fmt::println("[R32] {:#010x}", address);
+  // SPDLOG_DEBUG("[R32] {:#010x}", address);
   u32 v;
-  // if (this->cycles_elapsed >= 82) {
-  //   std::cout << boost::stacktrace::stacktrace();
-  // }
+  
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      return shift_32(BIOS, address);
+      v = shift_32(BIOS, address);
+      break;
     }
 
     case 0x02000000 ... 0x0203FFFF: {
-      return shift_32(EWRAM, address - 0x02000000);
+      v = shift_32(EWRAM, address - 0x02000000);
+      break;
     }
 
     case 0x03000000 ... 0x03007FFF: {
@@ -206,20 +211,22 @@ u32 Bus::read32(u32 address) {
 
     case 0x0A000000 ... 0x0BFFFFFF: {
       // game pak read (ws1)
-      return shift_32(pak->data, address - 0x0A000000);
+      v = shift_32(pak->data, address - 0x0A000000);
+      break;
     }
 
     case 0x0C000000 ... 0x0DFFFFFF: {
       // game pak read (ws2)
-      return shift_32(pak->data, address - 0x0C000000);
+      v = shift_32(pak->data, address - 0x0C000000);
+      break;
     }
 
     default: {
-      spdlog::warn("unused/oob memory read: {:#X}", address);
-      return 0xFFFFFFFF;
+      spdlog::warn("[R32] unused/oob memory read: {:#X}", address);
+      return 0xFFFFFFFF; // TODO: implement open bus behavior
     }
   }
-  SPDLOG_DEBUG("[R32] {:#010x} => {:#010x}", address, v);
+  // SPDLOG_DEBUG("[R32] {:#010x} => {:#010x}", address, v);
   return v;
 };
 
@@ -238,9 +245,10 @@ void Bus::write8(const u32 address, u8 value) {
     }
 
     case 0x04000000 ... 0x4000056: {
+      return;
       // ppu->handle_write(address, value);
-      SPDLOG_CRITICAL("8 bit writes to PPU not allowed");
-      exit(-1);
+      // SPDLOG_CRITICAL("8 bit writes to PPU not allowed");
+      // assert(0);
       break;
     }
 
@@ -252,6 +260,7 @@ void Bus::write8(const u32 address, u8 value) {
 
     case 0x05000000 ... 0x050003FF: {
       // BG/OBJ Palette RAM
+      return;
       PALETTE_RAM.at(address - 0x05000000) = value;
       // set32(PALETTE_RAM, address - 0x05000000, value);
       break;
@@ -259,27 +268,30 @@ void Bus::write8(const u32 address, u8 value) {
 
     case 0x06000000 ... 0x06017FFF: {
       // VRAM
-      VRAM.at(address - 0x06000000) = value;
-      // set32(VRAM, address - 0x06000000, value);
-      fmt::println("writing to VRAM (8b)");
       assert(0);
-      break;
+      return;
+      // VRAM.at(address - 0x06000000) = value;
+      // // set32(VRAM, address - 0x06000000, value);
+      // fmt::println("writing to VRAM (8b)");
+      // assert(0);
+      // break;
     }
 
     case 0x07000000 ... 0X070003FF: {
       // OAM
+      return;
       OAM.at(address - 0x07000000) = value;
       // set32(OAM, address - 0x07000000, value);
       break;
     }
 
     default: {
-      spdlog::warn("unused/oob memory write: {:#X}", address);
+      spdlog::warn("[W8] unused/oob memory write: {:#X}", address);
       return;
       // break;
     }
   }
-  SPDLOG_INFO("[W8] {:#x} => {:#x}", address, value);
+  // SPDLOG_INFO("[W8] {:#x} => {:#x}", address, value);
 }
 
 void Bus::write16(const u32 address, u16 value) {
@@ -314,12 +326,11 @@ void Bus::write16(const u32 address, u16 value) {
     case 0x06000000 ... 0x06017FFF: {
       // VRAM
       set16(VRAM, address - 0x06000000, value);
-      if(value != 0) {SPDLOG_INFO("[W16] {:#x} => {:#x}", address, value); assert(0);}
-      // exit(-1);
-      
+      // if(value != 0) {SPDLOG_INFO("[W16] {:#x} => {:#x}", address, value); assert(0);}
+      // assert(0);
 
       // fmt::println("writing to VRAM");
-      // exit(-1);
+      // assert(0);
       break;
     }
 
@@ -337,7 +348,7 @@ void Bus::write16(const u32 address, u16 value) {
   }
   SPDLOG_INFO("[W16] {:#x} => {:#x}", address, value);
 }
-
+// TODO: replace with different typepunned arrays
 void Bus::write32(const u32 address, u32 value) {
   switch (address) {
     case 0x02000000 ... 0x0203FFFF: {
@@ -353,7 +364,7 @@ void Bus::write32(const u32 address, u32 value) {
     case 0x04000000 ... 0x4000056: {
       // ppu->handle_write(address, value);
       SPDLOG_CRITICAL("32 bit writes to PPU not allowed");
-      exit(-1);
+      assert(0);
       break;
     }
 
@@ -373,7 +384,7 @@ void Bus::write32(const u32 address, u32 value) {
       // VRAM
       set32(VRAM, address - 0x06000000, value);
       fmt::println("writing to VRAM (32-b)");
-      exit(-1);
+      assert(0);
       break;
     }
 
@@ -384,7 +395,7 @@ void Bus::write32(const u32 address, u32 value) {
     }
 
     default: {
-      spdlog::warn("unused/oob memory write: {:#X}", address);
+      spdlog::warn("[W32] unused/oob memory write: {:#X}", address);
       return;
       // break;
     }
