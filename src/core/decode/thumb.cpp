@@ -3,21 +3,18 @@
 #include "instructions/instruction.hpp"
 
 InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
-  // fmt::println("{:#x}", instr.opcode);
-  // fmt::println("{:#x}", instr.opcode);
-
   if ((instr.opcode & 0xf800) == 0x1800) {  // ADD, SUB
     // assert(0);
     SPDLOG_DEBUG("ADD, SUB");
     instr.Rd = instr.opcode & 0b111;
-    instr.Rs = (instr.opcode & 0b111000) >> 3;
+    instr.Rs = (instr.opcode & 0b111000) >> 3;  // lhs
 
-    instr.Rn  = instr.Rs;  // Source Reg (lhs)
-    instr.S   = true;
-    instr.Rm  = (instr.opcode & 0b111000000) >> 6;
+    instr.S = true;
+
+    instr.Rn  = (instr.opcode & 0b111000000) >> 6;  // rhs
     instr.imm = (instr.opcode & 0b111000000) >> 6;
 
-    // instr.imm = instr.Rn;
+    u8 rn_copy = instr.Rn;
 
     u8 opcode = (instr.opcode & 0b11000000000) >> 9;
 
@@ -29,7 +26,9 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::SUB;
-        instr.mnemonic = fmt::format("sub r{}, r{}, r{}", +instr.Rd, +instr.Rs, +instr.Rm);
+        instr.Rm       = rn_copy;   // LHS
+        instr.Rn       = instr.Rs;  // RHS
+        instr.mnemonic = fmt::format("sub r{}, r{}, r{}", +instr.Rd, +instr.Rn, +instr.Rm);
         break;
       }
       case 2: {
@@ -214,7 +213,10 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       }
       case 0x9: {
         instr.func_ptr = ARM::Instructions::RSB;
-        assert(0);
+        instr.I        = true;
+        instr.imm      = 0;
+        instr.mnemonic = fmt::format("neg r{}, r{}", +instr.Rd, +instr.Rs);
+        // assert(0);
         break;
       }
       case 0xA: {
@@ -234,6 +236,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       }
       case 0xD: {
         instr.func_ptr = ARM::Instructions::MUL;
+        instr.Rm = instr.Rd;
         instr.mnemonic = fmt::format("mul r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
@@ -518,7 +521,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     u32 lo    = (instr.opcode & 0b11111111111);
     instr.op2 = lo;
 
-    instr.mnemonic = fmt::format("BLL #${:08x}", lo);
+    instr.mnemonic = fmt::format("BLL #${:010x}", lo << 12);
     instr.func_ptr = ARM::Instructions::BLL;
     SPDLOG_DEBUG(instr.mnemonic);
     // assert(0);

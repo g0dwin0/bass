@@ -140,7 +140,6 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
   }
 
   // LDRSB, LDRSH (Halfword and Signed Data Transfer)
-  // 00000000000100000000000011010000
   if ((instr.opcode & (0xe1000d0)) == 0x1000d0) {
     // spdlog::debug("read instruction {:#010X} is a signed data transfer", instr.opcode);
 
@@ -193,16 +192,10 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
 
     );
 
-    // SPDLOG_DEBUG("{}", instr.mnemonic);
-    // assert(0);
-
-    // SPDLOG_INFO(instr.mnemonic);
-
     return instr;
   }
 
   // MRS
-  // 00000001000000000000000000000000
   if ((instr.opcode & 0xfb000f0) == 0x1000000) {
     // SPDLOG_INFO("MRS");
     instr.I = (instr.opcode & (1 << 25)) ? 1 : 0;
@@ -211,12 +204,10 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     assert(instr.I == 0);
 
     instr.Rd = (instr.opcode & 0xf000) >> 12;
-    // instr.print_params();
 
     instr.func_ptr = ARM::Instructions::MRS;
     instr.mnemonic = fmt::format("mrs{} r{}, {}", condition_map.at(instr.condition), +instr.Rd, instr.P == 0 ? "cpsr" : "spsr");
     return instr;
-    // assert(0);
   }
 
   // MSR register
@@ -291,7 +282,6 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
       instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
     }
 
-    // fmt::println("LDM/STM");
     return instr;
   }
 
@@ -307,8 +297,6 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     instr.Rn     = (instr.opcode & 0xf0000) >> 16;
     instr.Rd     = (instr.opcode & 0xf000) >> 12;
     instr.offset = (instr.opcode & 0xfff);
-
-    // instr.print_params();
 
     if (instr.L) {
       instr.func_ptr = ARM::Instructions::LDR;
@@ -728,5 +716,5 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
 
   SPDLOG_DEBUG("[ARM] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
   return instr;
-  
+
 };
