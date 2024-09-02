@@ -89,6 +89,8 @@ void ARM::Instructions::BIC(ARM7TDMI& c, InstructionInfo& instr) {
 
 void ARM::Instructions::RSB(ARM7TDMI& c, InstructionInfo& instr) {
   instr.op2 = c.handle_shifts(instr);
+  SPDLOG_DEBUG("Rm: {} - OP2: {:#x}", +instr.Rm, instr.op2);
+  SPDLOG_DEBUG("Rn: {:#x} - Rn V: {:#x}", +instr.Rn, c.regs.r[instr.Rn]);
 
   bool op2_negative = instr.op2 >= 0x80000000;
   bool rn_negative  = c.regs.r[instr.Rn] >= 0x80000000;
@@ -132,9 +134,12 @@ void ARM::Instructions::SUB(ARM7TDMI& c, InstructionInfo& instr) {
 }
 
 void ARM::Instructions::SBC(ARM7TDMI& c, InstructionInfo& instr) {
-  instr.op2 = c.handle_shifts(instr);
+  bool old_carry = c.regs.CPSR.CARRY_FLAG;
+  instr.op2      = c.handle_shifts(instr);
+  SPDLOG_DEBUG("INSTR RN: {} - Rn V {:#x}", +instr.Rn, c.regs.r[instr.Rn]);
+  SPDLOG_DEBUG("INSTR RM REG: {} - op2: {:#x}", +instr.Rm, instr.op2);
 
-  int l = (c.regs.r[instr.Rn] - instr.op2) + (c.regs.CPSR.CARRY_FLAG - 1);
+  int l = (c.regs.r[instr.Rn] - instr.op2) + (old_carry - 1);
   fmt::println("L (calced int): {}", l);
 
   if (instr.S) {
@@ -143,7 +148,7 @@ void ARM::Instructions::SBC(ARM7TDMI& c, InstructionInfo& instr) {
     l >= 0 ? c.set_carry() : c.reset_carry();
     ((c.regs.r[instr.Rd] >= 0x80000000) && l >= 0) ? c.set_overflow() : c.reset_overflow();
   }
-  c.regs.r[instr.Rd] = (c.regs.r[instr.Rn] - instr.op2) + (c.regs.CPSR.CARRY_FLAG - 1);
+  c.regs.r[instr.Rd] = (c.regs.r[instr.Rn] - instr.op2) + (old_carry - 1);
 }
 
 void ARM::Instructions::MVN(ARM7TDMI& c, InstructionInfo& instr) {
@@ -191,7 +196,7 @@ void ARM::Instructions::TEQ(ARM7TDMI& c, InstructionInfo& instr) {
 }
 
 void ARM::Instructions::MOV(ARM7TDMI& c, InstructionInfo& instr) {
-  instr.print_params();
+  // instr.print_params();
   instr.op2 = c.handle_shifts(instr);
 
   c.regs.r[instr.Rd] = instr.op2;
@@ -209,7 +214,7 @@ void ARM::Instructions::MOV(ARM7TDMI& c, InstructionInfo& instr) {
 }
 void ARM::Instructions::ADD(ARM7TDMI& c, InstructionInfo& instr) {
   // ADD{cond}{S} Rd,Rn,Op2 ;* ;add               Rd = Rn+Op2
-  instr.print_params();
+  // instr.print_params();
   if (c.regs.CPSR.STATE_BIT == THUMB_MODE) {
     if (instr.Rn == 15) {
       c.regs.r[instr.Rd] = ((c.regs.r[15]) & ~2) + instr.op2;
@@ -220,10 +225,8 @@ void ARM::Instructions::ADD(ARM7TDMI& c, InstructionInfo& instr) {
     }
   }
 
-  SPDLOG_DEBUG("OP2 (pre-shift)= {:#010x}", instr.op2);
   instr.op2 = c.handle_shifts(instr);
-  SPDLOG_DEBUG("OP2 (post shift) = {:#08x}", instr.op2);
-
+  
   u64 t_v = c.regs.r[instr.Rn];
 
   // fmt::println("t_v: {}", t_v);
@@ -370,11 +373,13 @@ void ARM::Instructions::STR(ARM7TDMI& c, InstructionInfo& instr) {
 void ARM::Instructions::CMN(ARM7TDMI& c, InstructionInfo& instr) {
   instr.op2 = c.handle_shifts(instr);
 
-  u32 r = c.regs.r[instr.Rn] + instr.op2;
+  u64 r_64 = c.regs.r[instr.Rn] + instr.op2;
 
+  u32 r = c.regs.r[instr.Rn] + instr.op2;
   is_negative(r) ? c.set_negative() : c.reset_negative();
   is_zero(r) ? c.set_zero() : c.reset_zero();
-  (c.regs.r[instr.Rn] >= instr.op2) ? c.set_carry() : c.reset_carry();
+
+  (r_64 >= 0x100000000) ? c.set_carry() : c.reset_carry();
   (c.regs.r[instr.Rn] >= 0x80000000 && (r < 0x80000000)) ? c.set_overflow() : c.reset_overflow();
 }
 
@@ -727,8 +732,7 @@ void ARM::Instructions::ORR(ARM7TDMI& c, InstructionInfo& instr) {
 
 void ARM::Instructions::MRS(ARM7TDMI& c, InstructionInfo& instr) { c.regs.r[instr.Rd] = c.regs.CPSR.value; }
 
-void ARM::Instructions::SWI(ARM7TDMI& c, InstructionInfo& instr) {
-  (void)(instr);
+void ARM::Instructions::SWI(ARM7TDMI& c, [[gnu::unused]] InstructionInfo& instr) {
   c.regs.copy(SUPERVISOR);
 
   c.regs.r[14] = c.regs.r[15] - 4;
@@ -1030,15 +1034,15 @@ void ARM::Instructions::UMULL(ARM7TDMI& c, InstructionInfo& instr) {
 }
 
 void ARM::Instructions::SMULL(ARM7TDMI& c, InstructionInfo& instr) {
-  i32 rm = c.regs.r[instr.Rm];
-  i32 rs = c.regs.r[instr.Rs];
+  s32 rm = c.regs.r[instr.Rm];
+  s32 rs = c.regs.r[instr.Rs];
 
   SPDLOG_DEBUG("RM: {}", rm);
   SPDLOG_DEBUG("RS: {}", rs);
 
   SPDLOG_DEBUG("res: {}", rm * rs);
 
-  i64 res = rm * rs;
+  s64 res = rm * rs;
 
   // Rd = Hi
   // Rn = Lo
@@ -1055,15 +1059,15 @@ void ARM::Instructions::SMULL(ARM7TDMI& c, InstructionInfo& instr) {
 }
 
 void ARM::Instructions::SMLAL(ARM7TDMI& c, InstructionInfo& instr) {
-  i64 rm = static_cast<i32>(static_cast<u32>(c.regs.r[instr.Rm]));
-  i64 rs = static_cast<i32>(static_cast<u32>(c.regs.r[instr.Rs]));
+  s64 rm = static_cast<s32>(static_cast<u32>(c.regs.r[instr.Rm]));
+  s64 rs = static_cast<s32>(static_cast<u32>(c.regs.r[instr.Rs]));
 
-  i64 big_number = (static_cast<u64>(c.regs.r[instr.Rd]) << 32) + c.regs.r[instr.Rn];
+  s64 big_number = (static_cast<u64>(c.regs.r[instr.Rd]) << 32) + c.regs.r[instr.Rn];
 
-  i64 res = (rm * rs) + big_number;
+  s64 res = (rm * rs) + big_number;
 
-  i32 hi = (big_number & 0xFFFFFFFF00000000) >> 32;
-  i32 lo = big_number & 0xFFFFFFFF;
+  s32 hi = (big_number & 0xFFFFFFFF00000000) >> 32;
+  s32 lo = big_number & 0xFFFFFFFF;
 
   c.regs.r[instr.Rd] = res >> 32;
   c.regs.r[instr.Rn] = res & 0xffffffff;
@@ -1117,6 +1121,9 @@ void ARM::Instructions::MLA(ARM7TDMI& c, InstructionInfo& instr) {
   }
 }
 void ARM::Instructions::MUL(ARM7TDMI& c, InstructionInfo& instr) {
+  SPDLOG_DEBUG("Rm: {} - OP2: {:#x}", +instr.Rm, instr.op2);
+  SPDLOG_DEBUG("Rn: {:#x} - Rn V: {:#x}", +instr.Rn, c.regs.r[instr.Rn]);
+
   c.regs.r[instr.Rd] = (c.regs.r[instr.Rm] * c.regs.r[instr.Rs]);
 
   if (instr.S) {
@@ -1262,26 +1269,12 @@ void ARM::Instructions::LDM(ARM7TDMI& c, InstructionInfo& instr) {
 }
 
 void ARM::Instructions::DIV_STUB([[gnu::unused]] ARM7TDMI& c, [[gnu::unused]] InstructionInfo& instr) {
-  /*
-  SWI 06h (GBA) or SWI 09h (NDS7/NDS9/DSi7/DSi9) - Div
-Signed Division, r0/r1.
-
-  r0  signed 32bit Number
-  r1  signed 32bit Denom
-
-Return:
-
-  r0  Number DIV Denom ;signed
-  r1  Number MOD Denom ;signed
-  r3  ABS (Number DIV Denom) ;unsigned
-*/
-
   SPDLOG_DEBUG("running stubbed DIV bios function");
 
-  i32 a       = static_cast<i32>(c.regs.r[0]);
-  i32 b       = static_cast<i32>(c.regs.r[1]);
-  i32 div     = (a / b);
-  i32 mod     = (a % b);
+  s32 a       = static_cast<s32>(c.regs.r[0]);
+  s32 b       = static_cast<s32>(c.regs.r[1]);
+  s32 div     = (a / b);
+  s32 mod     = (a % b);
   c.regs.r[0] = static_cast<u32>(div);
   c.regs.r[1] = static_cast<u32>(mod);
   c.regs.r[3] = abs(a / b);
@@ -1306,7 +1299,16 @@ void ARM::Instructions::SWP(ARM7TDMI& c, InstructionInfo& instr) {
   instr.B ? c.bus->write8(address, same_dest ? old_rm : c.regs.r[instr.Rm]) : c.bus->write32(address, same_dest ? old_rm : c.regs.r[instr.Rm]);
 }
 
-void ARM::Instructions::BLL(ARM7TDMI& c, InstructionInfo& instr) { c.regs.r[14] = (c.regs.r[15]) + (instr.op2 << 12); }
+void ARM::Instructions::BLL(ARM7TDMI& c, InstructionInfo& instr) {
+  SPDLOG_DEBUG("op2: {:#010x}", (c.regs.r[15]) + (instr.op2 << 12));
+  u32 offset = (instr.op2 << 12);
+  SPDLOG_DEBUG("calculated offset: {:#010x}", offset);
+  if (offset >= 0x400000) {
+    SPDLOG_DEBUG("neg!");
+    offset -= 0x800000;
+  }
+  c.regs.r[14] = (c.regs.r[15]) + (offset);
+}
 
 void ARM::Instructions::BLH(ARM7TDMI& c, InstructionInfo& instr) {
   u32 o_15 = c.regs.r[15];
