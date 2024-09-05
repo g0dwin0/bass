@@ -226,7 +226,7 @@ u32 Bus::read32(u32 address) {
       return 0xFFFFFFFF; // TODO: implement open bus behavior
     }
   }
-  // SPDLOG_DEBUG("[R32] {:#010x} => {:#010x}", address, v);
+  SPDLOG_DEBUG("[R32] {:#010x} => {:#010x}", address, v);
   return v;
 };
 
@@ -291,7 +291,7 @@ void Bus::write8(const u32 address, u8 value) {
       // break;
     }
   }
-  // SPDLOG_INFO("[W8] {:#x} => {:#x}", address, value);
+  SPDLOG_INFO("[W8] {:#x} => {:#x}", address, value);
 }
 
 void Bus::write16(const u32 address, u16 value) {
@@ -361,14 +361,14 @@ void Bus::write32(const u32 address, u32 value) {
       break;
     }
 
-    case 0x04000000 ... 0x4000056: {
-      // ppu->handle_write(address, value);
-      SPDLOG_CRITICAL("32 bit writes to PPU not allowed");
-      assert(0);
-      break;
-    }
+    // case 0x04000000 ... 0x4000056: {
+    //   // ppu->handle_write(address, value);
+    //   SPDLOG_CRITICAL("32 bit writes to PPU not allowed");
+    //   assert(0);
+    //   break;
+    // }
 
-    case 0x4000057 ... 0x040003FE: {
+    case 0x04000000 ... 0x040003FE: {
       // IO
       set32(IO, address - 0x04000000, value);
       break;
@@ -383,8 +383,6 @@ void Bus::write32(const u32 address, u32 value) {
     case 0x06000000 ... 0x06017FFF: {
       // VRAM
       set32(VRAM, address - 0x06000000, value);
-      fmt::println("writing to VRAM (32-b)");
-      assert(0);
       break;
     }
 
@@ -395,10 +393,10 @@ void Bus::write32(const u32 address, u32 value) {
     }
 
     default: {
-      spdlog::warn("[W32] unused/oob memory write: {:#X}", address);
+      spdlog::warn("[W32] unused/oob memory write: {:#010x}", address);
       return;
       // break;
     }
   }
-  SPDLOG_INFO("[W32] {:#x} => {:#x}", address, value);
+  SPDLOG_INFO("[W32] {:#x} => {:#010x}", address, value);
 }

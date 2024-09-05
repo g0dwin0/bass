@@ -226,10 +226,11 @@ void ARM::Instructions::ADD(ARM7TDMI& c, InstructionInfo& instr) {
   }
 
   instr.op2 = c.handle_shifts(instr);
-  
+  SPDLOG_DEBUG("OP2: {:#x}", instr.op2);
+
   u64 t_v = c.regs.r[instr.Rn];
 
-  // fmt::println("t_v: {}", t_v);
+  SPDLOG_DEBUG("Rn: {} - {:#x}", +instr.Rn, t_v);
 
   // fmt::println("t_v: {}", c.regs.r[instr.Rn] + instr.op2);
 
@@ -257,23 +258,26 @@ void ARM::Instructions::TST(ARM7TDMI& c, InstructionInfo& instr) {
 void ARM::Instructions::STRH(ARM7TDMI& c, InstructionInfo& instr) {
   u32 address = c.regs.r[instr.Rn];
 
-  u8 immediate_offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
+  // u8 immediate_offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
+  SPDLOG_DEBUG("immediate offset: {:#x}", instr.offset);
+  u32 shifted_reg_offset = 0;
+  if (instr.I == 0) { shifted_reg_offset = c.shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, c.regs.r[instr.Rm], instr.shift_amount, false); }
 
   // Rn - base register
   // Rm - offset register (immediate value if I is set)
   // Rd - source/destination register
   // instr.print_params();
-  if (address >= 0x60000000 && address <= 0x60017FFF) { SPDLOG_INFO("VRAM WRITE: {:#010x} => {}", c.regs.r[instr.Rn], instr.I ? immediate_offset : c.regs.r[instr.Rm]); }
+
   if (instr.P == 0) {
     // address = c.align_address(address, HALFWORD);
     address = c.align_address(address, HALFWORD);
     c.bus->write16(address, c.regs.r[instr.Rd] & 0xffff);
 
     if (instr.U) {
-      c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+      c.regs.r[instr.Rn] += (instr.I ? instr.offset : shifted_reg_offset);
       address = c.regs.r[instr.Rn];
     } else {
-      c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+      c.regs.r[instr.Rn] -= (instr.I ? instr.offset : shifted_reg_offset);
       address = c.regs.r[instr.Rn];
     }
 
@@ -284,19 +288,20 @@ void ARM::Instructions::STRH(ARM7TDMI& c, InstructionInfo& instr) {
 
     if (instr.U) {
       if (instr.W) {
-        c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        c.regs.r[instr.Rn] += (instr.I ? instr.offset : shifted_reg_offset);
         address = c.regs.r[instr.Rn];
       } else {
-        address = c.regs.r[instr.Rn] + (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn] + (instr.I ? instr.offset : shifted_reg_offset);
       }
     } else {
       if (instr.W) {
-        c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        c.regs.r[instr.Rn] -= (instr.I ? instr.offset : shifted_reg_offset);
         address = c.regs.r[instr.Rn];
       } else {
-        address = c.regs.r[instr.Rn] - (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn] - (instr.I ? instr.offset : shifted_reg_offset);
       }
     }
+
     address = c.align_address(address, HALFWORD);
     c.bus->write16(address, base_is_destination ? written_val : c.regs.r[instr.Rd] & 0xffff);
   }
@@ -308,7 +313,7 @@ void ARM::Instructions::STR(ARM7TDMI& c, InstructionInfo& instr) {
   u32 address = c.regs.r[instr.Rn];
 
   // if (instr.B) throw std::runtime_error("strb not implemented");
-  assert(instr.I == 0);
+  // assert(instr.I == 0);
 
   // Rn - base register
   // Rm - offset register (immediate value if I is set)
@@ -392,22 +397,18 @@ void ARM::Instructions::LDR(ARM7TDMI& c,
   // LDR - Load data from memory into register [Rd]
   // instr.print_params();
 
-  // assert(instr.B == 0);
-  // assert(instr.I == 0);
-
   InstructionInfo instr = _instr;  // Pipeline flush invalidates reference due
                                    // to pipeline change, copy necessary
-
-  // assert(instr.B == 0);
-
-  if (instr.I) { instr.offset = c.shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, c.regs.r[instr.Rm], instr.shift_amount, false); }
+  u32 shifted_register_value = 0;
+  if (instr.I) { shifted_register_value = c.shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, c.regs.r[instr.Rm], instr.shift_amount, false); }
 
   u32 c_address = c.regs.r[instr.Rn];
 
   if (instr.pc_relative) {
     SPDLOG_DEBUG("instr offset: {}", instr.offset);
-    SPDLOG_DEBUG("read address: {:#010x}", (c.regs.r[15] + instr.offset) & ~2);
-    c.regs.r[instr.Rd] = c.bus->read32((c.regs.r[15] + instr.offset) & ~2);
+    c_address = (c.regs.r[15] + instr.offset) & ~2;
+    SPDLOG_DEBUG("read address: {:#010x}", c_address);
+    c.regs.r[instr.Rd] = c.bus->read32(c_address);
     // c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
     return;
   }
@@ -438,30 +439,34 @@ void ARM::Instructions::LDR(ARM7TDMI& c,
     // Writeback logic
     if (!(instr.Rd == instr.Rn)) {  // Don't writeback to base if destination is same as base
       if (instr.U) {
-        c.regs.r[instr.Rn] += instr.offset;
+        c.regs.r[instr.Rn] += (instr.I ? shifted_register_value : instr.offset);
       } else {
-        c.regs.r[instr.Rn] -= instr.offset;
+        c.regs.r[instr.Rn] -= (instr.I ? shifted_register_value : instr.offset);
       }
     }
 
   } else {
     SPDLOG_DEBUG("[LDR] P = 1");
+    SPDLOG_DEBUG("[LDR] U = {}", +instr.U);
     SPDLOG_DEBUG("[LDR] I = {}", +instr.I);
+    SPDLOG_DEBUG("PRE: {:#x}", c_address);
+    SPDLOG_DEBUG("IMMEDIATE: {:#x}", instr.offset);
+    SPDLOG_DEBUG("SHIFTED REG VALUE: {:#x}", shifted_register_value);
 
     // Write-back logic
     if (instr.U) {
       if (instr.W) {
-        c.regs.r[instr.Rn] += instr.offset;
+        c.regs.r[instr.Rn] += (instr.I ? shifted_register_value : instr.offset);
         c_address = c.regs.r[instr.Rn];
       } else {
-        c_address = c.regs.r[instr.Rn] + instr.offset;
+        c_address = c.regs.r[instr.Rn] + (instr.I ? shifted_register_value : instr.offset);
       }
     } else {
       if (instr.W) {
-        c.regs.r[instr.Rn] -= instr.offset;
+        c.regs.r[instr.Rn] -= (instr.I ? shifted_register_value : instr.offset);
         c_address = c.regs.r[instr.Rn];
       } else {
-        c_address = c.regs.r[instr.Rn] - instr.offset;
+        c_address = c.regs.r[instr.Rn] - (instr.I ? shifted_register_value : instr.offset);
       }
     }
 
@@ -510,10 +515,10 @@ void ARM::Instructions::LDRSB(ARM7TDMI& c,
 
     if (!(instr.Rd == instr.Rn)) {
       if (instr.U) {
-        c.regs.r[instr.Rn] += instr.offset;
+        c.regs.r[instr.Rn] += (instr.I ? instr.offset : c.regs.r[instr.Rm]);
         // address = c.regs.r[instr.Rn];
       } else {
-        c.regs.r[instr.Rn] -= instr.offset;
+        c.regs.r[instr.Rn] -= (instr.I ? instr.offset : c.regs.r[instr.Rm]);
         // address = c.regs.r[instr.Rn];
       }
     }
@@ -522,19 +527,21 @@ void ARM::Instructions::LDRSB(ARM7TDMI& c,
     SPDLOG_DEBUG("[LDRSB] P = 1");
     if (instr.U) {
       if (instr.W) {
-        c.regs.r[instr.Rn] += instr.offset;
+        c.regs.r[instr.Rn] += (instr.I ? instr.offset : c.regs.r[instr.Rm]);
         c_address = c.regs.r[instr.Rn];
       } else {
-        c_address = c.regs.r[instr.Rn] + instr.offset;
+        c_address = c.regs.r[instr.Rn] + (instr.I ? instr.offset : c.regs.r[instr.Rm]);
       }
     } else {
       if (instr.W) {
-        c.regs.r[instr.Rn] -= instr.offset;
+        c.regs.r[instr.Rn] -= (instr.I ? instr.offset : c.regs.r[instr.Rm]);
         c_address = c.regs.r[instr.Rn];
       } else {
-        c_address = c.regs.r[instr.Rn] - instr.offset;
+        c_address = c.regs.r[instr.Rn] - (instr.I ? instr.offset : c.regs.r[instr.Rm]);
       }
     }
+
+    SPDLOG_DEBUG("ADDRESS: {:#X}", c_address);
 
     c.regs.r[instr.Rd] = c.bus->read8(c_address);
 
@@ -637,12 +644,12 @@ void ARM::Instructions::LDRH(ARM7TDMI& c,
 
   u32 address = c.regs.r[instr.Rn];  // Read address from base register
 
-  u8 immediate_offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
-
   // Rn - base register
   // Rm - offset register (immediate value if I is set)
   // Rd - source/destination register
   // instr.print_params();
+  u32 shifted_reg_offset = 0;
+  if (instr.I == 0) { shifted_reg_offset = c.shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, c.regs.r[instr.Rm], instr.shift_amount, false); }
 
   u8 misaligned_load_rotate_value = (address & 1) * 8;
 
@@ -660,28 +667,36 @@ void ARM::Instructions::LDRH(ARM7TDMI& c,
     if (instr.Rd == 15) { c.flush_pipeline(); }
 
     if (!(instr.Rd == instr.Rn)) {
-      if (instr.U) {                                                              // On post increment, write back is always enabled.
-        c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);  // Increase base register (post indexing)
+      if (instr.U) {                                                          // On post increment, write back is always enabled.
+        c.regs.r[instr.Rn] += (instr.I ? instr.offset : shifted_reg_offset);  // Increase base register (post indexing)
         address = c.regs.r[instr.Rn];
       } else {
-        c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);  // Decrease base register (post indexing)
+        c.regs.r[instr.Rn] -= (instr.I ? instr.offset : shifted_reg_offset);  // Decrease base register (post indexing)
         address = c.regs.r[instr.Rn];
       }
     }
   } else {
+    SPDLOG_DEBUG("[LDRH] P = {}", +instr.P);
+    SPDLOG_DEBUG("[LDRH] U = {}", +instr.U);
+    SPDLOG_DEBUG("[LDRH] I = {}", +instr.I);
+    SPDLOG_DEBUG("[LDRH] immediate offset = {}", +instr.offset);
+    SPDLOG_DEBUG("[LDRH] register offset = {}", shifted_reg_offset);
+    
+    
+    
     if (instr.U) {
       if (instr.W) {
-        c.regs.r[instr.Rn] += (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        c.regs.r[instr.Rn] += (instr.I ? instr.offset : shifted_reg_offset);
         address = c.regs.r[instr.Rn];
       } else {
-        address = c.regs.r[instr.Rn] + (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn] + (instr.I ? instr.offset : shifted_reg_offset);
       }
     } else {
       if (instr.W) {
-        c.regs.r[instr.Rn] -= (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        c.regs.r[instr.Rn] -= (instr.I ? instr.offset : shifted_reg_offset);
         address = c.regs.r[instr.Rn];
       } else {
-        address = c.regs.r[instr.Rn] - (instr.I ? immediate_offset : c.regs.r[instr.Rm]);
+        address = c.regs.r[instr.Rn] - (instr.I ? instr.offset : shifted_reg_offset);
       }
     }
 
@@ -696,10 +711,6 @@ void ARM::Instructions::LDRH(ARM7TDMI& c,
     c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
 
     if (instr.Rd == 15) { c.flush_pipeline(); }
-
-    // c.regs.r[instr.Rd] = c.bus->read16(address);
-    // assert(0);
-    // c.bus->write16(address, c.regs.r[instr.Rd] & 0xffff);
   }
 }
 
@@ -721,6 +732,8 @@ void ARM::Instructions::CMP(ARM7TDMI& c, InstructionInfo& instr) {
   if (instr.Rd == 15 && instr.S) { c.regs.load_spsr_to_cpsr(); }
 }
 void ARM::Instructions::ORR(ARM7TDMI& c, InstructionInfo& instr) {
+  instr.print_params();
+  if(instr.Rm == 1 && c.regs.CPSR.STATE_BIT == ARM_MODE && instr.shift_value_is_register) assert(0);
   instr.op2          = c.handle_shifts(instr);
   c.regs.r[instr.Rd] = c.regs.r[instr.Rn] | instr.op2;
 
@@ -884,6 +897,7 @@ void ARM::Instructions::STM(ARM7TDMI& c, InstructionInfo& instr) {
       reg_list.push_back(idx);
     }
   }
+  if (instr.LR_BIT) { reg_list.push_back(14); }
 
   if (reg_list.empty()) {
     // SPDLOG_DEBUG("[STM] reg list empty, pushing 15");
@@ -916,9 +930,9 @@ void ARM::Instructions::STM(ARM7TDMI& c, InstructionInfo& instr) {
     for (const auto& r_num : reg_list) {
       if (instr.Rn == r_num) { SPDLOG_DEBUG("Rn{} IN STMDB: {:#010x}", +instr.Rn, c.regs.r[instr.Rn]); }
       if (instr.S) {
-        c.bus->write32(c.align_address(base + (pass * 4), BOUNDARY::WORD), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+        c.bus->write32(c.align_address(base + (pass * 4), BOUNDARY::WORD), r_num == 15 ? c.regs.user_system_bank[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : c.regs.user_system_bank[r_num]);
       } else {
-        c.bus->write32(c.align_address(base + (pass * 4), BOUNDARY::WORD), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base : c.regs.r[r_num]);
+        c.bus->write32(c.align_address(base + (pass * 4), BOUNDARY::WORD), r_num == 15 ? c.regs.r[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base : c.regs.r[r_num]);
       }
       pass++;
     }
@@ -939,9 +953,9 @@ void ARM::Instructions::STM(ARM7TDMI& c, InstructionInfo& instr) {
     for (const auto& r_num : reg_list) {
       pass++;
       if (instr.S) {
-        c.bus->write32((base + (pass * 4)), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+        c.bus->write32((base + (pass * 4)), r_num == 15 ? c.regs.user_system_bank[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : c.regs.user_system_bank[r_num]);
       } else {
-        c.bus->write32((base + (pass * 4)), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base + (reg_list.size()) * 4 : c.regs.r[r_num]);
+        c.bus->write32((base + (pass * 4)), r_num == 15 ? c.regs.r[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base + (reg_list.size()) * 4 : c.regs.r[r_num]);
       }
     }
 
@@ -979,9 +993,9 @@ void ARM::Instructions::STM(ARM7TDMI& c, InstructionInfo& instr) {
     for (const auto& r_num : reg_list) {
       pass++;
       if (instr.S) {
-        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.user_system_bank[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : c.regs.user_system_bank[r_num]);
       } else {
-        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base : c.regs.r[r_num]);
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.r[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? base : c.regs.r[r_num]);
       }
     }
 
@@ -996,9 +1010,10 @@ void ARM::Instructions::STM(ARM7TDMI& c, InstructionInfo& instr) {
     u8 pass = 0;
     for (const auto& r_num : reg_list) {
       if (instr.S) {
-        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.user_system_bank[r_num] + 4 : c.regs.user_system_bank[r_num]);
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.user_system_bank[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : c.regs.user_system_bank[r_num]);
       } else {
-        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.r[r_num] + 4 : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? (base + (reg_list.size() * 4)) : c.regs.r[r_num]);
+        // ARM_MODE
+        c.bus->write32(base + (pass * 4), r_num == 15 ? c.regs.r[r_num] + (c.regs.CPSR.STATE_BIT ? 2 : 4) : instr.Rn == r_num && reg_list.at(0) != instr.Rn ? (base + (reg_list.size() * 4)) : c.regs.r[r_num]);
       }
       pass++;
     }
@@ -1149,6 +1164,11 @@ void ARM::Instructions::LDM(ARM7TDMI& c, InstructionInfo& instr) {
       if (idx == 15) { flush_queued = true; }
       reg_list.push_back(idx);
     }
+  }
+
+  if (instr.PC_BIT) {
+    reg_list.push_back(15);
+    flush_queued = true;
   }
 
   if (reg_list.empty()) {

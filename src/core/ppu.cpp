@@ -221,7 +221,8 @@ void PPU::handle_write(const u32 address, u16 value) {
     }
     default: {
       SPDLOG_CRITICAL("could not cast: {:#x}", address);
-      assert(0);
+      // assert(0);
+      break;
     }
   }
 }

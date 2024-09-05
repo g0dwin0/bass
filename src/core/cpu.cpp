@@ -38,7 +38,7 @@ void ARM7TDMI::flush_pipeline() {
     SPDLOG_DEBUG("[THUMB] flushing");
     InstructionInfo d;
     InstructionInfo e;
-
+    regs.r[15] = align_address(regs.r[15], HALFWORD); 
     SPDLOG_DEBUG("R15: {:#08x}", regs.r[15]);
     pipeline = {};
     e.opcode = bus->read16(regs.r[15]);
@@ -69,9 +69,11 @@ u32 ARM7TDMI::handle_shifts(InstructionInfo& instr) {
   if (instr.I == 0) {
     if (instr.shift_value_is_register) {
       u8 add_amount = 0;
+      
       if (instr.Rs == instr.Rm) { add_amount += 4; }
       if (instr.Rm == 15) { add_amount += 4; }
-      SPDLOG_DEBUG("SHIFT VALUE IS REGISTER!");
+
+      SPDLOG_DEBUG("SHIFT VALUE IS REGISTER! Operand r{} - r{} []", +instr.Rm, +instr.Rs, regs.r[instr.Rs] & 0xff);
       return shift((ARM7TDMI::SHIFT_MODE)instr.shift_type,
                    regs.r[instr.Rm] + add_amount,  // PC reads as PC+12 (PC already reads
                                                    // +8) when used as shift register

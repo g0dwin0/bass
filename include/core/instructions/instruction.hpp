@@ -28,7 +28,9 @@ struct InstructionInfo {
   u8 S     : 1 = 0;
   u8 H     : 1 = 0;
 
-  u8 SHIFT : 1    = 0;
+  u8 PC_BIT: 1 = 0;
+  u8 LR_BIT: 1 = 0;
+
   u8 shift_amount = 0;
   u8 shift_type   = 0;
 
@@ -36,10 +38,7 @@ struct InstructionInfo {
   u8 rotate = 0;
 
   bool shift_value_is_register = false;
-
-  // bool shift_value_is_register = false;
-
-  // Shift By Register, Shift By Immediate
+gi
 
   Condition condition = Condition::AL;
 

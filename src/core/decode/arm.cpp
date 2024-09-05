@@ -1,4 +1,5 @@
 #include "instructions/arm.hpp"
+
 #include "cpu.hpp"
 #include "instructions/instruction.hpp"
 
@@ -103,14 +104,15 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     // spdlog::debug("read instruction {:#010X} is a halfword data transfer",
     //               instr.opcode);
 
-    instr.L  = (instr.opcode & (1 << 20)) ? 1 : 0;  // Store or Load
-    instr.Rn = (instr.opcode & 0xf0000) >> 16;      // base register
-    instr.Rd = (instr.opcode & 0xf000) >> 12;       // destination register
-    instr.U  = (instr.opcode & (1 << 23)) ? 1 : 0;  // UP DOWN BIT
-    instr.P  = (instr.opcode & (1 << 24)) ? 1 : 0;  // indexing bit
-    instr.W  = (instr.opcode & (1 << 21)) ? 1 : 0;  // writeback bit
-    instr.I  = (instr.opcode & (1 << 22)) ? 1 : 0;  // Immediate bit
-    instr.Rm = (instr.opcode & 0xf);
+    instr.L      = (instr.opcode & (1 << 20)) ? 1 : 0;  // Store or Load
+    instr.Rn     = (instr.opcode & 0xf0000) >> 16;      // base register
+    instr.Rd     = (instr.opcode & 0xf000) >> 12;       // destination register
+    instr.U      = (instr.opcode & (1 << 23)) ? 1 : 0;  // UP DOWN BIT
+    instr.P      = (instr.opcode & (1 << 24)) ? 1 : 0;  // indexing bit
+    instr.W      = (instr.opcode & (1 << 21)) ? 1 : 0;  // writeback bit
+    instr.I      = (instr.opcode & (1 << 22)) ? 1 : 0;  // Immediate bit
+    instr.Rm     = (instr.opcode & 0xf);
+    instr.offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
 
     u32 c_address = regs.r[instr.Rn];
 
@@ -333,7 +335,6 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     assert(instr.I == 1);
     if (instr.L) {
       instr.func_ptr = ARM::Instructions::LDR;
-
       // LDR R3, [R2, -R1, LSL #2]!
       instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
                                    instr.shift_amount);
@@ -375,7 +376,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  if ((instr.opcode & 0xe000010) == 0) {
+  if ((instr.opcode & 0xe000010) == 0) { // shift value is immediate
     // fmt::println("Data Processing (shift value is immediate)");
 
     u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
@@ -391,7 +392,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     instr.shift_type   = (instr.opcode & 0x60) >> 5;
     instr.shift_amount = (instr.opcode & 0xf80) >> 7;
 
-    instr.SHIFT                   = true;
+    // instr.SHIFT                   = true;
     std::string_view shift_string = get_shift_type_string(instr.shift_type);
     assert((instr.opcode & (1 << 4)) == 0);
     // assert(0);
@@ -478,19 +479,17 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
 
     return instr;
   }
-
-  if ((instr.opcode & 0xe000090) == 0x10) {
+  //00001110000000000000000010010000
+  if ((instr.opcode & 0xe000090) == 0x10) { // shift value is a register
     fmt::println("Data Processing (shift value is a register)");
     u32 o_opcode                  = ((instr.opcode & OPCODE_MASK) >> 21);
     instr.Rd                      = (instr.opcode & 0xf000) >> 12;
-    instr.op2                     = instr.opcode & 0xfff;
     instr.S                       = (instr.opcode & 0x100000) ? 1 : 0;
     instr.Rm                      = instr.opcode & 0xf;
     instr.Rn                      = (instr.opcode & 0xf0000) >> 16;
     instr.Rs                      = (instr.opcode & 0xf00) >> 8;
-    instr.SHIFT                   = true;
-    instr.shift_value_is_register = true;
 
+    instr.shift_value_is_register = true;
     instr.shift_type = (instr.opcode & 0x60) >> 5;
     u8 shift_amount  = regs.r[instr.Rs] & 0xFF;
     SPDLOG_DEBUG("OPCODE: {:#010x}", instr.opcode);
@@ -498,7 +497,10 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
 
     // Should be impossible.
     instr.I = (instr.opcode & 0x2000000) ? 1 : 0;
+
     if (instr.I == 1) throw std::runtime_error("I was set in register shift");
+
+
 
     switch (o_opcode) {
       case AND: {
@@ -510,15 +512,14 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
         break;
       }
       case SUB: {
-        SPDLOG_INFO("x");
         instr.func_ptr = ARM::Instructions::SUB;
-        instr.mnemonic = fmt::format("sub{}{} r{},r{},#{:#x} {}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2, shift_string);
+        instr.mnemonic = fmt::format("sub{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, +instr.Rm, shift_string, +instr.Rs);
         break;
       }
       case RSB: {
-        assert(0);
-        // instr.func_ptr = ARM::Instructions::RSB;
-        // instr.mnemonic = fmt::format("rsb{}{} r{}, r{}, {} r{} ", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
+        // assert(0);
+        instr.func_ptr = ARM::Instructions::RSB;
+        instr.mnemonic = fmt::format("rsb{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
         break;
       }
       case ADD: {
@@ -528,7 +529,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
       }
       case ADC: {
         instr.func_ptr = ARM::Instructions::ADC;
-        instr.mnemonic = fmt::format("adc{}{} r{}, r{}, {} r{} ", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
+        instr.mnemonic = fmt::format("adc{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
         break;
       }
       case SBC: {
@@ -545,7 +546,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
       }
       case CMP: {
         instr.func_ptr = ARM::Instructions::CMP;
-        instr.mnemonic = fmt::format("cmp{} r{}, #{:#x} {}xxxx", condition_map.at(instr.condition), +instr.Rn, instr.op2, shift_string);
+        instr.mnemonic = fmt::format("cmp{} r{}, #{:#x} {}", condition_map.at(instr.condition), +instr.Rn, instr.op2, shift_string);
         break;
       }
       case CMN: {
@@ -553,7 +554,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
       }
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
-        instr.mnemonic = fmt::format("orr{}{} r{}, r{}, {} r{} [{}]", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, +instr.Rs, shift_amount);
+        instr.mnemonic = fmt::format("orr{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
 
         break;
       }
@@ -600,6 +601,8 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     instr.rotate = ((instr.opcode & 0xf00) >> 8);
 
     instr.I   = (instr.opcode & 0x2000000) ? 1 : 0;
+
+    assert(instr.I == 1);
     instr.op2 = std::rotr(instr.imm, instr.rotate * 2);
     // instr.print_params();
     // fmt::println("immediate value: {}, rot amount = {}", imm, rotate);
@@ -716,5 +719,4 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
 
   SPDLOG_DEBUG("[ARM] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
   return instr;
-
 };

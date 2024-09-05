@@ -91,6 +91,6 @@ struct Registers {
         bool ZERO_FLAG        : 1;
         bool SIGN_FLAG        : 1;
       };
-    } CPSR;
+    } CPSR = {};
   };
 };
