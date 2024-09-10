@@ -2,12 +2,12 @@
 
 #include <cstdlib>
 
+#include "decode/arm.cpp"
+#include "decode/thumb.cpp"
 #include "instructions/instruction.hpp"
 #include "registers.hpp"
 #include "shifter.cpp"
 #include "spdlog/spdlog.h"
-#include "decode/arm.cpp"
-#include "decode/thumb.cpp"
 
 ARM7TDMI::ARM7TDMI() {
   regs.r[15] = 0x08000000;
@@ -17,8 +17,8 @@ void ARM7TDMI::flush_pipeline() {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
     SPDLOG_DEBUG("[ARM] flushing");
     // InstructionInfo f;
-    InstructionInfo d;
-    InstructionInfo e;
+    instruction_info d;
+    instruction_info e;
 
     pipeline = {};
     e.opcode = bus->read32(regs.r[15]);
@@ -36,9 +36,9 @@ void ARM7TDMI::flush_pipeline() {
     SPDLOG_DEBUG("[ARM] flushed");
   } else {
     SPDLOG_DEBUG("[THUMB] flushing");
-    InstructionInfo d;
-    InstructionInfo e;
-    regs.r[15] = align_address(regs.r[15], HALFWORD); 
+    instruction_info d;
+    instruction_info e;
+    regs.r[15] = align_address(regs.r[15], HALFWORD);
     SPDLOG_DEBUG("R15: {:#08x}", regs.r[15]);
     pipeline = {};
     e.opcode = bus->read16(regs.r[15]);
@@ -65,30 +65,33 @@ u32 ARM7TDMI::align_address(u32 address, BOUNDARY b) {
   }
 }
 
-u32 ARM7TDMI::handle_shifts(InstructionInfo& instr) {
+u32 ARM7TDMI::handle_shifts(instruction_info& instr) {
+  u8 add_amount = 0;
   if (instr.I == 0) {
     if (instr.shift_value_is_register) {
-      u8 add_amount = 0;
-      
       if (instr.Rs == instr.Rm) { add_amount += 4; }
       if (instr.Rm == 15) { add_amount += 4; }
-
-      SPDLOG_DEBUG("SHIFT VALUE IS REGISTER! Operand r{} - r{} []", +instr.Rm, +instr.Rs, regs.r[instr.Rs] & 0xff);
+      // fmt::println("SHIFT VALUE IS REGISTER! Operand r{} - r{} []", +instr.Rm, +instr.Rs, regs.r[instr.Rs] & 0xff);
       return shift((ARM7TDMI::SHIFT_MODE)instr.shift_type,
                    regs.r[instr.Rm] + add_amount,  // PC reads as PC+12 (PC already reads
                                                    // +8) when used as shift register
-                   regs.r[instr.Rs] & 0xff, true);
+                   regs.r[instr.Rs] & 0xff, false);
     } else {
-      SPDLOG_DEBUG("immediate shift: {} on", instr.shift_amount);
-      return shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, regs.r[instr.Rm], instr.shift_amount, false);
+      // if (instr.Rm == 15) { add_amount += 4; }
+      // SPDLOG_DEBUG("immediate shift: {} on {:#x}", instr.shift_amount, regs.r[instr.Rm]);
+      return shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, regs.r[instr.Rm] + add_amount, instr.shift_amount, true);
     }
   }
 
-  SPDLOG_DEBUG("immediate value rotate before: {}", instr.imm);
-  return shift(ROR, instr.imm, instr.rotate * 2, false, true);
+  // SPDLOG_DEBUG("immediate value rotate before: {}", instr.imm);
+  if (instr.S) {
+    return shift(ROR, instr.imm, instr.rotate * 2, false, true);
+  } else {
+    return std::rotr(instr.imm, instr.rotate * 2);
+  }
 }
 
-InstructionInfo ARM7TDMI::decode(InstructionInfo& instr) {
+instruction_info ARM7TDMI::decode(instruction_info& instr) {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
     return arm_decode(instr);
   } else {
@@ -96,8 +99,8 @@ InstructionInfo ARM7TDMI::decode(InstructionInfo& instr) {
   }
 }
 
-InstructionInfo ARM7TDMI::fetch(u32 address) {
-  InstructionInfo instr;
+instruction_info ARM7TDMI::fetch(u32 address) {
+  instruction_info instr;
   instr.opcode = regs.CPSR.STATE_BIT == THUMB_MODE ? bus->read16(address) : bus->read32(address);
   instr.loc    = address;
   instr.empty  = false;
@@ -109,6 +112,7 @@ u16 ARM7TDMI::step() {
     pipeline.execute = pipeline.decode;
     pipeline.decode  = pipeline.fetch;
   }
+  bus->cycles_elapsed += 1;
 
   pipeline.fetch = fetch(regs.r[15]);
 
@@ -122,9 +126,7 @@ u16 ARM7TDMI::step() {
 
   // print_pipeline();
 
-  pipeline_refilled = false;
-
-  return cycles_consumed;
+  return 0;
 }
 
 void ARM7TDMI::print_pipeline() {
@@ -136,22 +138,21 @@ void ARM7TDMI::print_pipeline() {
   spdlog::debug("==================================");
 }
 
-void ARM7TDMI::execute(InstructionInfo& instr) {
+void ARM7TDMI::execute(instruction_info& instr) {
   if (instr.func_ptr == nullptr) {
     SPDLOG_CRITICAL("could not execute instruction {:#10X}", instr.opcode);
     assert(0);
   }
   spdlog::info("{}", instr.mnemonic);
   if (check_condition(instr)) {
-    bus->cycles_elapsed += 1;
     instr.func_ptr(*this, instr);
   } else {
-    fmt::println("N: {} Z: {} C: {} V: {}", +regs.CPSR.SIGN_FLAG, +regs.CPSR.ZERO_FLAG, +regs.CPSR.CARRY_FLAG, +regs.CPSR.OVERFLOW_FLAG);
-    fmt::println("failed: {}", instr.mnemonic);
+    // fmt::println("N: {} Z: {} C: {} V: {}", +regs.CPSR.SIGN_FLAG, +regs.CPSR.ZERO_FLAG, +regs.CPSR.CARRY_FLAG, +regs.CPSR.OVERFLOW_FLAG);
+    // fmt::println("failed: {}", instr.mnemonic);
   }
 }
 
-bool ARM7TDMI::check_condition(InstructionInfo& i) {
+bool ARM7TDMI::check_condition(instruction_info& i) {
   // if (regs.CPSR.STATE_BIT == THUMB_MODE) return true;
   switch (i.condition) {
     case EQ: {
@@ -209,14 +210,14 @@ bool ARM7TDMI::check_condition(InstructionInfo& i) {
     }
   }
 }
-std::string ARM7TDMI::get_addressing_mode_string(const InstructionInfo& instr) {
+std::string ARM7TDMI::get_addressing_mode_string(const instruction_info& instr) {
   std::string addressing_mode = fmt::format("{}{}", instr.U ? "i" : "d", instr.P ? "b" : "a");
 
   return addressing_mode;
 }
 
 void ARM7TDMI::print_registers() {
-  fmt::println("r0: {:#010x}", regs.r[0]);
+  fmt::println("\nr0: {:#010x}", regs.r[0]);
   fmt::println("r1: {:#010x}", regs.r[1]);
   fmt::println("r2: {:#010x}", regs.r[2]);
   fmt::println("r3: {:#010x}", regs.r[3]);
@@ -231,7 +232,7 @@ void ARM7TDMI::print_registers() {
   fmt::println("r12: {:#010x}", regs.r[12]);
   fmt::println("r13: {:#010x}", regs.r[13]);
   fmt::println("r14: {:#010x}", regs.r[14]);
-  fmt::println("r15: {:#010x}", regs.r[15]);
+  fmt::println("r15: {:#010x}\n", regs.r[15]);
 }
 
 std::string_view ARM7TDMI::get_shift_type_string(u8 shift_type) {
