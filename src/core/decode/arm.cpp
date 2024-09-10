@@ -7,11 +7,10 @@
 #define BX_MASK 0xffffff0
 #define OPCODE_MASK 0x1e00000
 
-InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
+instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
   instr.condition = (Condition)(instr.opcode >> 28);
 
-  // MUL, MLA (Multiply)
-  if ((instr.opcode & 0xfc000f0) == 0x90) {
+  if ((instr.opcode & 0xfc000f0) == 0x90) {  // MUL, MLA (Multiply)
     // spdlog::debug("read instruction {:#010X} is a multiply", instr.opcode);
 
     instr.S = (instr.opcode & 1 << 20) ? 1 : 0;
@@ -42,8 +41,8 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // MULL, MLAL (Multiply Long)
-  if ((instr.opcode & 0xf8000f0) == 0x800090) {
+  if ((instr.opcode & 0xf8000f0) == 0x800090) {  // MULL, MLAL (Multiply Long)
+
     // spdlog::debug("read instruction {:#010X} is a multiply long", instr.opcode);
     instr.S = (instr.opcode & 1 << 20) ? 1 : 0;
 
@@ -66,7 +65,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
         break;
       }
       case 6: {  // SMULL
-        instr.mnemonic = fmt::format("smull{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
+        instr.mnemonic = fmt::format("smull{}{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
         instr.func_ptr = ARM::Instructions::SMULL;
         break;
       }
@@ -82,8 +81,8 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // SWP (Single Data Swap)
-  if ((instr.opcode & (0xfb00ff0)) == 0x1000090) {
+  if ((instr.opcode & (0xfb00ff0)) == 0x1000090) {  // SWP (Single Data Swap)
+
     // spdlog::debug("read instruction {:#010X} is a single data swap", instr.opcode);
 
     instr.B  = (instr.opcode & (1 << 22)) ? 1 : 0;
@@ -99,8 +98,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // LDRH, STRH
-  if ((instr.opcode & (0xe0000f0)) == 0xb0) {
+  if ((instr.opcode & (0xe0000f0)) == 0xb0) {  // LDRH, STRH
     // spdlog::debug("read instruction {:#010X} is a halfword data transfer",
     //               instr.opcode);
 
@@ -141,21 +139,22 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // LDRSB, LDRSH (Halfword and Signed Data Transfer)
-  if ((instr.opcode & (0xe1000d0)) == 0x1000d0) {
+  if ((instr.opcode & (0xe1000d0)) == 0x1000d0) {  // LDRSB, LDRSH (Halfword and Signed Data Transfer)
     // spdlog::debug("read instruction {:#010X} is a signed data transfer", instr.opcode);
 
     // spdlog::debug("read instruction {:#010X} is a halfword data transfer",
     //               instr.opcode);
 
-    instr.L   = (instr.opcode & (1 << 20)) ? 1 : 0;  // Store or Load
-    instr.Rn  = (instr.opcode & 0xf0000) >> 16;      // base register
-    instr.Rd  = (instr.opcode & 0xf000) >> 12;       // destination register
-    instr.U   = (instr.opcode & (1 << 23)) ? 1 : 0;  // UP DOWN BIT
-    instr.P   = (instr.opcode & (1 << 24)) ? 1 : 0;  // indexing bit
-    instr.W   = (instr.opcode & (1 << 21)) ? 1 : 0;  // writeback bit
-    instr.I   = (instr.opcode & (1 << 22)) ? 1 : 0;  // Immediate bit
-    instr.Rm  = (instr.opcode & 0xf);
+    instr.L      = (instr.opcode & (1 << 20)) ? 1 : 0;  // Store or Load
+    instr.Rn     = (instr.opcode & 0xf0000) >> 16;      // base register
+    instr.Rd     = (instr.opcode & 0xf000) >> 12;       // destination register
+    instr.U      = (instr.opcode & (1 << 23)) ? 1 : 0;  // UP DOWN BIT
+    instr.P      = (instr.opcode & (1 << 24)) ? 1 : 0;  // indexing bit
+    instr.W      = (instr.opcode & (1 << 21)) ? 1 : 0;  // writeback bit
+    instr.I      = (instr.opcode & (1 << 22)) ? 1 : 0;  // Immediate bit
+    instr.Rm     = (instr.opcode & 0xf);
+    instr.offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
+
     u8 opcode = (instr.opcode & 0b1100000) >> 5;
 
     assert(opcode != 1);
@@ -197,9 +196,9 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // MRS
-  if ((instr.opcode & 0xfb000f0) == 0x1000000) {
+  if ((instr.opcode & 0xfb000f0) == 0x1000000) {  // MRS
     // SPDLOG_INFO("MRS");
+    // 1111000000000000
     instr.I = (instr.opcode & (1 << 25)) ? 1 : 0;
     instr.P = (instr.opcode & (1 << 22)) ? 1 : 0;
 
@@ -212,21 +211,21 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // MSR register
-  if ((instr.opcode & 0xfb000f0) == 0x1200000) {
-    // SPDLOG_INFO("MSR [register]");
+  if ((instr.opcode & 0xfb000f0) == 0x1200000) {  // MSR [register]
 
     instr.P  = (instr.opcode & 0x400000) ? 1 : 0;
     instr.Rm = (instr.opcode & 0xf);
     instr.I  = (instr.opcode & (1 << 25)) ? 1 : 0;
 
+    bool modify_flag_field    = (instr.opcode & (1 << 19)) ? true : false;
+    bool modify_control_field = (instr.opcode & (1 << 16)) ? true : false;
+
     instr.func_ptr = ARM::Instructions::MSR;
-    instr.mnemonic = fmt::format("msr{} {}, r{}", condition_map.at(instr.condition), instr.P == 0 ? "cpsr" : "spsr", +instr.Rm);
+    instr.mnemonic = fmt::format("msr{} {}_{}{}, r{}", condition_map.at(instr.condition), instr.P == 0 ? "cpsr" : "spsr", modify_flag_field ? "f" : "",modify_control_field ? "c" : "",+instr.Rm);
     return instr;
   }
 
-  // MSR immediate
-  if ((instr.opcode & 0xfb00000) == 0x3200000) {
+  if ((instr.opcode & 0xfb00000) == 0x3200000) {  // MSR immediate
     // SPDLOG_INFO("MSR [immediate]");
 
     instr.P         = (instr.opcode & (1 << 22)) ? 1 : 0;
@@ -248,8 +247,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // BX
-  if ((instr.opcode & BX_MASK) == 0x12fff10) {
+  if ((instr.opcode & BX_MASK) == 0x12fff10) {  // BX
     // spdlog::debug("read instruction {:#010X} is of branch and exchange",
     //               instr.opcode);
     instr.Rn = instr.opcode & 0xf;
@@ -259,124 +257,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  // LDM, STM (Block Data Transfer)
-  if ((instr.opcode & 0xe000000) == 0x8000000) {
-    instr.P  = (instr.opcode & (1 << 24)) ? 1 : 0;
-    instr.U  = (instr.opcode & (1 << 23)) ? 1 : 0;
-    instr.S  = (instr.opcode & (1 << 22)) ? 1 : 0;
-    instr.W  = (instr.opcode & 0x200000) ? 1 : 0;
-    instr.L  = (instr.opcode & 0x100000) ? 1 : 0;
-    instr.Rn = (instr.opcode & 0xf0000) >> 16;
-
-    u16 reg_list_v = instr.opcode & 0xFFFF;
-
-    std::vector<u8> reg_list;
-
-    for (size_t idx = 0; idx < 16; idx++) {
-      if (reg_list_v & (1 << idx)) { reg_list.push_back(idx); }
-    }
-
-    if (instr.L == 0) {  // STM
-      instr.func_ptr = ARM::Instructions::STM;
-      instr.mnemonic = fmt::format("stm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
-    } else {
-      instr.func_ptr = ARM::Instructions::LDM;
-      instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
-    }
-
-    return instr;
-  }
-
-  if ((instr.opcode & 0xe000000) == 0x4000000) {
-    // SPDLOG_INFO("LDR, STR [immediate]");
-    instr.I = (instr.opcode & (1 << 25)) ? 1 : 0;
-    instr.P = (instr.opcode & (1 << 24)) ? 1 : 0;
-    instr.U = (instr.opcode & (1 << 23)) ? 1 : 0;
-    instr.B = (instr.opcode & (1 << 22)) ? 1 : 0;
-    instr.W = (instr.opcode & (1 << 21)) ? 1 : 0;
-    instr.L = (instr.opcode & (1 << 20)) ? 1 : 0;
-
-    instr.Rn     = (instr.opcode & 0xf0000) >> 16;
-    instr.Rd     = (instr.opcode & 0xf000) >> 12;
-    instr.offset = (instr.opcode & 0xfff);
-
-    if (instr.L) {
-      instr.func_ptr = ARM::Instructions::LDR;
-
-      instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
-      // fmt::println("{}", instr.mnemonic);
-    } else {
-      instr.func_ptr = ARM::Instructions::STR;
-      instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
-    }
-
-    return instr;
-  }
-
-  // LDR, STR (Single Data Transfer)
-  if ((instr.opcode & 0xe000010) == 0x6000000) {
-    // SPDLOG_INFO("LDR, STR [register]");
-    instr.I = (instr.opcode & (1 << 25)) ? 1 : 0;
-    instr.P = (instr.opcode & (1 << 24)) ? 1 : 0;
-    instr.U = (instr.opcode & (1 << 23)) ? 1 : 0;
-    instr.B = (instr.opcode & (1 << 22)) ? 1 : 0;
-    instr.W = (instr.opcode & (1 << 21)) ? 1 : 0;
-    instr.L = (instr.opcode & (1 << 20)) ? 1 : 0;
-
-    instr.Rn = (instr.opcode & 0xf0000) >> 16;
-    instr.Rd = (instr.opcode & 0xf000) >> 12;
-
-    instr.Rm = (instr.opcode & 0xf);
-
-    instr.shift_amount = (instr.opcode & 0xf80) >> 7;
-    instr.shift_type   = (instr.opcode & 0b1100000) >> 5;
-
-    std::string_view shift_string = get_shift_type_string(instr.shift_type);
-    assert(instr.I == 1);
-    if (instr.L) {
-      instr.func_ptr = ARM::Instructions::LDR;
-      // LDR R3, [R2, -R1, LSL #2]!
-      instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
-                                   instr.shift_amount);
-    } else {
-      instr.func_ptr = ARM::Instructions::STR;
-      instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
-                                   instr.shift_amount);
-    }
-
-    SPDLOG_DEBUG("{}", instr.mnemonic);
-    return instr;
-    // assert(0);
-  }
-
-  // B (Branch)
-  if ((instr.opcode & (0xe000000)) == 0xa000000) {
-    // spdlog::info("read instruction {:#010X} is of branch", instr.opcode);
-
-    instr.offset = (instr.opcode & 0xFFFFFF);
-    instr.L      = (instr.opcode & 0x1000000) != 0;
-
-    // TODO: make into function
-    int x = instr.offset;
-
-    if (x & 0x800000) { x -= 0x1000000; }
-    x *= 4;
-
-    // fmt::println("offset calced: {:#010x}", x);
-    instr.offset = x;
-
-    instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + x + 4);
-
-    if (instr.mnemonic.starts_with("bllt")) {  // TODO: when branch w/ link, lt
-                                               // should just be t (i think)
-      instr.mnemonic.replace(0, 4, "blt");
-    }
-
-    instr.func_ptr = ARM::Instructions::B;
-    return instr;
-  }
-
-  if ((instr.opcode & 0xe000010) == 0) { // shift value is immediate
+  if ((instr.opcode & 0xe000010) == 0) {  // shift value is immediate
     // fmt::println("Data Processing (shift value is immediate)");
 
     u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
@@ -429,18 +310,25 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
         break;
       }
       case SBC: {
+        instr.func_ptr = ARM::Instructions::SBC;
+        instr.mnemonic = fmt::format("sbc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case RSC: {
+        instr.func_ptr = ARM::Instructions::RSC;
+        instr.mnemonic = fmt::format("rsc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+
         break;
       }
       case TST: {
+        instr.func_ptr = ARM::Instructions::TST;
+        instr.mnemonic = fmt::format("tst{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+
         break;
       }
       case TEQ: {
         instr.func_ptr = ARM::Instructions::TEQ;
         instr.mnemonic = fmt::format("teq{} r{},r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rm);
-        // throw std::runtime_error("1");
         break;
       }
       case CMP: {
@@ -465,9 +353,15 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
         break;
       }
       case BIC: {
+        instr.func_ptr = ARM::Instructions::BIC;
+        instr.mnemonic = fmt::format("bic{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
+
         break;
       }
       case MVN: {
+        instr.func_ptr = ARM::Instructions::MVN;
+        instr.mnemonic = fmt::format("mvn{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
+
         break;
       }
 
@@ -479,28 +373,26 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
 
     return instr;
   }
-  //00001110000000000000000010010000
-  if ((instr.opcode & 0xe000090) == 0x10) { // shift value is a register
-    fmt::println("Data Processing (shift value is a register)");
-    u32 o_opcode                  = ((instr.opcode & OPCODE_MASK) >> 21);
-    instr.Rd                      = (instr.opcode & 0xf000) >> 12;
-    instr.S                       = (instr.opcode & 0x100000) ? 1 : 0;
-    instr.Rm                      = instr.opcode & 0xf;
-    instr.Rn                      = (instr.opcode & 0xf0000) >> 16;
-    instr.Rs                      = (instr.opcode & 0xf00) >> 8;
+
+  if ((instr.opcode & 0xe000090) == 0x10) {  // shift value is a register
+    // fmt::println("Data Processing (shift value is a register)");
+    u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
+    instr.Rd     = (instr.opcode & 0xf000) >> 12;
+    instr.S      = (instr.opcode & 0x100000) ? 1 : 0;
+    instr.Rm     = instr.opcode & 0xf;
+    instr.Rn     = (instr.opcode & 0xf0000) >> 16;
+    instr.Rs     = (instr.opcode & 0xf00) >> 8;
 
     instr.shift_value_is_register = true;
-    instr.shift_type = (instr.opcode & 0x60) >> 5;
-    u8 shift_amount  = regs.r[instr.Rs] & 0xFF;
+    instr.shift_type              = (instr.opcode & 0x60) >> 5;
+    u8 shift_amount               = regs.r[instr.Rs] & 0xFF;
     SPDLOG_DEBUG("OPCODE: {:#010x}", instr.opcode);
     std::string_view shift_string = get_shift_type_string(instr.shift_type);
 
     // Should be impossible.
-    instr.I = (instr.opcode & 0x2000000) ? 1 : 0;
+    instr.I = (instr.opcode & 0x2000000) != 0 ? 1 : 0;
 
     if (instr.I == 1) throw std::runtime_error("I was set in register shift");
-
-
 
     switch (o_opcode) {
       case AND: {
@@ -509,6 +401,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
         break;
       }
       case EOR: {
+        assert(0);
         break;
       }
       case SUB: {
@@ -533,15 +426,19 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
         break;
       }
       case SBC: {
+        assert(0);
         break;
       }
       case RSC: {
+        assert(0);
         break;
       }
       case TST: {
+        assert(0);
         break;
       }
       case TEQ: {
+        assert(0);
         break;
       }
       case CMP: {
@@ -550,25 +447,25 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
         break;
       }
       case CMN: {
+        assert(0);
         break;
       }
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
         instr.mnemonic = fmt::format("orr{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
-
         break;
       }
       case MOV: {
         instr.func_ptr = ARM::Instructions::MOV;
         instr.mnemonic = fmt::format("mov{}{} r{}, r{}, {} r{} [{}]", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, +instr.Rs, shift_amount);
-        // fmt::println("{}", instr.mnemonic);
-        // assert(0);
         break;
       }
       case BIC: {
+        assert(0);
         break;
       }
       case MVN: {
+        assert(0);
         break;
       }
 
@@ -581,14 +478,14 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  if ((instr.opcode & 0xfb00000) == 0x3000000) {
+  if ((instr.opcode & 0xfb00000) == 0x3000000) {  // undefined instructions
     SPDLOG_DEBUG("undefined instructions");
-
-    assert(0);
     return instr;
+    // assert(0);
+    // return instr;
   }
 
-  if ((instr.opcode & 0xe000000) == 0x2000000) {
+  if ((instr.opcode & 0xe000000) == 0x2000000) {  // Data Processing (immediate value)
     // fmt::println("Data Processing (immediate value)");
 
     u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
@@ -600,10 +497,10 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     instr.imm    = instr.opcode & 0xff;
     instr.rotate = ((instr.opcode & 0xf00) >> 8);
 
-    instr.I   = (instr.opcode & 0x2000000) ? 1 : 0;
+    instr.I = (instr.opcode & 0x2000000) ? 1 : 0;
 
     assert(instr.I == 1);
-    instr.op2 = std::rotr(instr.imm, instr.rotate * 2);
+    // instr.op2 = std::rotr(instr.imm, instr.rotate * 2);
     // instr.print_params();
     // fmt::println("immediate value: {}, rot amount = {}", imm, rotate);
 
@@ -701,7 +598,116 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
     return instr;
   }
 
-  if ((instr.opcode & 0xf000000) == 0xf000000) {
+  if ((instr.opcode & 0xe000000) == 0x4000000) {  // LDR, STR [immediate]
+    // SPDLOG_INFO("LDR, STR [immediate]");
+    instr.I = (instr.opcode & (1 << 25)) ? 1 : 0;
+    instr.P = (instr.opcode & (1 << 24)) ? 1 : 0;
+    instr.U = (instr.opcode & (1 << 23)) ? 1 : 0;
+    instr.B = (instr.opcode & (1 << 22)) ? 1 : 0;
+    instr.W = (instr.opcode & (1 << 21)) ? 1 : 0;
+    instr.L = (instr.opcode & (1 << 20)) ? 1 : 0;
+
+    instr.Rn     = (instr.opcode & 0xf0000) >> 16;
+    instr.Rd     = (instr.opcode & 0xf000) >> 12;
+    instr.offset = (instr.opcode & 0xfff);
+    assert(instr.I == 0);
+    if (instr.L) {
+      instr.func_ptr = ARM::Instructions::LDR;
+
+      instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
+      // fmt::println("{}", instr.mnemonic);
+    } else {
+      instr.func_ptr = ARM::Instructions::STR;
+      instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
+    }
+
+    return instr;
+  }
+
+  if ((instr.opcode & 0xe000010) == 0x6000000) {  // LDR [register]
+    // SPDLOG_INFO("LDR, STR [register]");
+    instr.I = (instr.opcode & (1 << 25)) ? 1 : 0;
+    instr.P = (instr.opcode & (1 << 24)) ? 1 : 0;
+    instr.U = (instr.opcode & (1 << 23)) ? 1 : 0;
+    instr.B = (instr.opcode & (1 << 22)) ? 1 : 0;
+    instr.W = (instr.opcode & (1 << 21)) ? 1 : 0;
+    instr.L = (instr.opcode & (1 << 20)) ? 1 : 0;
+
+    instr.Rn = (instr.opcode & 0xf0000) >> 16;
+    instr.Rd = (instr.opcode & 0xf000) >> 12;
+
+    instr.Rm = (instr.opcode & 0xf);
+
+    instr.shift_amount = (instr.opcode & 0xf80) >> 7;
+    instr.shift_type   = (instr.opcode & 0b1100000) >> 5;
+
+    std::string_view shift_string = get_shift_type_string(instr.shift_type);
+    assert(instr.I == 1);
+
+    if (instr.L) {
+      instr.func_ptr = ARM::Instructions::LDR;
+      // LDR R3, [R2, -R1, LSL #2]!
+      instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
+                                   instr.shift_amount);
+    } else {
+      instr.func_ptr = ARM::Instructions::STR;
+      instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
+                                   instr.shift_amount);
+    }
+
+    SPDLOG_DEBUG("{}", instr.mnemonic);
+    return instr;
+    // assert(0);
+  }
+
+  if ((instr.opcode & 0xe000000) == 0x8000000) {  // LDM, STM (Block Data Transfer)
+    instr.P  = (instr.opcode & (1 << 24)) ? 1 : 0;
+    instr.U  = (instr.opcode & (1 << 23)) ? 1 : 0;
+    instr.S  = (instr.opcode & (1 << 22)) ? 1 : 0;
+    instr.W  = (instr.opcode & 0x200000) ? 1 : 0;
+    instr.L  = (instr.opcode & 0x100000) ? 1 : 0;
+    instr.Rn = (instr.opcode & 0xf0000) >> 16;
+
+    u16 reg_list_v = instr.opcode & 0xFFFF;
+
+    std::vector<u8> reg_list;
+
+    for (size_t idx = 0; idx < 16; idx++) {
+      if (reg_list_v & (1 << idx)) { reg_list.push_back(idx); }
+    }
+
+    if (instr.L == 0) {  // STM
+      instr.func_ptr = ARM::Instructions::STM;
+      instr.mnemonic = fmt::format("stm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
+    } else {
+      instr.func_ptr = ARM::Instructions::LDM;
+      instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
+    }
+
+    return instr;
+  }
+
+  if ((instr.opcode & (0xe000000)) == 0xa000000) {  // B (Branch)
+    // spdlog::info("read instruction {:#010X} is of branch", instr.opcode);
+
+    instr.offset = (instr.opcode & 0xFFFFFF);
+    instr.L      = (instr.opcode & 0x1000000) != 0;
+
+    int x = instr.offset;
+
+    if (x & 0x800000) { x -= 0x1000000; }
+    x *= 4;
+
+    // fmt::println("offset calced: {:#010x}", x);
+    instr.offset = x;
+
+    instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + x + 4);
+
+    instr.func_ptr = ARM::Instructions::B;
+    return instr;
+  }
+
+  if ((instr.opcode & 0xf000000) == 0xf000000) {  // SWI
     // if (instr.opcode == 0xEF060000) {
     //   instr.func_ptr = ARM::Instructions::DIV_STUB;
     //   instr.mnemonic = "SWI stub - DIV";
@@ -710,7 +716,7 @@ InstructionInfo ARM7TDMI::arm_decode(InstructionInfo& instr) {
 
     // instr.mnemonic = fmt::format("swi #{:#010x}", (instr.opcode & 0xff0000) >> 16);
     // instr.func_ptr = ARM::Instructions::SWI;
-    SPDLOG_ERROR("failed on {} - SWI number: {:#02x}", regs.r[0], (instr.opcode & 0xff0000) >> 16);
+    fmt::println("failed on {} - SWI number: {:#02x}", regs.r[0], (instr.opcode & 0xff0000) >> 16);
 
     assert(0);
 

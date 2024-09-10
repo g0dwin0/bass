@@ -2,33 +2,32 @@
 #include "instructions/arm.hpp"
 #include "instructions/instruction.hpp"
 
-InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
+instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
   if ((instr.opcode & 0xf800) == 0x1800) {  // ADD, SUB
     // assert(0);
     SPDLOG_DEBUG("ADD, SUB");
     instr.Rd = instr.opcode & 0b111;
     instr.Rs = (instr.opcode & 0b111000) >> 3;  // lhs
-
-    instr.S = true;
-
     instr.Rn  = (instr.opcode & 0b111000000) >> 6;  // rhs
     instr.imm = (instr.opcode & 0b111000000) >> 6;
 
-    u8 rn_copy = instr.Rn;
+    instr.S = true;
+
 
     u8 opcode = (instr.opcode & 0b11000000000) >> 9;
 
     switch (opcode) {
       case 0: {
         instr.func_ptr = ARM::Instructions::ADD;
-                instr.Rm       = rn_copy;   // LHS
+        instr.Rm       = (instr.opcode & 0b111000000) >> 6;
         instr.Rn       = instr.Rs;  // RHS
-        instr.mnemonic = fmt::format("add[2] r{}, r{}, r{}", +instr.Rd, +instr.Rs, +instr.Rm);
+        instr.mnemonic = fmt::format("add[2] r{}, r{}, r{}", +instr.Rd, +instr.Rm, +instr.Rn);
+        // fmt::println("{}", instr.mnemonic);
         break;
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::SUB;
-        instr.Rm       = rn_copy;   // LHS
+        instr.Rm       = (instr.opcode & 0b111000000) >> 6;   // LHS
         instr.Rn       = instr.Rs;  // RHS
         instr.mnemonic = fmt::format("sub r{}, r{}, r{}", +instr.Rd, +instr.Rn, +instr.Rm);
         break;
@@ -65,7 +64,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     instr.func_ptr     = ARM::Instructions::MOV;
     instr.S            = true;
 
-    instr.I     = 0;
+    instr.I = 0;
     // instr.SHIFT = true;
 
     switch (op) {
@@ -145,10 +144,10 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     instr.Rs = (instr.opcode & 0b111000) >> 3;
     instr.Rd = instr.opcode & 0b111;
 
-    instr.Rn    = instr.Rd;
-    instr.Rm    = instr.Rs;
+    instr.Rn = instr.Rd;
+    instr.Rm = instr.Rs;
     // instr.SHIFT = true;
-    instr.S     = true;
+    instr.S = true;
     // instr.shift_amount =
 
     u8 op = (instr.opcode & 0x3c0) >> 6;
@@ -219,6 +218,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.func_ptr = ARM::Instructions::RSB;
         instr.I        = true;
         instr.imm      = 0;
+        instr.rotate   = 0;
         instr.mnemonic = fmt::format("neg r{}, r{}", +instr.Rd, +instr.Rs);
         // assert(0);
         break;
@@ -294,8 +294,8 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       case 2: {
         instr.func_ptr = ARM::Instructions::MOV;
         // instr.Rn
-        instr.mnemonic = fmt::format("mov r{}, r{} [222]", +instr.Rd, +instr.Rs);
-        fmt::println("{}", instr.mnemonic);
+        instr.mnemonic = fmt::format("mov r{}, r{}", +instr.Rd, +instr.Rs);
+        // fmt::println("{}", instr.mnemonic);
         break;
       }
       case 3: {
@@ -311,7 +311,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
   }
 
   if ((instr.opcode & 0xf000) == 0xa000) {  // get relative address
-    fmt::println("get relative address");
+    // fmt::println("get relative address");
     u8 opcode = (instr.opcode & (1 << 11)) >> 11;
     // fmt::println("opcode:{}", opcode);
     instr.Rd = (instr.opcode & 0x700) >> 8;
@@ -370,6 +370,8 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       case 0xB: instr.condition = LT; break;
       case 0xC: instr.condition = GT; break;
       case 0xD: instr.condition = LE; break;
+      case 0xE: instr.condition = AL; break;
+      case 0xF: instr.condition = AL; break;
       default: assert(0);
     }
     instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + instr.offset + 2);
@@ -380,14 +382,11 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     SPDLOG_DEBUG("(unconditional) B");
     instr.offset = (instr.opcode & 0x7ff);
 
-    // TODO: make into function
     int x = instr.offset;
 
     if (x & 0x400) { x -= 0x800; }
 
     x *= 2;
-
-    // x += 4;
 
     instr.offset = x;
 
@@ -588,7 +587,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     }
     return instr;
   }
- 
+
   // 1001000000000000
   if ((instr.opcode & 0xf000) == 0x9000) {  // LDR, STR (SP-relative)
     u8 opcode    = (instr.opcode & (1 << 11)) >> 11;
@@ -600,13 +599,13 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     instr.U = 1;
     switch (opcode) {
       case 0: {
-        instr.I = 0;
+        instr.I        = 0;
         instr.func_ptr = ARM::Instructions::STR;
         instr.mnemonic = fmt::format("str r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       case 1: {
-        instr.I = 0;
+        instr.I        = 0;
         instr.func_ptr = ARM::Instructions::LDR;
         instr.mnemonic = fmt::format("ldr r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
@@ -652,7 +651,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     u8 pc_lr_bit = (instr.opcode & (1 << 8)) >> 8;
     u8 rlist     = instr.opcode & 0xff;
     instr.Rn     = 13;
-    instr.W = true;
+    instr.W      = true;
 
     std::vector<u8> reg_list;
 
@@ -664,7 +663,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       case 0: {  // PUSH
         instr.P = 1;
         instr.U = 0;
-        if (pc_lr_bit) { instr.LR_BIT = 1;  }
+        if (pc_lr_bit) { instr.LR_BIT = 1; }
         instr.func_ptr = ARM::Instructions::STM;
         instr.mnemonic = fmt::format("PUSH r{}, r{}", fmt::join(reg_list, ",r"), +instr.Rn);
         break;
@@ -701,7 +700,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     }
 
     if (is_ldm) {
-          instr.P        = 0;
+      instr.P        = 0;
       instr.U        = 1;
       instr.func_ptr = ARM::Instructions::LDM;
       instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
@@ -719,6 +718,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
   if ((instr.opcode & 0xff00) == 0xdf00) {  // SWI
     SPDLOG_DEBUG("SWI");
     assert(0);
+    return instr;
   }
 
   if ((instr.opcode & 0xf800) == 0xf000) {  // BL, BLX prefix
