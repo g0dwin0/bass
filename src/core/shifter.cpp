@@ -2,79 +2,110 @@
 
 #include "core/cpu.hpp"
 
-u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool amount_from_reg, bool never_rrx) {
+u32 asr(u32 x, u32 shift) {
+  u32 signBit = x & 0x80000000;
+
+  u32 result = x >> shift;
+
+  if (signBit) {
+    u32 mask = (1 << shift) - 1;
+    mask <<= (32 - shift);
+
+    result |= mask;
+  }
+
+  return result;
+}
+u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool never_rrx, bool affect_flags) {
   switch (mode) {
     case LSL: {
-      SPDLOG_DEBUG("Value: {}", value);
-      SPDLOG_DEBUG("Shift Amount: {}", amount);
-      if (amount_from_reg) {
-        if (amount == 0) { return value; }
-
-        if (amount == 32) {
-          bool set = (value & 1);
-          set ? set_carry() : reset_carry();
-          return 0;
-        }
-
-        if (amount > 32) {
-          reset_carry();
-          return 0;
-        }
-      }
-
       if (amount == 0) {
         SPDLOG_DEBUG("[LSL] shift amount is 0, returning inital value of {:#010x}", value);
         return value;
       }
 
-      u64 s_m = (value << amount);
+      // fmt::println("Value: {:#010x}", value);
+      // fmt::println("Shift Amount: {:#010x}", amount);
+
+      if (!special) {
+        if (amount >= 32) {
+          if (amount == 32) {
+            if (affect_flags) { (value & 1) != 0 ? set_carry() : reset_carry(); }
+          } else {
+            if (affect_flags) { reset_carry(); }
+          }
+          return 0;
+        }
+      }
+
+      u32 s_m = (value << amount);
+      // fmt::println("s_m = {:#010x}", s_m);
       (value & (1 << (32 - amount))) != 0 ? set_carry() : reset_carry();
 
       SPDLOG_DEBUG("performed LSL with value: {:#010x}, by LSL'd by amount: {} result: {:#010x}", value, amount, s_m);
-      return s_m % 0x100000000;
+      return s_m;
     }
     case LSR: {
-      if (amount == 0 && !amount_from_reg) amount = 32;
+      if (special) {
+        if (amount == 0) {
+          if (affect_flags) { (value & (1 << 31)) != 0 ? set_carry() : reset_carry(); }
+          return 0;
+        }
+      } else {
+        if (amount == 0) { return value; }
+        if (amount >= 32) {
+          if (amount == 32) {
+            if (affect_flags) { (value & (1 << 31)) != 0 ? set_carry() : reset_carry(); }
+          } else {
+            if (affect_flags) { reset_carry(); }
+          }
+          return 0;
+        }
+      }
 
-      if (amount == 0) return value;
+      u32 s_m = (value >> amount);
 
-      u64 s_m = (value >> amount);
-      // SPDLOG_DEBUG(
-      //     "performed LSR with value: {:#010x}, by LSR'd by amount: {} result: {:#010x}",
-      //     value, amount, s_m);
-
-      (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+      if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
 
       return s_m;
     }
     case ASR: {
-      if (amount == 0 && amount_from_reg) return value;
-      if (amount == 0) {
-        u32 ret_val = (value & 0x80000000) ? 0xFFFFFFFF : 0x00000000;
+      if (amount == 0 && special) {
+        u32 ret_val = (value & 1 << 31) ? 0xFFFFFFFF : 0x00000000;
 
-        (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+        if (affect_flags) { (value & (1 << 31)) != 0 ? set_carry() : reset_carry(); }
 
         return ret_val;
       }
 
-      s32 m = (static_cast<s32>(value)) >> amount;
+      if(amount >= 32) {
+        u32 ret_val = (value & 1 << 31) ? 0xFFFFFFFF : 0x00000000;
+
+        if (affect_flags) { (value & (1 << 31)) != 0 ? set_carry() : reset_carry(); }
+
+        return ret_val;
+      }
+      
+      if (amount == 0) return value;
+
+      u32 m = asr(value, amount);
 
       SPDLOG_DEBUG("performed ASR with value: {:#010x}, by ASR'd by amount: {} result: {:#010x}", value, amount, m);
 
-      (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+      if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
 
-      return static_cast<u32>(m);
+      return m;
     }
     case ROR: {
-      if (amount == 0 && amount_from_reg) return value;
+      if (amount == 0 && !special) return value;
 
       bool is_rrx = false;
-      if (amount == 0 && !never_rrx) {
-        // SPDLOG_DEBUG("IS RRX!");
+      if (amount == 0 && special && !never_rrx) {
+        SPDLOG_DEBUG("IS RRX!");
         is_rrx = true;
         amount = 1;
       }
-      if (amount == 0) return value;
+
       if (amount > 32) amount %= 32;
 
       u32 r = std::rotr(static_cast<u32>(value), amount);
@@ -87,11 +118,11 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool amount_from_reg
 
         r |= (regs.CPSR.CARRY_FLAG << 31);
 
-        (value & 1) == 1 ? set_carry() : reset_carry();
+        if (affect_flags) { (value & 1) == 1 ? set_carry() : reset_carry(); }
         return r;
       }
 
-      (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+      if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
 
       return r;
     }
