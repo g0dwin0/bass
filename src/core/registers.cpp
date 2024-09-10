@@ -1,13 +1,13 @@
 #include "registers.hpp"
 
 #include <cassert>
+#include "instructions/arm.hpp"
 
 u32 Registers::get_spsr(BANK_MODE m) {
   switch (m) {
     case USER:
-      return 0;
     case SYSTEM:
-      return 0;
+      return CPSR.value;
     case FIQ:
       return SPSR_fiq;
     case IRQ:
@@ -33,18 +33,18 @@ void Registers::copy(BANK_MODE new_mode) {
   }
   // if(new_mode != FIQ || current_mode != FIQ) return;
 
-  SPDLOG_DEBUG("copying {} into active bank", mode_map.at(new_mode));
+  // SPDLOG_DEBUG("copying {} into active bank", mode_map.at(new_mode));
 
-  SPDLOG_DEBUG("new mode: {}", (u8)new_mode);
+  // SPDLOG_DEBUG("new mode: {}", (u8)new_mode);
 
   switch (new_mode) {
     case USER:
     case SYSTEM: {
-      SPDLOG_DEBUG("user system path hit");
+      // SPDLOG_DEBUG("user system path hit");
       switch (current_mode) {
         case SUPERVISOR: {
           // SVC -> System/User
-          SPDLOG_DEBUG("B");
+          
           for (size_t i = 13; i < 15; i++) {
             svc_r[i] = r[i];
           }
@@ -56,7 +56,7 @@ void Registers::copy(BANK_MODE new_mode) {
         }
         case ABORT: {
           // ABT -> System/User
-          SPDLOG_DEBUG("C");
+          
           for (size_t i = 13; i < 15; i++) {
             abt_r[i] = r[i];
           }
@@ -69,7 +69,7 @@ void Registers::copy(BANK_MODE new_mode) {
         }
         case UNDEFINED: {
           // UND -> System/User
-          SPDLOG_DEBUG("D");
+          // SPDLOG_DEBUG("D");
           for (size_t i = 13; i < 15; i++) {
             und_r[i] = r[i];
           }
@@ -82,7 +82,6 @@ void Registers::copy(BANK_MODE new_mode) {
         }
         case FIQ: {
           // FIQ -> System/User
-          SPDLOG_DEBUG("reverse path hit");
           for (size_t i = 8; i < 15; i++) {  // save fiq 8 to 14 to its bank
             fiq_r[i] = r[i];
           }
@@ -143,7 +142,7 @@ void Registers::copy(BANK_MODE new_mode) {
           for (size_t i = 13; i < 15; i++) {
             svc_r[i] = r[i];
           }
-          // Save R8-R13 (shared by all modes except for FIQ (shared registers)
+
           for (size_t i = 8; i < 13; i++) {
             user_system_bank[i] = r[i];
           }
@@ -161,7 +160,7 @@ void Registers::copy(BANK_MODE new_mode) {
           for (size_t i = 13; i < 15; i++) {
             abt_r[i] = r[i];
           }
-          // Save R8-R13 (shared by all modes except for FIQ (shared registers)
+
           for (size_t i = 8; i < 13; i++) {
             user_system_bank[i] = r[i];
           }
@@ -179,7 +178,7 @@ void Registers::copy(BANK_MODE new_mode) {
           for (size_t i = 13; i < 15; i++) {
             und_r[i] = r[i];
           }
-          // Save R8-R13 (shared by all modes except for FIQ (shared registers)
+
           for (size_t i = 8; i < 13; i++) {
             user_system_bank[i] = r[i];
           }
@@ -197,7 +196,7 @@ void Registers::copy(BANK_MODE new_mode) {
           for (size_t i = 13; i < 15; i++) {
             irq_r[i] = r[i];
           }
-          // Save R8-R13 (shared by all modes except for FIQ (shared registers)
+
           for (size_t i = 8; i < 13; i++) {
             user_system_bank[i] = r[i];
           }
@@ -239,15 +238,12 @@ void Registers::copy(BANK_MODE new_mode) {
         }
         case SUPERVISOR: {
           // SVC -> IRQ
-          // svc_r[13] = r[13];
-          // svc_r[14] = r[14];
+          
           for (size_t i = 13; i < 15; i++) {
             svc_r[i] = r[i];
           }
 
-          // load IRQ values into current bank
-          // r[13] = irq_r[13];
-          // r[14] = irq_r[14];
+
           for (size_t i = 13; i < 15; i++) {
             r[i] = irq_r[i];
           }
@@ -262,9 +258,7 @@ void Registers::copy(BANK_MODE new_mode) {
             abt_r[i] = r[i];
           }
 
-          // load IRQ values into current bank
-          // r[13] = irq_r[13];
-          // r[14] = irq_r[14];
+
 
           for (size_t i = 13; i < 15; i++) {
             r[i] = irq_r[i];
@@ -274,8 +268,6 @@ void Registers::copy(BANK_MODE new_mode) {
         }
         case UNDEFINED: {
           // UND -> IRQ
-          // und_r[13] = r[13];
-          // und_r[14] = r[14];
 
           for (size_t i = 13; i < 15; i++) {
             und_r[i] = r[i];
@@ -577,6 +569,7 @@ void Registers::copy(BANK_MODE new_mode) {
     }
 
     default: {
+      fmt::println("tried to copy from bank: {:#x}", (u32)new_mode);
       assert(0);
     }
   }
