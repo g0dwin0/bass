@@ -323,7 +323,6 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       case TST: {
         instr.func_ptr = ARM::Instructions::TST;
         instr.mnemonic = fmt::format("tst{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
-
         break;
       }
       case TEQ: {
@@ -378,7 +377,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     // fmt::println("Data Processing (shift value is a register)");
     u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
     instr.Rd     = (instr.opcode & 0xf000) >> 12;
-    instr.S      = (instr.opcode & 0x100000) ? 1 : 0;
+    instr.S      = (instr.opcode & (1 << 20)) ? 1 : 0;
     instr.Rm     = instr.opcode & 0xf;
     instr.Rn     = (instr.opcode & 0xf0000) >> 16;
     instr.Rs     = (instr.opcode & 0xf00) >> 8;
@@ -390,9 +389,9 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     std::string_view shift_string = get_shift_type_string(instr.shift_type);
 
     // Should be impossible.
-    instr.I = (instr.opcode & 0x2000000) != 0 ? 1 : 0;
-
-    if (instr.I == 1) throw std::runtime_error("I was set in register shift");
+    instr.I = (instr.opcode & (1 << 25)) != 0 ? 1 : 0;
+  
+    assert(instr.I == 0);
 
     switch (o_opcode) {
       case AND: {
@@ -410,7 +409,6 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
         break;
       }
       case RSB: {
-        // assert(0);
         instr.func_ptr = ARM::Instructions::RSB;
         instr.mnemonic = fmt::format("rsb{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
         break;

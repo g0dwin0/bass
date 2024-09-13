@@ -146,9 +146,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
 
     instr.Rn = instr.Rd;
     instr.Rm = instr.Rs;
-    // instr.SHIFT = true;
     instr.S = true;
-    // instr.shift_amount =
 
     u8 op = (instr.opcode & 0x3c0) >> 6;
 
@@ -219,6 +217,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
         instr.I        = true;
         instr.imm      = 0;
         instr.rotate   = 0;
+        instr.Rn = instr.Rm;
         instr.mnemonic = fmt::format("neg r{}, r{}", +instr.Rd, +instr.Rs);
         // assert(0);
         break;
@@ -270,7 +269,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
     instr.Rd = ((instr.opcode & 1 << 7) ? 8 : 0) + (instr.opcode & 0b111);  // MSBd
     instr.Rs = ((instr.opcode & 1 << 6) ? 8 : 0) + ((instr.opcode & 0b111000) >> 3);
     // instr.offset = 0xFF;
-    instr.S = true;
+    // instr.S = true;
 
     instr.Rm = instr.Rs;
 
@@ -309,93 +308,6 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
     // assert(0);
     return instr;
   }
-
-  if ((instr.opcode & 0xf000) == 0xa000) {  // get relative address
-    // fmt::println("get relative address");
-    u8 opcode = (instr.opcode & (1 << 11)) >> 11;
-    // fmt::println("opcode:{}", opcode);
-    instr.Rd = (instr.opcode & 0x700) >> 8;
-
-    instr.op2        = (instr.opcode & 0xff) * 4;
-    instr.shift_type = LSL;
-
-    // instr.SHIFT = true;
-    // instr.I     = 1;
-    // instr.imm =
-
-    switch (opcode) {
-      case 0: {
-        instr.func_ptr = ARM::Instructions::ADD;
-        instr.Rn       = 15;
-        instr.mnemonic = fmt::format("add r{}, PC, #${:#x}", +instr.Rd, instr.op2);
-        // assert(0);
-        break;
-      }
-      case 1: {
-        instr.func_ptr = ARM::Instructions::ADD;
-        instr.Rn       = 13;
-        instr.mnemonic = fmt::format("add r{}, SP, #${:#x}", +instr.Rd, instr.op2);
-        break;
-      }
-    }
-
-    return instr;
-  }
-
-  if ((instr.opcode & 0xf000) == 0xd000) {  // (conditional branching)
-    SPDLOG_DEBUG("Bcc (conditional branching)");
-    u8 condition = (instr.opcode & 0b0000111100000000) >> 8;
-
-    instr.offset = ((instr.opcode & 0xff));
-    int x        = instr.offset;
-
-    if (x & 0x80) { x -= 0x100; }
-    x *= 2;
-
-    instr.offset = x;
-
-    instr.func_ptr = ARM::Instructions::B;
-    switch (condition) {
-      case 0x0: instr.condition = EQ; break;
-      case 0x1: instr.condition = NE; break;
-      case 0x2: instr.condition = CS; break;
-      case 0x3: instr.condition = CC; break;
-      case 0x4: instr.condition = MI; break;
-      case 0x5: instr.condition = PL; break;
-      case 0x6: instr.condition = VS; break;
-      case 0x7: instr.condition = VC; break;
-      case 0x8: instr.condition = HI; break;
-      case 0x9: instr.condition = LS; break;
-      case 0xA: instr.condition = GE; break;
-      case 0xB: instr.condition = LT; break;
-      case 0xC: instr.condition = GT; break;
-      case 0xD: instr.condition = LE; break;
-      case 0xE: instr.condition = AL; break;
-      case 0xF: instr.condition = AL; break;
-      default: assert(0);
-    }
-    instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + instr.offset + 2);
-    return instr;
-  }
-
-  if ((instr.opcode & 0xf800) == 0xe000) {  // unconditional branch
-    SPDLOG_DEBUG("(unconditional) B");
-    instr.offset = (instr.opcode & 0x7ff);
-
-    int x = instr.offset;
-
-    if (x & 0x400) { x -= 0x800; }
-
-    x *= 2;
-
-    instr.offset = x;
-
-    instr.func_ptr = ARM::Instructions::B;
-    instr.mnemonic = fmt::format("b #{:#x}", regs.r[15] + instr.offset + 2);
-
-    return instr;
-  }
-
   if ((instr.opcode & 0xf800) == 0x4800) {  // LDR PC relative
     SPDLOG_DEBUG("LDR (PC-relative)");
     instr.Rd          = (instr.opcode & 0x700) >> 8;
@@ -412,7 +324,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
     // assert(0);
   }
 
-  // 0101011000000000
+
   if ((instr.opcode & 0xf600) == 0x5200 || (instr.opcode & 0xf600) == 0x5600) {  // LDRH, STRH (register offset)
     SPDLOG_DEBUG("LDRH, STRH (register offset)");
     instr.Rd = instr.opcode & 0x7;
@@ -510,8 +422,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
     // assert(0);
   }
 
-  // 0111000000000000
-  if ((instr.opcode & 0xf000) == 0x6000 || (instr.opcode & 0xf000) == 0x7000) {  // LDR, STR (immediate offset)
+  if ((instr.opcode & 0xf000) == 0x6000 || (instr.opcode & 0xf000) == 0x7000) {  // LDR, STR / B (immediate offset)
     // instr.mnemonic
     u8 opcode    = (instr.opcode & 0b1100000000000) >> 11;
     instr.Rd     = instr.opcode & 0b111;
@@ -588,7 +499,6 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
     return instr;
   }
 
-  // 1001000000000000
   if ((instr.opcode & 0xf000) == 0x9000) {  // LDR, STR (SP-relative)
     u8 opcode    = (instr.opcode & (1 << 11)) >> 11;
     instr.Rd     = (instr.opcode & 0b11100000000) >> 8;
@@ -621,8 +531,36 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
   }
 
   if ((instr.opcode & 0xf000) == 0xa000) {  // ADD (SP or PC) aka Load Address
-    assert(0 && " ADD (SP or PC) aka Load Address");
+    u8 opcode = (instr.opcode & (1 << 11)) >> 11;
+    // fmt::println("opcode:{}", opcode);
+    instr.Rd = (instr.opcode & 0x700) >> 8;
+
+    instr.op2        = (instr.opcode & 0xff) * 4;
+    instr.shift_type = LSL;
+
+    // instr.SHIFT = true;
+    // instr.I     = 1;
+    // instr.imm =
+
+    switch (opcode) {
+      case 0: {
+        instr.func_ptr = ARM::Instructions::ADD;
+        instr.Rn       = 15;
+        instr.mnemonic = fmt::format("add r{}, PC, #${:#x}", +instr.Rd, instr.op2);
+        // assert(0);
+        break;
+      }
+      case 1: {
+        instr.func_ptr = ARM::Instructions::ADD;
+        instr.Rn       = 13;
+        instr.mnemonic = fmt::format("add r{}, SP, #${:#x}", +instr.Rd, instr.op2);
+        break;
+      }
+    }
+
+    return instr;
   }
+
 
   if ((instr.opcode & 0xff00) == 0xb000) {  // ADD, SUB (SP)
     // assert(0 && "ADD, SUB (SP)");
@@ -644,6 +582,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
 
     return instr;
   }
+  
   if ((instr.opcode & 0xf600) == 0xb400) {  // POP PUSH
     SPDLOG_DEBUG("PUSH, POP");
 
@@ -716,8 +655,66 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
   }
 
   if ((instr.opcode & 0xff00) == 0xdf00) {  // SWI
-    SPDLOG_DEBUG("SWI");
-    assert(0);
+    SPDLOG_DEBUG("SWI - {:#08x}", instr.opcode & 0xff);
+
+    instr.mnemonic = fmt::format("swi #{:#x}", instr.opcode & 0xff);
+    instr.func_ptr = ARM::Instructions::SWI;
+
+    // assert(0);
+    return instr;
+  }
+
+  if ((instr.opcode & 0xf000) == 0xd000) {  // (conditional branching)
+    SPDLOG_DEBUG("Bcc (conditional branching)");
+    u8 condition = (instr.opcode & 0b0000111100000000) >> 8;
+
+    instr.offset = ((instr.opcode & 0xff));
+    int x        = instr.offset;
+
+    if (x & 0x80) { x -= 0x100; }
+    x *= 2;
+
+    instr.offset = x;
+
+    instr.func_ptr = ARM::Instructions::B;
+    switch (condition) {
+      case 0x0: instr.condition = EQ; break;
+      case 0x1: instr.condition = NE; break;
+      case 0x2: instr.condition = CS; break;
+      case 0x3: instr.condition = CC; break;
+      case 0x4: instr.condition = MI; break;
+      case 0x5: instr.condition = PL; break;
+      case 0x6: instr.condition = VS; break;
+      case 0x7: instr.condition = VC; break;
+      case 0x8: instr.condition = HI; break;
+      case 0x9: instr.condition = LS; break;
+      case 0xA: instr.condition = GE; break;
+      case 0xB: instr.condition = LT; break;
+      case 0xC: instr.condition = GT; break;
+      case 0xD: instr.condition = LE; break;
+      case 0xE: instr.condition = AL; break;
+      case 0xF: instr.condition = AL; break;
+      default: assert(0);
+    }
+    instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + instr.offset + 2);
+    return instr;
+  }
+
+  if ((instr.opcode & 0xf800) == 0xe000) {  // unconditional branch
+    SPDLOG_DEBUG("(unconditional) B");
+    instr.offset = (instr.opcode & 0x7ff);
+
+    int x = instr.offset;
+
+    if (x & 0x400) { x -= 0x800; }
+
+    x *= 2;
+
+    instr.offset = x;
+
+    instr.func_ptr = ARM::Instructions::B;
+    instr.mnemonic = fmt::format("b #{:#x}", regs.r[15] + instr.offset + 2);
+
     return instr;
   }
 
