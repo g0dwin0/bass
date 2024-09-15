@@ -4,7 +4,7 @@
 #include <unordered_map>
 
 #include "common.hpp"
-#include "spdlog/spdlog.h"
+
 
 enum BANK_MODE : u8 { USER = 0x10, FIQ = 0x11, IRQ = 0x12, SUPERVISOR = 0x13, ABORT = 0x17, UNDEFINED = 0x1B, SYSTEM = 0x1F };
 

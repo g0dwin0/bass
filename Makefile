@@ -5,7 +5,7 @@ OBJS_IMGUI = $(OBJ_IMGUI_PATH)/imgui_demo.o $(OBJ_IMGUI_PATH)/imgui_draw.o $(OBJ
 OBJS = $(OBJ_DIR)/main.o $(OBJ_DIR)/frontend.o $(OBJ_DIR)/file_dialog.o $(OBJ_DIR)/pak.o $(OBJ_DIR)/bass.o $(OBJ_DIR)/cpu.o $(OBJ_DIR)/arm.o $(OBJ_DIR)/bus.o $(OBJ_DIR)/ppu.o $(OBJ_DIR)/registers.o 
 CC=g++
 # CPPFLAGS += -fsanitize=undefined,address -D_GLIBCXX_DEBUG
-# CPPFLAGS += -O2
+CPPFLAGS += -O2
 
 
 PROJ_NAME = bass
@@ -22,7 +22,7 @@ $(OBJ_DIR)/main.o: src/main.cpp include/common.hpp
 $(OBJ_DIR)/bass.o: src/core/bass.cpp include/core/bass.hpp
 	$(CC) $(CPPFLAGS) -c src/core/bass.cpp -o $(OBJ_DIR)/bass.o
 
-$(OBJ_DIR)/cpu.o: src/core/cpu.cpp include/core/cpu.hpp include/core/instructions/instruction.hpp src/core/shifter.cpp src/core/decode/arm.cpp src/core/decode/thumb.cpp 
+$(OBJ_DIR)/cpu.o: src/core/cpu.cpp include/core/cpu.hpp include/core/instructions/instruction.hpp src/core/shifter.cpp src/core/decode/arm_logic.cpp src/core/decode/thumb_logic.cpp 
 	$(CC) $(CPPFLAGS) -c src/core/cpu.cpp -o $(OBJ_DIR)/cpu.o
 
 $(OBJ_DIR)/registers.o: include/core/registers.hpp src/core/registers.cpp

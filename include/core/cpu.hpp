@@ -5,7 +5,24 @@
 #include "instructions/instruction.hpp"
 #include "registers.hpp"
 
-enum DATA_PROCESSING_OPS { AND, EOR, SUB, RSB, ADD, ADC, SBC, RSC, TST, TEQ, CMP, CMN, ORR, MOV, BIC, MVN };
+enum DATA_PROCESSING_OPS {
+  AND = 0x0,
+  EOR = 0x1,
+  SUB = 0x2,
+  RSB = 0x3,
+  ADD = 0x4,
+  ADC = 0x5,
+  SBC = 0x6,
+  RSC = 0x7,
+  TST = 0x8,
+  TEQ = 0x9,
+  CMP = 0xA,
+  CMN = 0xB,
+  ORR = 0xC,
+  MOV = 0xD,
+  BIC = 0xE,
+  MVN = 0xF,
+};
 enum DATA_PROCESSING_MODE { IMMEDIATE, REGISTER_SHIFT, IMMEDIATE_SHIFT };
 enum BOUNDARY { HALFWORD, WORD };
 struct ARM7TDMI {
@@ -18,7 +35,7 @@ struct ARM7TDMI {
     ASR,
     ROR,
   };
-  enum SHIFT_TYPE { REGISTER_SHIFT, IMMEDIATE_SHIFT };
+  // enum SHIFT_TYPE { REGISTER_SHIFT, IMMEDIATE_SHIFT };
   Bus* bus = nullptr;
 
   struct Pipeline {
@@ -44,10 +61,8 @@ struct ARM7TDMI {
 
   void print_registers();
 
-  void handle_data_processing(DATA_PROCESSING_MODE m, instruction_info& instr);
   [[nodiscard]] std::string_view get_shift_type_string(u8 shift_type);
   [[nodiscard]] u32 shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool never_rrx = false, bool affect_flags = true);
-
 
   inline void set_zero() { regs.CPSR.ZERO_FLAG = 1; };
   inline void reset_zero() { regs.CPSR.ZERO_FLAG = 0; };
@@ -61,6 +76,6 @@ struct ARM7TDMI {
   inline void set_overflow() { regs.CPSR.OVERFLOW_FLAG = 1; };
   inline void reset_overflow() { regs.CPSR.OVERFLOW_FLAG = 0; };
 
-  [[nodiscard]] u32 handle_shifts(instruction_info& instr);
+  [[nodiscard]] u32 handle_shifts(instruction_info& instr, bool affect_flags = true);
   [[nodiscard]] u32 align_address(u32 address, BOUNDARY b);
 };

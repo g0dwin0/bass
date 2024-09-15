@@ -8,6 +8,8 @@
 #include "common.hpp"
 #include "imgui.h"
 
+// TODO: add breakpoints in debugger
+
 struct State {
   SDL_Texture* ppu_texture = nullptr;
   u32* frame_buf_ptr       = nullptr;

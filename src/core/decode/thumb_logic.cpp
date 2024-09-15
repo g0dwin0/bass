@@ -622,7 +622,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
   }
 
   if ((instr.opcode & 0xf000) == 0xc000) {  // LDM, STM
-    SPDLOG_DEBUG("LDM, STM");
+    // SPDLOG_DEBUG("LDM, STM");
 
     u8 is_ldm = (instr.opcode & (1 << 11)) ? 1 : 0;
 
@@ -665,7 +665,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
   }
 
   if ((instr.opcode & 0xf000) == 0xd000) {  // (conditional branching)
-    SPDLOG_DEBUG("Bcc (conditional branching)");
+    // SPDLOG_DEBUG("Bcc (conditional branching)");
     u8 condition = (instr.opcode & 0b0000111100000000) >> 8;
 
     instr.offset = ((instr.opcode & 0xff));

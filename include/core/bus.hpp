@@ -343,6 +343,7 @@ struct Bus {
         u16                        : 16;
       };
     } WAITCNT;
+u32 sound_bias = 0;
 
   } system_control;
 

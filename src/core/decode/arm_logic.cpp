@@ -333,7 +333,6 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       case CMP: {
         instr.func_ptr = ARM::Instructions::CMP;
         instr.mnemonic = fmt::format("cmp{} r{},r{}, r{} {} #{:#x}", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
-
         break;
       }
       case CMN: {
@@ -344,6 +343,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
         instr.mnemonic = fmt::format("orr{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        instr.print_params();
         break;
       }
       case MOV: {
@@ -450,7 +450,8 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       }
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
-        instr.mnemonic = fmt::format("orr{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
+        instr.mnemonic = fmt::format("orr{}{} r{}, r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, +instr.Rm,  shift_string, +instr.Rs);
+        // assert(0);
         break;
       }
       case MOV: {
@@ -714,7 +715,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
     // instr.mnemonic = fmt::format("swi #{:#010x}", (instr.opcode & 0xff0000) >> 16);
     // instr.func_ptr = ARM::Instructions::SWI;
-    fmt::println("failed on {} - SWI number: {:#02x}", regs.r[0], (instr.opcode & 0xff0000) >> 16);
+    fmt::println("failed on {} - SWI number: {:#02x} [{:#010x}]", regs.r[0], (instr.opcode & 0xff0000) >> 16, instr.loc);
 
     assert(0);
 

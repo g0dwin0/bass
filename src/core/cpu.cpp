@@ -1,12 +1,15 @@
 #include "core/cpu.hpp"
 
 #include <cstdlib>
+#include <unordered_map>
 
-#include "decode/arm.cpp"
-#include "decode/thumb.cpp"
+#include "common.hpp"
+#include "decode/arm_logic.cpp"
+#include "decode/thumb_logic.cpp"
 #include "instructions/instruction.hpp"
 #include "registers.hpp"
 #include "shifter.cpp"
+#include "spdlog/common.h"
 #include "spdlog/spdlog.h"
 
 ARM7TDMI::ARM7TDMI() {
@@ -15,7 +18,7 @@ ARM7TDMI::ARM7TDMI() {
 }
 void ARM7TDMI::flush_pipeline() {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
-    SPDLOG_DEBUG("[ARM] flushing");
+    // SPDLOG_DEBUG("[ARM] flushing");
     // InstructionInfo f;
     instruction_info d;
     instruction_info e;
@@ -33,9 +36,9 @@ void ARM7TDMI::flush_pipeline() {
     pipeline.decode = decode(e);
 
     regs.r[15] += 4;
-    SPDLOG_DEBUG("[ARM] flushed");
+    // SPDLOG_DEBUG("[ARM] flushed");
   } else {
-    SPDLOG_DEBUG("[THUMB] flushing");
+    // SPDLOG_DEBUG("[THUMB] flushing");
     instruction_info d;
     instruction_info e;
     regs.r[15] = align_address(regs.r[15], HALFWORD);
@@ -65,21 +68,23 @@ u32 ARM7TDMI::align_address(u32 address, BOUNDARY b) {
   }
 }
 
-u32 ARM7TDMI::handle_shifts(instruction_info& instr) {
+u32 ARM7TDMI::handle_shifts(instruction_info& instr, bool affects_flags) {
   u8 add_amount = 0;
   if (instr.I == 0) {
     if (instr.shift_value_is_register) {
+      // fmt::println("SHIFT VALUE IS REGISTER! Operand r{} (Rm) - r{} (Rs) [{:#010x}]", +instr.Rm, +instr.Rs, regs.r[instr.Rs] & 0xff);
+      instr.print_params();
+
       if (instr.Rs == instr.Rm) { add_amount += 4; }
       if (instr.Rm == 15) { add_amount += 4; }
-      // fmt::println("SHIFT VALUE IS REGISTER! Operand r{} - r{} []", +instr.Rm, +instr.Rs, regs.r[instr.Rs] & 0xff);
       return shift((ARM7TDMI::SHIFT_MODE)instr.shift_type,
                    regs.r[instr.Rm] + add_amount,  // PC reads as PC+12 (PC already reads
                                                    // +8) when used as shift register
-                   regs.r[instr.Rs] & 0xff, false);
+                   regs.r[instr.Rs] & 0xff, false, true, affects_flags);
     } else {
       // if (instr.Rm == 15) { add_amount += 4; }
       // SPDLOG_DEBUG("immediate shift: {} on {:#x}", instr.shift_amount, regs.r[instr.Rm]);
-      return shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, regs.r[instr.Rm] + add_amount, instr.shift_amount, true);
+      return shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, regs.r[instr.Rm] + add_amount, instr.shift_amount, true, false, affects_flags);
     }
   }
 
@@ -234,6 +239,14 @@ void ARM7TDMI::print_registers() {
   fmt::println("r14: {:#010x}", regs.r[14]);
   fmt::println("r15: {:#010x}\n", regs.r[15]);
 }
+
+
+std::unordered_map<u8, std::string_view> shift_string_map = {
+  {0, "LSL"},
+  {1, "LSR"},
+  {2, "ASR"},
+  {3, "ROR"},
+};
 
 std::string_view ARM7TDMI::get_shift_type_string(u8 shift_type) {
   assert(shift_type < 4);

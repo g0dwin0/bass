@@ -1,6 +1,8 @@
 #include <stdexcept>
 
 #include "core/cpu.hpp"
+#include "spdlog/common.h"
+#include "spdlog/spdlog.h"
 
 u32 asr(u32 x, u32 shift) {
   u32 signBit = x & 0x80000000;
@@ -39,10 +41,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
       }
 
       u32 s_m = (value << amount);
-      // fmt::println("s_m = {:#010x}", s_m);
-      (value & (1 << (32 - amount))) != 0 ? set_carry() : reset_carry();
-
-      SPDLOG_DEBUG("performed LSL with value: {:#010x}, by LSL'd by amount: {} result: {:#010x}", value, amount, s_m);
+      if(affect_flags) { (value & (1 << (32 - amount))) != 0 ? set_carry() : reset_carry(); }
       return s_m;
     }
     case LSR: {
@@ -78,14 +77,14 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
         return ret_val;
       }
 
-      if(amount >= 32) {
+      if (amount >= 32) {
         u32 ret_val = (value & 1 << 31) ? 0xFFFFFFFF : 0x00000000;
 
         if (affect_flags) { (value & (1 << 31)) != 0 ? set_carry() : reset_carry(); }
 
         return ret_val;
       }
-      
+
       if (amount == 0) return value;
 
       u32 m = asr(value, amount);
@@ -98,8 +97,8 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
     }
     case ROR: {
       if (amount == 0 && !special) return value;
-
       bool is_rrx = false;
+      // fmt::println("ROR 3");
       if (amount == 0 && special && !never_rrx) {
         SPDLOG_DEBUG("IS RRX!");
         is_rrx = true;
@@ -107,11 +106,9 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
       }
 
       if (amount > 32) amount %= 32;
-
       u32 r = std::rotr(static_cast<u32>(value), amount);
 
-      SPDLOG_DEBUG("performed ROR with value: {:#010x}, by ROR'd by amount: {} result: {:#010x}", value, amount, r);
-
+      SPDLOG_DEBUG("performed ROR with value: {:#010x}, by ROR'd by amount: {:#010x} result: {:#010x} - setting carry: {} - RRX?: {}", value, amount, r, (value & (1 << (amount - 1))), is_rrx);
       if (is_rrx) {  // RRX
 
         r &= ~(1 << 31);
@@ -121,8 +118,10 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
         if (affect_flags) { (value & 1) == 1 ? set_carry() : reset_carry(); }
         return r;
       }
-
-      if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
+      if (affect_flags) {
+        (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry();
+        SPDLOG_DEBUG("NEW CARRY: {}", +regs.CPSR.CARRY_FLAG);
+      }
 
       return r;
     }

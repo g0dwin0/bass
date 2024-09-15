@@ -1,12 +1,14 @@
 #pragma once
-#include "spdlog/fmt/fmt.h"
+
+#include <limits>
 #define FMT_HEADER_ONLY
 #define CONCAT(x, y) x##y
 #define EXPAND(x, y) CONCAT(x, y)
 #define RESERVED EXPAND(reserved, __LINE__)
 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
-
+#include "spdlog/fmt/fmt.h"
+#include "spdlog/spdlog.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -15,6 +17,7 @@
 #include <iterator>
 #include <vector>
 
+// Type Defs
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -24,6 +27,12 @@ typedef int8_t s8;
 typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
+
+// Max Values
+#define U8_MAX std::numeric_limits<u8>::max()
+#define U16_MAX std::numeric_limits<u16>::max()
+#define U32_MAX std::numeric_limits<u32>::max()
+#define U64_MAX std::numeric_limits<u64>::max()
 
 inline std::vector<u8> read_file(std::string_view filename) {
   std::ifstream file(filename.data(), std::ios::binary);
