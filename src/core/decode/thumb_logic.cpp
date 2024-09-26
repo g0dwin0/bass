@@ -224,6 +224,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
       }
       case 0xA: {
         instr.func_ptr = ARM::Instructions::CMP;
+        SPDLOG_TRACE("HI!");
         instr.mnemonic = fmt::format("cmp r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
@@ -286,6 +287,7 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::CMP;
+        instr.Rn = instr.Rd;
         instr.mnemonic = fmt::format("cmp r{}, r{}", +instr.Rd, +instr.Rs);
         // fmt::println("{}", instr.mnemonic);
         break;
@@ -535,25 +537,26 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
     // fmt::println("opcode:{}", opcode);
     instr.Rd = (instr.opcode & 0x700) >> 8;
 
-    instr.op2        = (instr.opcode & 0xff) * 4;
+    instr.imm        = (instr.opcode & 0xff) * 4;
     instr.shift_type = LSL;
 
     // instr.SHIFT = true;
     // instr.I     = 1;
     // instr.imm =
-
+instr.I = 1;
     switch (opcode) {
       case 0: {
         instr.func_ptr = ARM::Instructions::ADD;
         instr.Rn       = 15;
-        instr.mnemonic = fmt::format("add r{}, PC, #${:#x}", +instr.Rd, instr.op2);
+        instr.mnemonic = fmt::format("add r{}, PC, #${:#x}", +instr.Rd, instr.imm);
         // assert(0);
         break;
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::ADD;
         instr.Rn       = 13;
-        instr.mnemonic = fmt::format("add r{}, SP, #${:#x}", +instr.Rd, instr.op2);
+        instr.mnemonic = fmt::format("add r{}, SP, #${:#x}", +instr.Rd, instr.imm);
+        
         break;
       }
     }
@@ -655,10 +658,12 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
   }
 
   if ((instr.opcode & 0xff00) == 0xdf00) {  // SWI
-    SPDLOG_DEBUG("SWI - {:#08x}", instr.opcode & 0xff);
+    // SPDLOG_DEBUG("SWI - {:#08x}", instr.opcode & 0xff);
 
     instr.mnemonic = fmt::format("swi #{:#x}", instr.opcode & 0xff);
     instr.func_ptr = ARM::Instructions::SWI;
+
+    // fmt::println("{}", instr.mnemonic);
 
     // assert(0);
     return instr;
@@ -744,8 +749,9 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
     // assert(0);
   }
 
-  SPDLOG_DEBUG("[THUMB] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
-  assert(0);
+  // SPDLOG_DEBUG("[THUMB] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
+  // fmt::println("[THUMB] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
+  // exit(0);
   //
   // Implement THUMB instructions
   return instr;

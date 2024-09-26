@@ -61,6 +61,7 @@ u8 Bus::read8(u32 address) {
     }
 
     case 0x06000000 ... 0x6FFFFFF: {
+      return 0x0;
       assert(0);
       break;
     }
@@ -119,15 +120,11 @@ u16 Bus::read16(u32 address, bool quiet) {
 
     case 0x05000000 ... 0x050003FF: {
       // BG/OBJ Palette RAM
-      // v = shift_16(PALETTE_RAM, address - 0x05000000);
-      return *(uint16_t*)(&PALETTE_RAM.data()[address - 0x05000000]);
-      break;
+      return *(uint16_t*)(&PALETTE_RAM.data()[address % 0x400]);
     }
 
-    case 0x06000000 ... 0x06017FFF: {
-      return *(uint16_t*)(&VRAM.data()[address - 0x06000000]);
-      // assert(0);
-      break;
+    case 0x06000000 ... 0X06017FFF: {
+      return *(uint16_t*)(&VRAM.data()[(address - 0x06000000)]);
     }
 
     case 0x08000000 ... 0x09FFFFFF: {
@@ -190,8 +187,8 @@ u32 Bus::read32(u32 address) {
       break;
     }
 
-    case 0x06000000 ... 0x06017FFF: {
-      assert(0);
+    case 0x06000000 ... 0x06FFFFFF: {
+      v = *(uint32_t*)(&VRAM.data()[address % 0x20000]);
       break;
     }
 
@@ -226,7 +223,7 @@ u32 Bus::read32(u32 address) {
     }
   }
 
-  // SPDLOG_DEBUG("[R32] {} => {:#010x}", get_label(address), v);
+  SPDLOG_DEBUG("[R32] {} => {:#010x}", get_label(address), v);
   return v;
 };
 
@@ -313,13 +310,7 @@ void Bus::write16(const u32 address, u16 value) {
     }
 
     case 0x06000000 ... 0x06017FFF: {
-      // VRAM
-      set16(VRAM, address - 0x06000000, value);
-      // if(value != 0) {SPDLOG_INFO("[W16] {:#x} => {:#x}", address, value); assert(0);}
-      // assert(0);
-
-      // fmt::println("writing to VRAM");
-      // assert(0);
+      *(uint16_t*)(&VRAM.data()[address % 0x18000]) = value;
       break;
     }
 
@@ -453,7 +444,7 @@ u32 Bus::handle_io_read(u32 address) {
     case POSTFLG: break;
     case HALTCNT: break;
     default: {
-      SPDLOG_DEBUG("misaligned/partial read {:#08x}", address);
+      fmt::println("misaligned/partial read {:#08x}", address);
       assert(0);
     }
   }
@@ -600,9 +591,9 @@ void Bus::write32(const u32 address, u32 value) {
       break;
     }
 
-    case 0x06000000 ... 0x06017FFF: {
+    case 0x06000000 ... 0x06017FFF   : {
       // VRAM
-      set32(VRAM, address - 0x06000000, value);
+      *(uint32_t*)(&VRAM.data()[(address % 0x18000)]) = value;
       break;
     }
 

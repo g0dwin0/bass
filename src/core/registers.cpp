@@ -583,7 +583,7 @@ void Registers::load_spsr_to_cpsr() {
 
   BANK_MODE new_mode = ((BANK_MODE)((get_spsr(l) & 0x1f) | 0x10));
 
-  fmt::println("new mode: {:#x}", (u8)new_mode);
+  // fmt::println("new mode: {:#x}", (u8)new_mode);
   copy(new_mode);
   switch (CPSR.MODE_BITS) {
     case USER:

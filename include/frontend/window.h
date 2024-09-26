@@ -21,6 +21,7 @@ struct State {
   bool cpu_info_open        = true;
   bool ppu_info_open        = true;
   bool controls_window_open = true;
+    bool halted = false;
 
   ImGuiIO* io = nullptr;
 };

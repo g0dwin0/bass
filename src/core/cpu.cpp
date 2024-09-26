@@ -18,7 +18,7 @@ ARM7TDMI::ARM7TDMI() {
 }
 void ARM7TDMI::flush_pipeline() {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
-    // SPDLOG_DEBUG("[ARM] flushing");
+    SPDLOG_DEBUG("[ARM] flushing");
     // InstructionInfo f;
     instruction_info d;
     instruction_info e;
@@ -36,9 +36,9 @@ void ARM7TDMI::flush_pipeline() {
     pipeline.decode = decode(e);
 
     regs.r[15] += 4;
-    // SPDLOG_DEBUG("[ARM] flushed");
+    SPDLOG_DEBUG("[ARM] flushed");
   } else {
-    // SPDLOG_DEBUG("[THUMB] flushing");
+    SPDLOG_DEBUG("[THUMB] flushing");
     instruction_info d;
     instruction_info e;
     regs.r[15] = align_address(regs.r[15], HALFWORD);
@@ -88,10 +88,11 @@ u32 ARM7TDMI::handle_shifts(instruction_info& instr, bool affects_flags) {
     }
   }
 
-  // SPDLOG_DEBUG("immediate value rotate before: {}", instr.imm);
   if (instr.S) {
+  // SPDLOG_DEBUG("immediate value rotate before: {}", instr.imm);
     return shift(ROR, instr.imm, instr.rotate * 2, false, true);
   } else {
+    SPDLOG_DEBUG("rot val: {:#x}", std::rotr(instr.imm, instr.rotate * 2));
     return std::rotr(instr.imm, instr.rotate * 2);
   }
 }

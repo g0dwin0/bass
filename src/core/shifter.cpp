@@ -62,7 +62,9 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
         }
       }
 
+
       u32 s_m = (value >> amount);
+            SPDLOG_DEBUG("performed LSR with value: {:#010x}, by LSR'd by amount: {} result: {:#010x} - setting flag?: {}", value, amount, s_m, (value & (1 << (amount - 1))) != 0);
 
       if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
 

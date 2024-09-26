@@ -151,6 +151,8 @@ void Frontend::show_cpu_info() {
   ImGui::Text("KEYINPUT: 0x%02x\n", bass->bus.keypad_input.KEYINPUT.v);
 
   if (ImGui::Button("STEP")) { bass->cpu.step(); }
+  if (ImGui::Button("UNHALT")) { state.halted = false; }
+
   ImGui::End();
 }
 void Frontend::show_ppu_info() {

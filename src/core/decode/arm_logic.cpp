@@ -460,7 +460,8 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
         break;
       }
       case BIC: {
-        assert(0);
+        instr.func_ptr = ARM::Instructions::BIC;
+        instr.mnemonic = fmt::format("bic{}{} r{}, r{}, {} r{} [{}]", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, +instr.Rs, shift_amount);
         break;
       }
       case MVN: {

@@ -42,8 +42,8 @@ struct Bus {
   u32 handle_io_read(u32 address);
   void handle_io_write(u32 address, u32 value);
 
-  [[nodiscard]]u16 shift_16(const std::vector<u8>& vec, const u32 address);
-  [[nodiscard]]u32 shift_32(const std::vector<u8>& vec, const u32 address);
+  [[nodiscard]] u16 shift_16(const std::vector<u8>& vec, const u32 address);
+  [[nodiscard]] u32 shift_32(const std::vector<u8>& vec, const u32 address);
 
   struct {
     union {
