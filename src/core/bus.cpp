@@ -6,42 +6,12 @@
 #include "spdlog/common.h"
 #include "spdlog/spdlog.h"
 
-u16 Bus::shift_16(const std::vector<u8>& vec, const u32 address) { return (vec.at(address + 1) << 8) + (vec.at(address)); }
-u32 Bus::shift_32(const std::vector<u8>& vec, const u32 address) { return ((vec.at(address + 3) << 24) + (vec.at(address + 2) << 16) + (vec.at(address + 1) << 8) + (vec.at(address))); }
-// 0011001100100000
-std::array<uint8_t, 2> u16_to_u8s(u32 input) {
-  return {
-      static_cast<uint8_t>(input & 0xFF),
-      static_cast<uint8_t>((input >> 8) & 0xFF),
-  };
-}
-std::array<uint8_t, 4> u32_to_u8s(uint32_t input) {
-  return {static_cast<uint8_t>(input & 0xFF), static_cast<uint8_t>((input >> 8) & 0xFF), static_cast<uint8_t>((input >> 16) & 0xFF), static_cast<uint8_t>((input >> 24) & 0xFF)};
-}
-
-void Bus::set16(std::vector<u8>& vec, u32 address, u16 value) {
-  std::array<u8, 2> v = u16_to_u8s(value);
-
-  for (size_t i = 0; i < 2; i++) {
-    vec[address + i] = v[i];
-  }
-}
-void Bus::set32(std::vector<u8>& vec, u32 address, u32 value) {
-  std::array<u8, 4> v = u32_to_u8s(value);
-
-  for (size_t i = 0; i < 4; i++) {
-    vec[address + i] = v[i];
-  }
-}
-
 u8 Bus::read8(u32 address) {
-  // fmt::println("[R8] {:#010x}", address);
-
   u32 v;
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      return shift_16(BIOS, address);
+      return BIOS.at(address);
     }
 
     case 0x02000000 ... 0x0203FFFF: {
@@ -99,17 +69,20 @@ u16 Bus::read16(u32 address, bool quiet) {
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      v = shift_16(BIOS, address);
+      return *(uint16_t*)(&BIOS.data()[address]);
+      // v = shift_16(BIOS, address);
       break;
     }
 
     case 0x02000000 ... 0x0203FFFF: {
-      v = shift_16(EWRAM, address - 0x02000000);
+      v = *(uint16_t*)(&EWRAM.data()[address - 0x02000000]);
+      // v = shift_16(EWRAM, address - 0x02000000);
       break;
     }
 
     case 0x03000000 ... 0x03007FFF: {
-      v = shift_16(IWRAM, address - 0x03000000);
+      v = *(uint16_t*)(&IWRAM.data()[address - 0x03000000]);
+      // v = shift_16(IWRAM, address - 0x03000000);
       break;
     }
 
@@ -130,19 +103,19 @@ u16 Bus::read16(u32 address, bool quiet) {
     case 0x08000000 ... 0x09FFFFFF: {
       // game pak read (ws0)
       // v = shift_16(pak->data, address - 0x08000000);
-      return *(uint16_t*)(&pak->data[address - 0x08000000]);
+      v = *(uint16_t*)(&pak->data[address - 0x08000000]);
       break;
     }
 
     case 0x0A000000 ... 0x0BFFFFFF: {
       // game pak read (ws1)
-      v = shift_16(pak->data, address - 0x0A000000);
+      v = *(uint16_t*)(&pak->data[address - 0x0A000000]);
       break;
     }
 
     case 0x0C000000 ... 0x0DFFFFFF: {
-      // game pak read (ws2)
-      v = shift_16(pak->data, address - 0x0C000000);
+      // game pak read (ws2);
+      v = *(uint16_t*)(&pak->data[address - 0x0C000000]);
       break;
     }
 
@@ -161,29 +134,33 @@ u32 Bus::read32(u32 address) {
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      v = shift_32(BIOS, address);
-
+      v = *(uint32_t*)(&BIOS.data()[address]);
+      // v = shift_32(BIOS, address);
       break;
     }
 
     case 0x02000000 ... 0x02FFFFFF: {
-      v = shift_32(EWRAM, address % 0x40000);
+      v = *(uint32_t*)(&EWRAM.data()[address % 0x40000]);
+      // v = shift_32(EWRAM, address % 0x40000);
       break;
     }
 
     case 0x03000000 ... 0x03FFFFFF: {
-      v = shift_32(IWRAM, address % 0x8000);
+      v = *(uint32_t*)(&IWRAM.data()[address % 0x8000]);
+      // v = shift_32(IWRAM, address % 0x8000);
       break;
     }
 
     case 0x04000000 ... 0x040003FE: {
+      assert(0);
       v = handle_io_read(address);
       break;
     }
 
     case 0x05000000 ... 0x05FFFFFF: {
       // BG/OBJ Palette RAM
-      v = shift_32(PALETTE_RAM, address % 0x400);
+      // v = shift_32(PALETTE_RAM, address % 0x400);
+      v = *(uint32_t*)(&PALETTE_RAM.data()[address % 0x400]);
       break;
     }
 
@@ -193,7 +170,8 @@ u32 Bus::read32(u32 address) {
     }
 
     case 0x07000000 ... 0x07FFFFFF: {
-      v = shift_32(OAM, address % 0x400);
+      // v = shift_32(OAM, address % 0x400);
+      v = *(uint32_t*)(&OAM.data()[address % 0x400]);
       break;
     }
 
@@ -207,13 +185,13 @@ u32 Bus::read32(u32 address) {
 
     case 0x0A000000 ... 0x0BFFFFFF: {
       // game pak read (ws1)
-      v = shift_32(pak->data, address - 0x0A000000);
+      v = *(uint32_t*)(&pak->data[address - 0xA8000000]);
       break;
     }
 
     case 0x0C000000 ... 0x0DFFFFFF: {
       // game pak read (ws2)
-      v = shift_32(pak->data, address - 0x0C000000);
+      v = *(uint32_t*)(&pak->data[address - 0x0C000000]);
       break;
     }
 
@@ -243,6 +221,8 @@ void Bus::write8(const u32 address, u8 value) {
 
     case 0x04000000 ... 0x040003FE: {
       // IO
+      handle_io_write(address, value);
+      // assert(0);
       // set32(IO, address - 0x04000000, value);
       break;
     }
@@ -286,26 +266,29 @@ void Bus::write8(const u32 address, u8 value) {
 void Bus::write16(const u32 address, u16 value) {
   switch (address) {
     case 0x02000000 ... 0x0203FFFF: {
-      set16(EWRAM, address - 0x02000000, value);
+      // set16(EWRAM, address - 0x02000000, value);
+      *(uint16_t*)(&EWRAM.data()[address - 0x02000000]) = value;
       break;
     }
 
     case 0x03000000 ... 0x03007FFF: {
-      set16(IWRAM, address - 0x03000000, value);
+      // set16(IWRAM, address - 0x03000000, value);
+      *(uint16_t*)(&IWRAM.data()[address - 0x03000000]) = value;
       break;
     }
 
     case 0x04000000 ... 0x040003FE: {
       // IO
-      handle_io_write(address, value);
-
-      // set16(IO, address - 0x04000000, value);
+      write8(address, value & 0xff);
+      write8(address + 1, ((value & 0xff00) >> 8));
+      return;
       break;
     }
 
     case 0x05000000 ... 0x050003FF: {
       // BG/OBJ Palette RAM
-      set16(PALETTE_RAM, address - 0x05000000, value);
+      // set16(PALETTE_RAM, address - 0x05000000, value);
+      *(uint16_t*)(&PALETTE_RAM.data()[address - 0x05000000]) = value;
       break; /*  */
     }
 
@@ -316,7 +299,8 @@ void Bus::write16(const u32 address, u16 value) {
 
     case 0x07000000 ... 0X070003FF: {
       // OAM
-      set16(OAM, address - 0x07000000, value);
+      // set16(OAM, address - 0x07000000, value);
+      *(uint16_t*)(&OAM.data()[address - 0x07000000]) = value;
       break;
     }
 
@@ -451,9 +435,9 @@ u32 Bus::handle_io_read(u32 address) {
   SPDLOG_DEBUG("[IO READ] {:#010X} => {:#08x}", address, retval);
   return retval;
 }
-void Bus::handle_io_write(u32 address, u32 value) {
-  auto r = (REG)address;
-  switch (r) {
+void Bus::handle_io_write(u32 address, u8 value) {
+  // auto r = (REG)address;
+  switch (address) {
     case DISPCNT: {
       display_fields.DISPCNT.v = value;
       break;
@@ -511,7 +495,9 @@ void Bus::handle_io_write(u32 address, u32 value) {
     case SOUNDCNT_L: SPDLOG_DEBUG("WRITING TO SOUNDCNT_L UNIMPL"); break;
     case SOUNDCNT_H: SPDLOG_DEBUG("WRITING TO SOUNDCNT_H UNIMPL"); break;
     case SOUNDCNT_X: SPDLOG_DEBUG("WRITING TO SOUNDCNT_X UNIMPL"); break;
-    case SOUNDBIAS: { system_control.sound_bias = value;} break;
+    case SOUNDBIAS: {
+      system_control.sound_bias = value;
+    } break;
     case WAVE_RAM: SPDLOG_DEBUG("WRITING TO WAVE_RAM UNIMPL"); break;
     case FIFO_A: SPDLOG_DEBUG("WRITING TO FIFO_A UNIMPL"); break;
     case FIFO_B: SPDLOG_DEBUG("WRITING TO FIFO_B UNIMPL"); break;
@@ -545,53 +531,70 @@ void Bus::handle_io_write(u32 address, u32 value) {
     case SIOMULTI3: SPDLOG_DEBUG("WRITING TO SIOMULTI3 UNIMPL"); break;
     case SIOCNT: SPDLOG_DEBUG("WRITING TO SIOCNT UNIMPL"); break;
     case SIOMLT_SEND: SPDLOG_DEBUG("WRITING TO SIOMLT_SEND UNIMPL"); break;
-    case KEYINPUT: {
-      // keypad_input.KEYINPUT.v = value;
-      break;
-    }
+    case KEYINPUT: break;
     case KEYCNT: SPDLOG_DEBUG("WRITING TO UINIMPL KEYCNT"); break;
     case RCNT: SPDLOG_DEBUG("WRITING TO UINIMPL RCNT"); break;
     case JOYCNT: SPDLOG_DEBUG("WRITING TO UINIMPL JOYCNT"); break;
     case JOY_RECV: SPDLOG_DEBUG("WRITING TO UINIMPL JOY_RECV"); break;
     case JOY_TRANS: SPDLOG_DEBUG("WRITING TO UINIMPL JOY_TRANS"); break;
     case JOYSTAT: SPDLOG_DEBUG("WRITING TO UINIMPL JOYSTAT"); break;
-    case IE: SPDLOG_DEBUG("WRITING TO UINIMPL IE"); break;
+    case IE: {
+      SPDLOG_DEBUG("WROTE {:#010x} to  IE - [{:#010x}]", value, address);
+      if (address % 2 == 0) {  // 1st byte
+        interrupt_control.IE.v &= ~0xFF;
+        interrupt_control.IE.v |= value;
+
+      } else {  // 2nd byte
+        interrupt_control.IE.v &= ~0xFF00;
+        interrupt_control.IE.v |= (value << 8);
+      }
+      break;
+    }
     case IF: SPDLOG_DEBUG("WRITING TO UINIMPL IF"); break;
     case WAITCNT: SPDLOG_DEBUG("WRITING TO UINIMPL WAITCNT"); break;
     case IME: {
-      SPDLOG_DEBUG("WROTE {:#010x} to IME {:#010x}", value, address);
       interrupt_control.IME.v = value;
+      SPDLOG_DEBUG("WROTE {:#010x} to  IME - [{:#010x}]", value, address);
     }
     case POSTFLG: break;
     case HALTCNT: break;
+    default: {
+      fmt::println("misaligned write: {:#010x}", address);
+      // exit(-1);
+    }
   }
 }
 // TODO: replace with different typepunned arrays
 void Bus::write32(const u32 address, u32 value) {
   switch (address) {
     case 0x02000000 ... 0x02FFFFFF: {
-      set32(EWRAM, address % 0x40000, value);
+      // set32(EWRAM, address % 0x40000, value);
+      *(uint32_t*)(&EWRAM.data()[address % 0x40000]) = value;
       break;
     }
 
     case 0x03000000 ... 0x03FFFFFF: {
-      set32(IWRAM, address % 0x8000, value);
+      *(uint32_t*)(&IWRAM.data()[address % 0x8000]) = value;
+      // set32(IWRAM, address % 0x8000, value);
       break;
     }
 
     case 0x04000000 ... 0x040003FE: {
       // IO
-      handle_io_write(address, value);
+      write16(address, (value & 0xFFFF0000) >> 8);
+      write16(address + 2, value & 0x0000FFFF);
+      // assert(0);
+      return;
       break;
     }
 
     case 0x05000000 ... 0x05FFFFFF: {
       // BG/OBJ Palette RAM
-      set32(PALETTE_RAM, address % 0x400, value);
+      *(uint32_t*)(&PALETTE_RAM.data()[(address % 0x400)]) = value;
       break;
     }
 
-    case 0x06000000 ... 0x06017FFF   : {
+    case 0x06000000 ... 0x06017FFF: {
       // VRAM
       *(uint32_t*)(&VRAM.data()[(address % 0x18000)]) = value;
       break;
@@ -599,7 +602,7 @@ void Bus::write32(const u32 address, u32 value) {
 
     case 0x07000000 ... 0X070003FF: {
       // OAM
-      set32(OAM, address % 0x400, value);
+      *(uint32_t*)(&OAM.data()[(address % 0x400)]) = value;
       break;
     }
 
@@ -609,5 +612,5 @@ void Bus::write32(const u32 address, u32 value) {
       // break;
     }
   }
-  SPDLOG_INFO("[W32] {:#010x} => {:#010x}", address, value);
+  SPDLOG_INFO("[W32] {} => {:#010x}", get_label(address), value);
 }

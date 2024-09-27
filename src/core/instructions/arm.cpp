@@ -114,7 +114,7 @@ void ARM::Instructions::SUB(ARM7TDMI& c, instruction_info& instr) {
   if (instr.S) {
     is_negative((c.regs.r[instr.Rn] - instr.op2)) ? c.set_negative() : c.reset_negative();
     is_zero((c.regs.r[instr.Rn] - instr.op2)) ? c.set_zero() : c.reset_zero();
-    SPDLOG_DEBUG("L: {}", (c.regs.r[instr.Rn] >= instr.op2));
+    // SPDLOG_DEBUG("L: {}", (c.regs.r[instr.Rn] >= instr.op2));
     c.regs.r[instr.Rn] >= instr.op2 ? c.set_carry() : c.reset_carry();
     (rn_msb != rm_msb && rn_msb != res_msb) ? c.set_overflow() : c.reset_overflow();
 
@@ -538,11 +538,8 @@ void ARM::Instructions::LDRSB(ARM7TDMI& c,
     c.regs.r[instr.Rd] &= ~0xffffff00;
     if ((c.regs.r[instr.Rd] & (1 << 7))) { c.regs.r[instr.Rd] |= 0xffffff00; }
 
-    SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
-
     if (instr.Rd == 15) { c.flush_pipeline(); }
 
-    SPDLOG_DEBUG("hi.... Rn is still: {}", +instr.Rn);
 
     if (!(instr.Rd == instr.Rn)) {
       if (instr.U) {
@@ -553,9 +550,8 @@ void ARM::Instructions::LDRSB(ARM7TDMI& c,
         // address = c.regs.r[instr.Rn];
       }
     }
-    fmt::println("DONE!");
   } else {
-    SPDLOG_DEBUG("[LDRSB] P = 1");
+    // SPDLOG_DEBUG("[LDRSB] P = 1");
     if (instr.U) {
       if (instr.W) {
         c.regs.r[instr.Rn] += (instr.I ? instr.offset : c.regs.r[instr.Rm]);
@@ -572,13 +568,13 @@ void ARM::Instructions::LDRSB(ARM7TDMI& c,
       }
     }
 
-    SPDLOG_DEBUG("ADDRESS: {:#X}", c_address);
+    // SPDLOG_DEBUG("ADDRESS: {:#X}", c_address);
 
     c.regs.r[instr.Rd] = c.bus->read8(c_address);
 
     c.regs.r[instr.Rd] &= ~0xffffff00;
     if ((c.regs.r[instr.Rd] & (1 << 7))) { c.regs.r[instr.Rd] |= 0xffffff00; }
-    SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
+    // SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
 
     if (instr.Rd == 15) { c.flush_pipeline(); }
   }
@@ -687,9 +683,9 @@ void ARM::Instructions::LDRH(ARM7TDMI& c,
   if (instr.P == 0) {
     misaligned_load_rotate_value = (address & 1) * 8;
 
-    if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDRH] misaligned rotate value: {}", misaligned_load_rotate_value); }
+    // if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDRH] misaligned rotate value: {}", misaligned_load_rotate_value); }
 
-    SPDLOG_DEBUG("[LDRH] loading from {:#010x}", c.align_address(address, HALFWORD));
+    // SPDLOG_DEBUG("[LDRH] loading from {:#010x}", c.align_address(address, HALFWORD));
     address            = c.align_address(address, HALFWORD);
     c.regs.r[instr.Rd] = c.bus->read16(address);
 
@@ -707,11 +703,11 @@ void ARM::Instructions::LDRH(ARM7TDMI& c,
       }
     }
   } else {
-    SPDLOG_DEBUG("[LDRH] P = {}", +instr.P);
-    SPDLOG_DEBUG("[LDRH] U = {}", +instr.U);
-    SPDLOG_DEBUG("[LDRH] I = {}", +instr.I);
-    SPDLOG_DEBUG("[LDRH] immediate offset = {}", +instr.offset);
-    SPDLOG_DEBUG("[LDRH] register offset = {}", shifted_reg_offset);
+    // SPDLOG_DEBUG("[LDRH] P = {}", +instr.P);
+    // SPDLOG_DEBUG("[LDRH] U = {}", +instr.U);
+    // SPDLOG_DEBUG("[LDRH] I = {}", +instr.I);
+    // SPDLOG_DEBUG("[LDRH] immediate offset = {}", +instr.offset);
+    // SPDLOG_DEBUG("[LDRH] register offset = {}", shifted_reg_offset);
 
     if (instr.U) {
       if (instr.W) {

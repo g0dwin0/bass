@@ -11,7 +11,6 @@ struct Bus {
   std::vector<u8> BIOS;
   std::vector<u8> IWRAM;
   std::vector<u8> EWRAM;
-  // std::vector<u8> IO;
   std::vector<u8> VRAM;
   std::vector<u8> PALETTE_RAM;
   std::vector<u8> OAM;
@@ -24,7 +23,7 @@ struct Bus {
 
   size_t cycles_elapsed;
 
-  [[nodiscard]] u8 read8(u32 address);  // TODO: implement labels
+  [[nodiscard]] u8 read8(u32 address); 
   [[nodiscard]] u16 read16(u32 address, bool is_quiet = false);
   [[nodiscard]] u32 read32(u32 address);
 
@@ -32,18 +31,8 @@ struct Bus {
   void write16(u32 address, u16 value);
   void write32(u32 address, u32 value);
 
-  void set8(std::vector<u8>& v, u32 address,
-            u8 value);  // TODO: move to utils or smth
-  void set16(std::vector<u8>& v, u32 address,
-             u16 value);  // TODO: move to utils or smth
-  void set32(std::vector<u8>& v, u32 address,
-             u32 value);  // TODO: move to utils or smth
-
-  u32 handle_io_read(u32 address);
-  void handle_io_write(u32 address, u32 value);
-
-  [[nodiscard]] u16 shift_16(const std::vector<u8>& vec, const u32 address);
-  [[nodiscard]] u32 shift_32(const std::vector<u8>& vec, const u32 address);
+  [[nodiscard]] u32 handle_io_read(u32 address);
+  void handle_io_write(u32 address, u8 value);
 
   struct {
     union {

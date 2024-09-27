@@ -25,36 +25,36 @@ int main(int argc, char** argv) {
   handle_args(argc, argv, filename);
   std::vector<u8> file = read_file(filename);
   bass.bus.pak->load_data(file);
-  spdlog::set_level(spdlog::level::off);
+  spdlog::set_level(spdlog::level::trace);
   
 
-  // for (size_t i = 0; i < 313; i++) {
-  //   // for (size_t i = 0; i < 269110; i++) {
+  for (size_t i = 0; i < 813; i++) {
+    // for (size_t i = 0; i < 269110; i++) {
     
-  //   bass.cpu.step();
-  //   // SPDLOG_DEBUG("{} {:#010x}", i, bass.cpu.regs.r[15]);
+    bass.cpu.step();
+    SPDLOG_DEBUG("{} x {:#010x}", i, bass.cpu.regs.r[15]);
 
-  //   bass.bus.display_fields.DISPSTAT.VBLANK_FLAG = !bass.bus.display_fields.DISPSTAT.VBLANK_FLAG;
-  //   // fmt::println("R0:{:08X} R1:{:08X} R2:{:08X} R3:{:08X} R4:{:08X} R5:{:08X} R6:{:08X} R7:{:08X} R8:{:08X} R9:{:08X} R10:{:08X} R11:{:08X} R12:{:08X} R13:{:08X} R14:{:08X} R15:{:08X} CPSR:{:08X}", 
-  //   // bass.cpu.regs.r[0], 
-  //   // bass.cpu.regs.r[1], 
-  //   // bass.cpu.regs.r[2], 
-  //   // bass.cpu.regs.r[3], 
-  //   // bass.cpu.regs.r[4], 
-  //   // bass.cpu.regs.r[5], 
-  //   // bass.cpu.regs.r[6], 
-  //   // bass.cpu.regs.r[7], 
-  //   // bass.cpu.regs.r[8], 
-  //   // bass.cpu.regs.r[9], 
-  //   // bass.cpu.regs.r[10], 
-  //   // bass.cpu.regs.r[11], 
-  //   // bass.cpu.regs.r[12], 
-  //   // bass.cpu.regs.r[13], 
-  //   // bass.cpu.regs.r[14], 
-  //   // bass.cpu.regs.r[15], 
-  //   // bass.cpu.regs.CPSR.value
-  //   // );
-  // }
+    bass.bus.display_fields.DISPSTAT.VBLANK_FLAG = !bass.bus.display_fields.DISPSTAT.VBLANK_FLAG;
+    // fmt::println("R0:{:08X} R1:{:08X} R2:{:08X} R3:{:08X} R4:{:08X} R5:{:08X} R6:{:08X} R7:{:08X} R8:{:08X} R9:{:08X} R10:{:08X} R11:{:08X} R12:{:08X} R13:{:08X} R14:{:08X} R15:{:08X} CPSR:{:08X}", 
+    // bass.cpu.regs.r[0], 
+    // bass.cpu.regs.r[1], 
+    // bass.cpu.regs.r[2], 
+    // bass.cpu.regs.r[3], 
+    // bass.cpu.regs.r[4], 
+    // bass.cpu.regs.r[5], 
+    // bass.cpu.regs.r[6], 
+    // bass.cpu.regs.r[7], 
+    // bass.cpu.regs.r[8], 
+    // bass.cpu.regs.r[9], 
+    // bass.cpu.regs.r[10], 
+    // bass.cpu.regs.r[11], 
+    // bass.cpu.regs.r[12], 
+    // bass.cpu.regs.r[13], 
+    // bass.cpu.regs.r[14], 
+    // bass.cpu.regs.r[15], 
+    // bass.cpu.regs.CPSR.value
+    // );
+  }
   // exit(-1);
   //  spdlog::set_level(spdlog::level::trace);
 
