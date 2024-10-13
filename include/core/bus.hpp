@@ -7,6 +7,7 @@ struct PPU;
 #include "ppu.hpp"
 
 struct Bus {
+  enum InterruptType { LCD_VBLANK, LCD_HBLANK, LCD_VCOUNT_MATCH, TIMER0_OVERFLOW, TIMER1_OVERFLOW, TIMER2_OVERFLOW, TIMER3_OVERFLOW, SERIAL_COMM, DMA0, DMA1, DMA2, DMA3, KEYPAD, GAMEPAK_EXT };
   // memory/devices
   std::vector<u8> BIOS;
   std::vector<u8> IWRAM;
@@ -21,22 +22,26 @@ struct Bus {
   Pak* pak = nullptr;
   PPU* ppu = nullptr;
 
-  size_t cycles_elapsed;
+  unsigned long long fun_value = 0;
+  unsigned long long cycles_elapsed = 0;
 
-  [[nodiscard]] u8 read8(u32 address); 
-  [[nodiscard]] u16 read16(u32 address, bool is_quiet = false);
+  [[nodiscard]] u8 read8(u32 address);
+  [[nodiscard]] u16 read16(u32 address);
   [[nodiscard]] u32 read32(u32 address);
+
+  void request_interrupt(InterruptType type);
+  void handle_interrupts();
 
   void write8(u32 address, u8 value);
   void write16(u32 address, u16 value);
   void write32(u32 address, u32 value);
 
-  [[nodiscard]] u32 handle_io_read(u32 address);
+  [[nodiscard]] u8 io_read(u32 address);
   void handle_io_write(u32 address, u8 value);
 
   struct {
     union {
-      u16 v;
+      u16 v = 0;
       struct {
         u8 BG_MODE                 : 3;
         u8                         : 1;
@@ -56,7 +61,7 @@ struct Bus {
     } DISPCNT;
 
     union {
-      u16 v;
+      u16 v = 0;
       struct {
         u8 GREEN_SWAP : 1;
         u16           : 15;
@@ -78,7 +83,8 @@ struct Bus {
     } DISPSTAT;
 
     union {
-      u16 v;
+      u16 v = 0;
+
       struct {
         u8 LY;
         u8 : 8;
@@ -86,21 +92,23 @@ struct Bus {
     } VCOUNT;
 
     union {
-      u16 v;
+      u16 v = 0;
+
       struct {
         u8 BG_PRIORITY       : 2;
         u8 CHAR_BASE_BLOCK   : 2;
         u8                   : 2;
         u8 MOSAIC            : 1;
-        u8 COLORS_PALETTES   : 1;
+        u8 COLOR_MODE        : 1;  // 0 = 4bpp (16 colors) 1 = 8bpp (256 colors)
         u8 SCREEN_BASE_BLOCK : 5;
-        u8                   : 1;
+        u8 BG_WRAP           : 1;
         u8 SCREEN_SIZE       : 2;
       };
     } BG0CNT, BG1CNT;
 
     union {
-      u16 v;
+      u16 v = 0;
+
       struct {
         u8 BG_PRIORITY           : 2;
         u8 CHAR_BASE_BLOCK       : 2;
@@ -114,7 +122,8 @@ struct Bus {
     } BG2CNT, BG3CNT;
 
     union {
-      u16 v;
+      u16 v = 0;
+
       struct {
         u16 OFFSET : 9;
         u8         : 7;
@@ -122,7 +131,8 @@ struct Bus {
     } BG0HOFS, BG0VOFS, BG1HOFS, BG1VOFS, BG2HOFS, BG2VOFS, BG3HOFS, BG3VOFS;
 
     union {
-      u16 v;
+      u16 v = 0;
+
       struct {
         u8 FRACTIONAL_PORT;
         u32 INTEGER_PORT : 7;
@@ -131,7 +141,7 @@ struct Bus {
     } BG2PA, BG2PB, BG2PC, BG2PD;
 
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 FRACTIONAL_PORT;
         u32 INTEGER_PORT : 19;
@@ -141,7 +151,7 @@ struct Bus {
     } BG2X_L, BG2X_H, BG2Y_L, BG2Y_H;
 
     union {
-      u16 v;
+      u16 v = 0;
       struct {
         u8 FRACTIONAL_PORT;
         u32 INTEGER_PORT : 7;
@@ -150,7 +160,7 @@ struct Bus {
     } BG3PA, BG3PB, BG3PC, BG3PD;
 
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 FRACTIONAL_PORT;
         u32 INTEGER_PORT : 19;
@@ -160,7 +170,7 @@ struct Bus {
     } BG3X_L, BG23_H, BG3Y_L, BG3Y_H;
 
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 X2;
         u8 X1;
@@ -168,7 +178,7 @@ struct Bus {
     } WIN0H, WIN1H;
 
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 Y2;
         u8 Y1;
@@ -190,7 +200,7 @@ struct Bus {
     } WININ;
 
     union {
-      u16 v;
+      u16 v = 0;
       struct {
         u8 OUTSIDE_BG_ENABLE_BITS      : 4;
         u8 OUTSIDE_OBJ_ENABLE_BIT      : 1;
@@ -204,7 +214,7 @@ struct Bus {
     } WINOUT;
 
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 BG_MOSAIC_H_SIZE  : 4;
         u8 BG_MOSAIC_V_SIZE  : 4;
@@ -217,7 +227,7 @@ struct Bus {
     u16 RESERVED : 16 = 0;
 
     union {
-      u16 v;
+      u16 v = 0;
       struct {
         u8 BG0_1ST_TARGET_PIXEL : 1;
         u8 BG1_1ST_TARGET_PIXEL : 1;
@@ -239,17 +249,17 @@ struct Bus {
     } BLDCNT;
 
     union {
-      u16 v;
+      u16 v = 0;
       struct {
         u8 EVA_COEFFICIENT_FIRST_TARGET : 5;
         u8 OBJ_MOSAIC_H_SIZE            : 3;
         u8 OBJ_MOSAIC_V_SIZE            : 5;
-        u16 RESERVED                    : 3;
+        u8 RESERVED                     : 3;
       };
     } BLDALPHA;
 
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 EVY_COEFFICIENT : 5;
         u32 RESERVED       : 27;
@@ -261,7 +271,7 @@ struct Bus {
 
   struct {
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 enabled : 1;
         u32        : 31;
@@ -269,9 +279,8 @@ struct Bus {
     } IME;
 
     union {
-      u16 v;
+      u16 v = 0;
       struct {
-        // Disable ALl
         u8 LCD_VBLANK          : 1;
         u8 LCD_HBLANK          : 1;
         u8 LCD_V_COUNTER_MATCH : 1;
@@ -292,7 +301,7 @@ struct Bus {
     } IE;
 
     union {
-      u16 v;
+      u16 v = 0;
       struct {
         u8 LCD_VBLANK          : 1;
         u8 LCD_HBLANK          : 1;
@@ -316,7 +325,7 @@ struct Bus {
 
   struct {
     union {
-      u32 v;
+      u32 v = 0;
       struct {
         u8 SRAM_WAIT_CONTROL       : 2;
         u8 WS0_FIRST_ACCESS        : 2;
@@ -332,9 +341,9 @@ struct Bus {
         u16                        : 16;
       };
     } WAITCNT;
-u32 sound_bias = 0;
+    u32 sound_bias = 0;
 
-  } system_control;
+  } system_control = {};
 
   struct {
     union {

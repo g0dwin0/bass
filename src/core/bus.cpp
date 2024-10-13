@@ -1,11 +1,13 @@
 #include "bus.hpp"
 
 #include <cstdio>
+#include <stdexcept>
 
 #include "labels.hpp"
-#include "spdlog/common.h"
-#include "spdlog/spdlog.h"
 
+void Bus::request_interrupt(InterruptType t) { interrupt_control.IF.v |= (1 << t); }
+
+void Bus::handle_interrupts() { assert(0); };
 u8 Bus::read8(u32 address) {
   u32 v;
   switch (address) {
@@ -26,7 +28,8 @@ u8 Bus::read8(u32 address) {
     }
 
     case 0x04000000 ... 0x040003FE: {
-      v = handle_io_read(address);
+      v = io_read(address);
+      fmt::println("8 bit IO read");
       break;
     }
 
@@ -63,13 +66,13 @@ u8 Bus::read8(u32 address) {
   SPDLOG_DEBUG("[R8] {:#010x} => {:#04x}", address, v);
   return v;
 };
-u16 Bus::read16(u32 address, bool quiet) {
+u16 Bus::read16(u32 address) {
   // fmt::println("[R16] {:#010x}", address);
-  u32 v;
+  u32 v = 0;
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      return *(uint16_t*)(&BIOS.data()[address]);
+      v = *(uint16_t*)(&BIOS.data()[address]);
       // v = shift_16(BIOS, address);
       break;
     }
@@ -87,7 +90,10 @@ u16 Bus::read16(u32 address, bool quiet) {
     }
 
     case 0x04000000 ... 0x040003FE: {
-      v = handle_io_read(address);
+      for (size_t i = 0; i < 2; i++) {
+        v |= (io_read(address) << 8 * i);
+      }
+      // fmt::println("16 bit IO read");
       break;
     }
 
@@ -120,16 +126,17 @@ u16 Bus::read16(u32 address, bool quiet) {
     }
 
     default: {
-      spdlog::warn("[R16] unused/oob memory read: {:#X}", address);
+      // spdlog::warn("[R16] unused/oob memory read: {:#X}", address);
+      // TODO: implement open bus behaviour
       return 0xFFFF;
     }
   }
-  if (!quiet) { SPDLOG_DEBUG("[R16] {:#010X} => {:#010x}", address, v); }
+  SPDLOG_DEBUG("[R16] {:#010X} => {:#010x}", address, v);
   return v;
 };
 u32 Bus::read32(u32 address) {
   // SPDLOG_DEBUG("[R32] {:#010x}", address);
-  u32 v;
+  u32 v = 0;
 
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
@@ -152,8 +159,16 @@ u32 Bus::read32(u32 address) {
     }
 
     case 0x04000000 ... 0x040003FE: {
-      assert(0);
-      v = handle_io_read(address);
+      // fmt::println("trying to read io address [32]: {:#010x}", address);
+      // fmt::println("fun value: {}", fun_value);
+      // assert(0);
+      // u32 retval = 0;
+      for (size_t i = 0; i < 4; i++) {
+        v |= (io_read(address) << 8 * i);
+      }
+      // fmt::println("[IO READ (32)] [{}] - {:#010x}", get_label(address), retval);
+      // return retva;
+      // v = handle_io_read(address);
       break;
     }
 
@@ -215,15 +230,12 @@ void Bus::write8(const u32 address, u8 value) {
 
     case 0x03000000 ... 0x03007FFF: {
       IWRAM.at(address - 0x03000000) = value;
-      // set32(IWRAM, address - 0x03000000, value);
       break;
     }
 
     case 0x04000000 ... 0x040003FE: {
       // IO
       handle_io_write(address, value);
-      // assert(0);
-      // set32(IO, address - 0x04000000, value);
       break;
     }
 
@@ -279,6 +291,7 @@ void Bus::write16(const u32 address, u16 value) {
 
     case 0x04000000 ... 0x040003FE: {
       // IO
+      // fmt::println("IO WRITE [16]: {:#010x} {:#010x}", address, value);
       write8(address, value & 0xff);
       write8(address + 1, ((value & 0xff00) >> 8));
       return;
@@ -310,28 +323,48 @@ void Bus::write16(const u32 address, u16 value) {
       // break;
     }
   }
-  SPDLOG_INFO("[W16] {} => {:#x}", get_label(address), value);
+  // SPDLOG_INFO("[W16] {} => {:#x}", get_label(address), value);
 }
 
-u32 Bus::handle_io_read(u32 address) {
-  u32 retval = 0x0;
+u8 Bus::io_read(u32 address) {
+  u8 retval = 0x0;
+
   switch (address) {
-    case DISPCNT: {
-      retval = display_fields.DISPCNT.v;
+    case DISPCNT ... DISPCNT + 1: {
+      retval = read_byte(display_fields.DISPCNT.v, address % 2);
       break;
     }
-    case GREEN_SWAP: SPDLOG_DEBUG("READING FROM GREEN_SWAP UNIMPL"); break;
-    case DISPSTAT: {
-      retval = display_fields.DISPSTAT.v;
+    case GREEN_SWAP ... GREEN_SWAP + 1: SPDLOG_DEBUG("READING FROM GREEN_SWAP UNIMPL"); break;
+    case DISPSTAT ... DISPSTAT + 1: {
+      retval = read_byte(display_fields.DISPSTAT.v, address % 2);
       break;
     }
-    case VCOUNT: SPDLOG_DEBUG("READING FROM VCOUNT UNIMPL"); break;
-    case BG0CNT: SPDLOG_DEBUG("READING FROM BG0CNT UNIMPL"); break;
-    case BG1CNT: SPDLOG_DEBUG("READING FROM BG1CNT UNIMPL"); break;
-    case BG2CNT: SPDLOG_DEBUG("READING FROM BG2CNT UNIMPL"); break;
-    case BG3CNT: SPDLOG_DEBUG("READING FROM BG3CNT UNIMPL"); break;
-    case BG0HOFS: SPDLOG_DEBUG("READING FROM BG0HOFS UNIMPL"); break;
-    case BG0VOFS: SPDLOG_DEBUG("READING FROM BG0VOFS UNIMPL"); break;
+    case VCOUNT ... VCOUNT + 1: {
+      retval = read_byte(display_fields.VCOUNT.v, address % 2);
+      break;
+    }
+    case BG0CNT ... BG0CNT + 1: {
+      retval = read_byte(display_fields.BG0CNT.v, address % 0x2);
+      // SPDLOG_DEBUG("NEW BG0CNT: {:#010x}", display_fields.BG0CNT.v);
+      break;
+    }
+    case BG1CNT ... BG1CNT + 1: {
+      retval = read_byte(display_fields.BG1CNT.v, address % 0x2);
+      // SPDLOG_DEBUG("NEW BG1CNT: {:#010x}", display_fields.BG1CNT.v);
+      break;
+    }
+    case BG2CNT ... BG2CNT + 1: {
+      retval = read_byte(display_fields.BG2CNT.v, address % 0x2);
+      // SPDLOG_DEBUG("NEW BG2CNT: {:#010x}", display_fields.BG2CNT.v);
+      break;
+    }
+    case BG3CNT ... BG3CNT + 1: {
+      retval = read_byte(display_fields.BG3CNT.v, address % 0x2);
+      // SPDLOG_DEBUG("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
+      break;
+    }
+    case BG0HOFS: fmt::println("READING FROM BG0HOFS UNIMPL"); break;
+    case BG0VOFS: fmt::println("READING FROM BG0VOFS UNIMPL"); break;
     case BG1HOFS: SPDLOG_DEBUG("READING FROM BG1HOFS UNIMPL"); break;
     case BG1VOFS: SPDLOG_DEBUG("READING FROM BG1VOFS UNIMPL"); break;
     case BG2HOFS: SPDLOG_DEBUG("READING FROM BG2HOFS UNIMPL"); break;
@@ -374,7 +407,8 @@ u32 Bus::handle_io_read(u32 address) {
     case SOUNDCNT_H: SPDLOG_DEBUG("READING FROM SOUNDCNT_H UNIMPL"); break;
     case SOUNDCNT_X: SPDLOG_DEBUG("READING FROM SOUNDCNT_X UNIMPL"); break;
     case SOUNDBIAS: {
-      return system_control.sound_bias;
+      retval = system_control.sound_bias;
+      break;
     }
     case WAVE_RAM: SPDLOG_DEBUG("READING FROM WAVE_RAM UNIMPL"); break;
     case FIFO_A: SPDLOG_DEBUG("READING FROM FIFO_A UNIMPL"); break;
@@ -409,21 +443,28 @@ u32 Bus::handle_io_read(u32 address) {
     case SIOMULTI3: SPDLOG_DEBUG("READING FROM SIOMULTI3 UNIMPL"); break;
     case SIOCNT: SPDLOG_DEBUG("READING FROM SIOCNT UNIMPL"); break;
     case SIOMLT_SEND: SPDLOG_DEBUG("READING FROM SIOMLT_SEND UNIMPL"); break;
-    case KEYINPUT: {
-      retval = keypad_input.KEYINPUT.v;
+    case KEYINPUT ... KEYINPUT + 1: {
+      retval = read_byte(keypad_input.KEYINPUT.v, address % 2);
       break;
     }
-    case KEYCNT: SPDLOG_DEBUG("READING FROM UINIMPL KEYCNT"); break;
-    case RCNT: SPDLOG_DEBUG("READING FROM UINIMPL RCNT"); break;
-    case JOYCNT: SPDLOG_DEBUG("READING FROM UINIMPL JOYCNT"); break;
-    case JOY_RECV: SPDLOG_DEBUG("READING FROM UINIMPL JOY_RECV"); break;
-    case JOY_TRANS: SPDLOG_DEBUG("READING FROM UINIMPL JOY_TRANS"); break;
-    case JOYSTAT: SPDLOG_DEBUG("READING FROM UINIMPL JOYSTAT"); break;
-    case IE: SPDLOG_DEBUG("READING FROM UINIMPL IE"); break;
-    case IF: SPDLOG_DEBUG("READING FROM UINIMPL IF"); break;
-    case WAITCNT: SPDLOG_DEBUG("READING FROM UINIMPL WAITCNT"); break;
-    case IME: {
-      retval = interrupt_control.IME.v;
+    case KEYCNT: SPDLOG_DEBUG("READING FROM UNIMPL KEYCNT"); break;
+    case RCNT: SPDLOG_DEBUG("READING FROM UNIMPL RCNT"); break;
+    case JOYCNT: SPDLOG_DEBUG("READING FROM UNIMPL JOYCNT"); break;
+    case JOY_RECV: SPDLOG_DEBUG("READING FROM UNIMPL JOY_RECV"); break;
+    case JOY_TRANS: SPDLOG_DEBUG("READING FROM UNIMPL JOY_TRANS"); break;
+    case JOYSTAT: SPDLOG_DEBUG("READING FROM UNIMPL JOYSTAT"); break;
+    case IE ... IE + 1: {
+      retval = read_byte(interrupt_control.IE.v, address % 2);
+      break;
+    }
+    case IF ... IF + 1: {
+      retval = read_byte(interrupt_control.IF.v, address % 2);
+      break;
+    }
+    case WAITCNT: SPDLOG_DEBUG("READING FROM UNIMPL WAITCNT"); break;
+    case IME ... IME + 3: {
+      retval = read_byte(interrupt_control.IME.v, address % 4);
+      break;
     }
     case POSTFLG: break;
     case HALTCNT: break;
@@ -432,34 +473,87 @@ u32 Bus::handle_io_read(u32 address) {
       assert(0);
     }
   }
-  SPDLOG_DEBUG("[IO READ] {:#010X} => {:#08x}", address, retval);
+  // fmt::println("[IO READ] {} => {:#010x}", get_label(address), retval);
   return retval;
 }
 void Bus::handle_io_write(u32 address, u8 value) {
   // auto r = (REG)address;
+  // fmt::println("write: {:#010x}", address);
   switch (address) {
-    case DISPCNT: {
-      display_fields.DISPCNT.v = value;
+    case DISPCNT ... DISPCNT + 1: {
+      set_byte(display_fields.DISPCNT.v, address % 2, value);
+      fmt::println("NEW DISPCNT: {:#010x}", display_fields.DISPCNT.v);
       break;
     }
-    case GREEN_SWAP: SPDLOG_DEBUG("WRITING TO GREEN_SWAP UNIMPL"); break;
-    case DISPSTAT: {
-      display_fields.DISPSTAT.v = value;
+    case GREEN_SWAP ... GREEN_SWAP + 1: {
+      set_byte(display_fields.GREEN_SWAP.v, address % 2, value);
+      SPDLOG_DEBUG("NEW GREENSWAP: {:#010x}", display_fields.GREEN_SWAP.v);
+      break;
+    }
+    case DISPSTAT ... DISPSTAT + 1: {
+      set_byte(display_fields.DISPSTAT.v, address % 2, value);
+
+      SPDLOG_DEBUG("NEW DISPSTAT: {:#010x}", display_fields.DISPSTAT.v, address);
       break;
     }
     case VCOUNT: SPDLOG_DEBUG("WRITING TO VCOUNT UNIMPL"); break;
-    case BG0CNT: SPDLOG_DEBUG("WRITING TO BG0CNT UNIMPL"); break;
-    case BG1CNT: SPDLOG_DEBUG("WRITING TO BG1CNT UNIMPL"); break;
-    case BG2CNT: SPDLOG_DEBUG("WRITING TO BG2CNT UNIMPL"); break;
-    case BG3CNT: SPDLOG_DEBUG("WRITING TO BG3CNT UNIMPL"); break;
-    case BG0HOFS: SPDLOG_DEBUG("WRITING TO BG0HOFS UNIMPL"); break;
-    case BG0VOFS: SPDLOG_DEBUG("WRITING TO BG0VOFS UNIMPL"); break;
-    case BG1HOFS: SPDLOG_DEBUG("WRITING TO BG1HOFS UNIMPL"); break;
-    case BG1VOFS: SPDLOG_DEBUG("WRITING TO BG1VOFS UNIMPL"); break;
-    case BG2HOFS: SPDLOG_DEBUG("WRITING TO BG2HOFS UNIMPL"); break;
-    case BG2VOFS: SPDLOG_DEBUG("WRITING TO BG2VOFS UNIMPL"); break;
-    case BG3HOFS: SPDLOG_DEBUG("WRITING TO BG3HOFS UNIMPL"); break;
-    case BG3VOFS: SPDLOG_DEBUG("WRITING TO BG3VOFS UNIMPL"); break;
+    case BG0CNT ... BG0CNT + 1: {
+      set_byte(display_fields.BG0CNT.v, address % 0x2, value);
+      SPDLOG_DEBUG("NEW BG0CNT: {:#010x}", display_fields.BG0CNT.v);
+      break;
+    }
+    case BG1CNT ... BG1CNT + 1: {
+      set_byte(display_fields.BG1CNT.v, address % 0x2, value);
+      SPDLOG_DEBUG("NEW BG1CNT: {:#010x}", display_fields.BG1CNT.v);
+      break;
+    }
+    case BG2CNT ... BG2CNT + 1: {
+      set_byte(display_fields.BG2CNT.v, address % 0x2, value);
+      SPDLOG_DEBUG("NEW BG2CNT: {:#010x}", display_fields.BG2CNT.v);
+      break;
+    }
+    case BG3CNT ... BG3CNT + 1: {
+      set_byte(display_fields.BG3CNT.v, address % 0x2, value);
+      SPDLOG_DEBUG("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
+      break;
+    }
+
+    case BG0HOFS ... BG0HOFS + 1: {
+      set_byte(display_fields.BG0HOFS.v, address % 0x2, value);
+      break;
+    }
+    case BG0VOFS ... BG0VOFS + 1: {
+      set_byte(display_fields.BG0VOFS.v, address % 0x2, value);
+      break;
+    }
+
+    case BG1VOFS ... BG1VOFS + 1: {
+      set_byte(display_fields.BG1VOFS.v, address % 0x2, value);
+      break;
+    }
+    case BG1HOFS ... BG1HOFS + 1: {
+      set_byte(display_fields.BG1HOFS.v, address % 0x2, value);
+      break;
+    }
+
+    case BG2VOFS ... BG2VOFS + 1: {
+      set_byte(display_fields.BG2VOFS.v, address % 0x2, value);
+      break;
+    }
+    case BG2HOFS ... BG2HOFS + 1: {
+      set_byte(display_fields.BG2HOFS.v, address % 0x2, value);
+      break;
+    }
+
+    case BG3HOFS ... BG3HOFS + 1: {
+      set_byte(display_fields.BG3HOFS.v, address % 0x2, value);
+      break;
+    }
+    case BG3VOFS ... BG3VOFS + 1: {
+      set_byte(display_fields.BG3VOFS.v, address % 0x2, value);
+      break;
+    }
+
     case BG2PA: SPDLOG_DEBUG("WRITING TO BG2PA UNIMPL"); break;
     case BG2PB: SPDLOG_DEBUG("WRITING TO BG2PB UNIMPL"); break;
     case BG2PC: SPDLOG_DEBUG("WRITING TO BG2PC UNIMPL"); break;
@@ -497,7 +591,8 @@ void Bus::handle_io_write(u32 address, u8 value) {
     case SOUNDCNT_X: SPDLOG_DEBUG("WRITING TO SOUNDCNT_X UNIMPL"); break;
     case SOUNDBIAS: {
       system_control.sound_bias = value;
-    } break;
+      break;
+    }
     case WAVE_RAM: SPDLOG_DEBUG("WRITING TO WAVE_RAM UNIMPL"); break;
     case FIFO_A: SPDLOG_DEBUG("WRITING TO FIFO_A UNIMPL"); break;
     case FIFO_B: SPDLOG_DEBUG("WRITING TO FIFO_B UNIMPL"); break;
@@ -532,29 +627,28 @@ void Bus::handle_io_write(u32 address, u8 value) {
     case SIOCNT: SPDLOG_DEBUG("WRITING TO SIOCNT UNIMPL"); break;
     case SIOMLT_SEND: SPDLOG_DEBUG("WRITING TO SIOMLT_SEND UNIMPL"); break;
     case KEYINPUT: break;
-    case KEYCNT: SPDLOG_DEBUG("WRITING TO UINIMPL KEYCNT"); break;
-    case RCNT: SPDLOG_DEBUG("WRITING TO UINIMPL RCNT"); break;
-    case JOYCNT: SPDLOG_DEBUG("WRITING TO UINIMPL JOYCNT"); break;
-    case JOY_RECV: SPDLOG_DEBUG("WRITING TO UINIMPL JOY_RECV"); break;
-    case JOY_TRANS: SPDLOG_DEBUG("WRITING TO UINIMPL JOY_TRANS"); break;
-    case JOYSTAT: SPDLOG_DEBUG("WRITING TO UINIMPL JOYSTAT"); break;
-    case IE: {
-      SPDLOG_DEBUG("WROTE {:#010x} to  IE - [{:#010x}]", value, address);
-      if (address % 2 == 0) {  // 1st byte
-        interrupt_control.IE.v &= ~0xFF;
-        interrupt_control.IE.v |= value;
-
-      } else {  // 2nd byte
-        interrupt_control.IE.v &= ~0xFF00;
-        interrupt_control.IE.v |= (value << 8);
-      }
+    case KEYCNT: SPDLOG_DEBUG("WRITING TO UNIMPL KEYCNT"); break;
+    case RCNT: SPDLOG_DEBUG("WRITING TO UNIMPL RCNT"); break;
+    case JOYCNT: SPDLOG_DEBUG("WRITING TO UNIMPL JOYCNT"); break;
+    case JOY_RECV: SPDLOG_DEBUG("WRITING TO UNIMPL JOY_RECV"); break;
+    case JOY_TRANS: SPDLOG_DEBUG("WRITING TO UNIMPL JOY_TRANS"); break;
+    case JOYSTAT: SPDLOG_DEBUG("WRITING TO UNIMPL JOYSTAT"); break;
+    case IE ... IE + 1: {
+      set_byte(interrupt_control.IE.v, address % 2, value);
+      SPDLOG_DEBUG("WROTE {:#010x} to IE - [{:#010x}]", value, address);
+      SPDLOG_DEBUG("NEW IE: {:#010x}", interrupt_control.IE.v, address);
       break;
     }
-    case IF: SPDLOG_DEBUG("WRITING TO UINIMPL IF"); break;
-    case WAITCNT: SPDLOG_DEBUG("WRITING TO UINIMPL WAITCNT"); break;
-    case IME: {
-      interrupt_control.IME.v = value;
-      SPDLOG_DEBUG("WROTE {:#010x} to  IME - [{:#010x}]", value, address);
+    case IF ... IF + 1: {
+      set_byte(interrupt_control.IF.v, address % 2, value);
+      SPDLOG_DEBUG("WROTE {:#010x} to IF - [{:#010x}]", value, address);
+      SPDLOG_DEBUG("NEW IF: {:#010x}", interrupt_control.IE.v, address);
+      break;
+    }
+    case WAITCNT: SPDLOG_DEBUG("WRITING TO UNIMPL WAITCNT"); break;
+    case IME ... IME + 3: {
+      set_byte(interrupt_control.IME.v, address % 4, value);
+      SPDLOG_DEBUG("new IME: {:#010x} - [{:#010x}]", interrupt_control.IME.v, address);
     }
     case POSTFLG: break;
     case HALTCNT: break;
@@ -564,7 +658,7 @@ void Bus::handle_io_write(u32 address, u8 value) {
     }
   }
 }
-// TODO: replace with different typepunned arrays
+
 void Bus::write32(const u32 address, u32 value) {
   switch (address) {
     case 0x02000000 ... 0x02FFFFFF: {
@@ -581,8 +675,9 @@ void Bus::write32(const u32 address, u32 value) {
 
     case 0x04000000 ... 0x040003FE: {
       // IO
-      write16(address, (value & 0xFFFF0000) >> 8);
-      write16(address + 2, value & 0x0000FFFF);
+      // fmt::println("IO ADDR: {:#010x}", address);
+      write16(address, value & 0x0000FFFF);
+      write16(address + 2, (value & 0xFFFF0000) >> 16);
       // assert(0);
       return;
       break;
@@ -612,5 +707,5 @@ void Bus::write32(const u32 address, u32 value) {
       // break;
     }
   }
-  SPDLOG_INFO("[W32] {} => {:#010x}", get_label(address), value);
+  // SPDLOG_INFO("[W32] {} => {:#010x}", get_label(address), value);
 }
