@@ -27,7 +27,7 @@ $(OBJ_DIR)/shifter.o: src/core/cpu.cpp include/core/cpu.hpp include/core/instruc
 	$(CC) $(CPPFLAGS) -c src/core/shifter.cpp -o $(OBJ_DIR)/shifter.o
 
 $(OBJ_DIR)/cpu.o: src/core/cpu.cpp include/core/cpu.hpp include/core/instructions/instruction.hpp src/core/decode/arm_logic.cpp src/core/decode/thumb_logic.cpp 
-	$(CC) $(CPPFLAGS) -O2  -c src/core/cpu.cpp -o $(OBJ_DIR)/cpu.o
+	$(CC) $(CPPFLAGS) -c src/core/cpu.cpp -o $(OBJ_DIR)/cpu.o
 
 $(OBJ_DIR)/arm_decode.o: src/core/cpu.cpp src/core/decode/arm_logic.cpp
 	$(CC) $(CPPFLAGS) -c src/core/decode/arm_logic.cpp -o $(OBJ_DIR)/arm_decode.o
@@ -41,8 +41,8 @@ $(OBJ_DIR)/registers.o: include/core/registers.hpp src/core/registers.cpp
 $(OBJ_DIR)/arm.o: src/core/instructions/arm.cpp  include/core/instructions/arm.hpp src/core/registers.cpp 
 	$(CC) $(CPPFLAGS) -c src/core/instructions/arm.cpp -o $(OBJ_DIR)/arm.o
 
-$(OBJ_DIR)/bus.o: src/core/bus.cpp include/core/bus.hpp
-	$(CC) $(CPPFLAGS) -O2 -c src/core/bus.cpp -o $(OBJ_DIR)/bus.o 
+$(OBJ_DIR)/bus.o: src/core/bus.cpp include/core/bus.hpp include/core/dma.hpp 
+	$(CC) $(CPPFLAGS) -c src/core/bus.cpp -o $(OBJ_DIR)/bus.o 
 
 $(OBJ_DIR)/pak.o: src/core/pak.cpp include/core/pak.hpp
 	$(CC) $(CPPFLAGS) -c src/core/pak.cpp -o $(OBJ_DIR)/pak.o
