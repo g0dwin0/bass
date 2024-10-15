@@ -1,14 +1,9 @@
 #include "instructions/arm.hpp"
 
 #include <cassert>
-#include <limits>
-
-#include "common.hpp"
 #include "cpu.hpp"
 #include "instructions/instruction.hpp"
 #include "registers.hpp"
-#include "spdlog/common.h"
-#include "spdlog/spdlog.h"
 
 bool is_negative(u32 v) { return v >= 0x80000000; }
 bool is_zero(u32 v) { return v == 0; }
@@ -114,7 +109,7 @@ void ARM::Instructions::SUB(ARM7TDMI& c, instruction_info& instr) {
   if (instr.S) {
     is_negative((c.regs.r[instr.Rn] - instr.op2)) ? c.set_negative() : c.reset_negative();
     is_zero((c.regs.r[instr.Rn] - instr.op2)) ? c.set_zero() : c.reset_zero();
-    // SPDLOG_DEBUG("L: {}", (c.regs.r[instr.Rn] >= instr.op2));
+    
     c.regs.r[instr.Rn] >= instr.op2 ? c.set_carry() : c.reset_carry();
     (rn_msb != rm_msb && rn_msb != res_msb) ? c.set_overflow() : c.reset_overflow();
 
@@ -133,8 +128,8 @@ void ARM::Instructions::SBC(ARM7TDMI& c, instruction_info& instr) {
   bool old_carry = c.regs.CPSR.CARRY_FLAG;
   instr.op2      = c.handle_shifts(instr, false);
 
-  SPDLOG_DEBUG("INSTR RN: {} - Rn V {:#x}", +instr.Rn, c.regs.r[instr.Rn]);
-  SPDLOG_DEBUG("INSTR RM REG: {} - op2: {:#x}", +instr.Rm, instr.op2);
+  // SPDLOG_DEBUG("INSTR RN: {} - Rn V {:#x}", +instr.Rn, c.regs.r[instr.Rn]);
+  // SPDLOG_DEBUG("INSTR RM REG: {} - op2: {:#x}", +instr.Rm, instr.op2);
 
   u32 result = c.regs.r[instr.Rn] - instr.op2 + (old_carry - 1);
 
@@ -217,8 +212,8 @@ void ARM::Instructions::MOV(ARM7TDMI& c, instruction_info& instr) {
 void ARM::Instructions::ADD(ARM7TDMI& c, instruction_info& instr) {
   // ADD{cond}{S} Rd,Rn,Op2 ;* ;add               Rd = Rn+Op2
   // instr.print_params();
-  SPDLOG_DEBUG("Rn: {}", +instr.Rn);
-  SPDLOG_DEBUG("Rm: {}", +instr.Rm);
+  // SPDLOG_DEBUG("Rn: {}", +instr.Rn);
+  // SPDLOG_DEBUG("Rm: {}", +instr.Rm);
 
   instr.op2 = c.handle_shifts(instr, false);
 
@@ -265,7 +260,7 @@ void ARM::Instructions::STRH(ARM7TDMI& c, instruction_info& instr) {
   u32 address = c.regs.r[instr.Rn];
 
   // u8 immediate_offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
-  SPDLOG_DEBUG("immediate offset: {:#x}", instr.offset);
+  
   u32 shifted_reg_offset = 0;
   if (instr.I == 0) { shifted_reg_offset = c.shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, c.regs.r[instr.Rm], instr.shift_amount, false, true, false); }
 
@@ -433,9 +428,9 @@ void ARM::Instructions::LDR(ARM7TDMI& c,
   u32 c_address = c.regs.r[instr.Rn];
 
   if (instr.pc_relative) {
-    SPDLOG_DEBUG("instr offset: {}", instr.offset);
+    // SPDLOG_DEBUG("instr offset: {}", instr.offset);
     c_address = (c.regs.r[15] + instr.offset) & ~2;
-    SPDLOG_DEBUG("read address: {:#010x}", c_address);
+    // SPDLOG_DEBUG("read address: {:#010x}", c_address);
     c.regs.r[instr.Rd] = c.bus->read32(c_address);
     // c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);
     return;
@@ -445,7 +440,7 @@ void ARM::Instructions::LDR(ARM7TDMI& c,
 
   if (instr.P == 0) {  // Forced writeback
 
-    SPDLOG_DEBUG("[LDR] P = 0");
+    // SPDLOG_DEBUG("[LDR] P = 0");
 
     if (instr.B) {
       c.regs.r[instr.Rd] = c.bus->read8(c_address);
@@ -454,11 +449,11 @@ void ARM::Instructions::LDR(ARM7TDMI& c,
       if (misaligned_load_rotate_value) { SPDLOG_DEBUG("misaligned rotate value: {}", misaligned_load_rotate_value); }
 
       c_address = c.align_address(c_address, WORD);  // word loads are forcibly aligned to the nearest word address
-      SPDLOG_DEBUG("loading from {:#010x}", c_address);
+      // SPDLOG_DEBUG("loading from {:#010x}", c_address);
 
       c.regs.r[instr.Rd] = c.bus->read32(c_address);
       c.regs.r[instr.Rd] = std::rotr(c.regs.r[instr.Rd], misaligned_load_rotate_value);  // Rotate new contents if address was misaligned
-      SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
+      // SPDLOG_DEBUG("new r{}: {:#010x}", +instr.Rd, c.regs.r[instr.Rd]);
     }
 
     // flush pipeline if PC changed, refill with new instructions
@@ -502,7 +497,7 @@ void ARM::Instructions::LDR(ARM7TDMI& c,
       c.regs.r[instr.Rd] = c.bus->read8(c_address);
     } else {
       misaligned_load_rotate_value = (c_address & 3) * 8;
-      SPDLOG_DEBUG("[LDR] loading from {:#010x}", c_address);
+      // SPDLOG_DEBUG("[LDR] loading from {:#010x}", c_address);
       if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDR] misaligned rotate value: {}", misaligned_load_rotate_value); }
 
       c_address          = c.align_address(c_address, WORD);
@@ -729,7 +724,7 @@ void ARM::Instructions::LDRH(ARM7TDMI& c,
 
     if (misaligned_load_rotate_value) { SPDLOG_DEBUG("[LDRH] misaligned rotate value: {}", misaligned_load_rotate_value); }
 
-    SPDLOG_DEBUG("[LDRH] loading from {:#010x}", c.align_address(address, HALFWORD));
+    // SPDLOG_DEBUG("[LDRH] loading from {:#010x}", c.align_address(address, HALFWORD));
     address            = c.align_address(address, HALFWORD);
     c.regs.r[instr.Rd] = c.bus->read16(address);
 
@@ -742,23 +737,18 @@ void ARM::Instructions::LDRH(ARM7TDMI& c,
 void ARM::Instructions::CMP(ARM7TDMI& c, instruction_info& instr) {
   // instr.print_params();
   //  CMP - set condition codes on Op1 - Op2
-  SPDLOG_DEBUG("Rn: {}", +instr.Rn);
-  SPDLOG_DEBUG("Rm: {}", +instr.Rm);
 
   instr.op2 = c.handle_shifts(instr, false);
 
   u32 r    = c.regs.r[instr.Rn] - instr.op2;
-  u64 r_64 = (u64)c.regs.r[instr.Rn] - instr.op2;
-
-  // SPDLOG_DEBUG("INSTR RN: {:#08x}", c.regs.r[instr.Rn]);
-  // SPDLOG_DEBUG("INSTR OP2: {:#08x}", instr.op2);
+  // u64 r_64 = (u64)c.regs.r[instr.Rn] - instr.op2;
 
   u32 rn_msb  = c.regs.r[instr.Rn] & 0x80000000;
   u32 rm_msb  = instr.op2 & 0x80000000;
   u32 res_msb = r & 0x80000000;
-  u64 r64_msb = r_64 & 0x80000000;
-  SPDLOG_DEBUG("r64 overflow: {}", rn_msb != rm_msb && rn_msb != r64_msb);
-  SPDLOG_TRACE("[CMP] r: {:#010x}", r);
+  // u64 r64_msb = r_64 & 0x80000000;
+  // SPDLOG_DEBUG("r64 overflow: {}", rn_msb != rm_msb && rn_msb != r64_msb);
+  // SPDLOG_TRACE("[CMP] r: {:#010x}", r);
   is_zero(r) ? c.set_zero() : c.reset_zero();
   is_negative(r) ? c.set_negative() : c.reset_negative();
   (rn_msb != rm_msb && rn_msb != res_msb) ? c.set_overflow() : c.reset_overflow();
@@ -780,8 +770,7 @@ void ARM::Instructions::MRS(ARM7TDMI& c, instruction_info& instr) { c.regs.r[ins
 
 void ARM::Instructions::SWI(ARM7TDMI& c, [[gnu::unused]] instruction_info& instr) {
   SPDLOG_DEBUG("SWI CALLED");
-  // assert(0);
-  // fmt::println("SWI - {:#010x}", instr.opcode & 0xff);
+  
   c.regs.svc_r[14] = c.regs.r[15] - 2;
   c.regs.SPSR_svc  = c.regs.CPSR.value;
 
@@ -816,7 +805,7 @@ void ARM::Instructions::MSR(ARM7TDMI& c, instruction_info& instr) {
     op_value = c.regs.r[instr.Rm];
   }
 
-  SPDLOG_DEBUG("[MSR] op_value: {:#010x}", op_value);
+  // SPDLOG_DEBUG("[MSR] op_value: {:#010x}", op_value);
   // fmt::println("P: {}", +instr.P);
 
   switch (instr.P) {  // CPSR = 0, SPSR = 1
@@ -930,12 +919,12 @@ void ARM::Instructions::STM(ARM7TDMI& c, instruction_info& instr) {  // REFACTOR
   std::vector<u8> reg_list;
 
   bool forced_writeback       = false;
-  bool base_first_in_reg_list = false;
+  // bool base_first_in_reg_list = false;
   // (void)(base_first_in_reg_list);
 
   for (size_t idx = 0; idx < 16; idx++) {
     if (reg_list_v & (1 << idx)) {
-      if (idx == instr.Rn && reg_list.empty()) { base_first_in_reg_list = true; }
+      // if (idx == instr.Rn && reg_list.empty()) { base_first_in_reg_list = true; }
 
       reg_list.push_back(idx);
     }
@@ -1099,16 +1088,13 @@ void ARM::Instructions::SMULL(ARM7TDMI& c, instruction_info& instr) {
   s32 rm = static_cast<u32>(c.regs.r[instr.Rm]);
   s32 rs = static_cast<u32>(c.regs.r[instr.Rs]);
 
-  SPDLOG_DEBUG("RM: {:#x}", rm);
-  SPDLOG_DEBUG("RS: {:#x}", rs);
+  // SPDLOG_DEBUG("RM: {:#x}", rm);
+  // SPDLOG_DEBUG("RS: {:#x}", rs);
 
-  SPDLOG_DEBUG("res: {}", rm * rs);
+  // SPDLOG_DEBUG("res: {}", rm * rs);
 
   s64 res = (s64)rm * rs;
-  SPDLOG_DEBUG("res: {}", res);
-  // Rd = Hi
-  // Rn = Lo
-  u32 lo = res >> 32;
+  
   SPDLOG_DEBUG("LO: {:#x}", lo);
   c.regs.r[instr.Rd] = (u32)(res >> 32);
   c.regs.r[instr.Rn] = (u32)(res & 0xffffffff);
@@ -1128,10 +1114,7 @@ void ARM::Instructions::SMLAL(ARM7TDMI& c, instruction_info& instr) {
   s64 big_number = (static_cast<u64>(c.regs.r[instr.Rd]) << 32) + c.regs.r[instr.Rn];
 
   s64 res = (rm * rs) + big_number;
-
-  s32 hi = (big_number & 0xFFFFFFFF00000000) >> 32;
-  s32 lo = big_number & 0xFFFFFFFF;
-
+  
   c.regs.r[instr.Rd] = res >> 32;
   c.regs.r[instr.Rn] = res & 0xffffffff;
 
@@ -1357,11 +1340,11 @@ void ARM::Instructions::SWP(ARM7TDMI& c, instruction_info& instr) {
 }
 
 void ARM::Instructions::BLL(ARM7TDMI& c, instruction_info& instr) {
-  SPDLOG_DEBUG("op2: {:#010x}", (c.regs.r[15]) + (instr.op2 << 12));
+  // SPDLOG_DEBUG("op2: {:#010x}", (c.regs.r[15]) + (instr.op2 << 12));
   u32 offset = (instr.op2 << 12);
-  SPDLOG_DEBUG("calculated offset: {:#010x}", offset);
+  // SPDLOG_DEBUG("calculated offset: {:#010x}", offset);
   if (offset >= 0x400000) {
-    SPDLOG_DEBUG("neg!");
+    // SPDLOG_DEBUG("neg!");
     offset -= 0x800000;
   }
   c.regs.r[14] = (c.regs.r[15]) + (offset);
