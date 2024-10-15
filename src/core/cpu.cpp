@@ -1,24 +1,20 @@
 #include "core/cpu.hpp"
 
+#include <spdlog/common.h>
+#include <spdlog/spdlog.h>
+
 #include <cstdlib>
 #include <unordered_map>
 
-#include "common.hpp"
-#include "decode/arm_logic.cpp"
-#include "decode/thumb_logic.cpp"
 #include "instructions/instruction.hpp"
 #include "registers.hpp"
-#include "shifter.cpp"
-#include "spdlog/common.h"
-#include "spdlog/spdlog.h"
-
 ARM7TDMI::ARM7TDMI() {
   regs.r[15] = 0x08000000;
   spdlog::debug("cpu initialized");
 }
 void ARM7TDMI::flush_pipeline() {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
-    SPDLOG_DEBUG("[ARM] flushing");
+    // SPDLOG_DEBUG("[ARM] flushing");
     // InstructionInfo f;
     instruction_info d;
     instruction_info e;
@@ -36,13 +32,13 @@ void ARM7TDMI::flush_pipeline() {
     pipeline.decode = decode(e);
 
     regs.r[15] += 4;
-    SPDLOG_DEBUG("[ARM] flushed");
+    // SPDLOG_DEBUG("[ARM] flushed");
   } else {
-    SPDLOG_DEBUG("[THUMB] flushing");
+    // SPDLOG_DEBUG("[THUMB] flushing");
     instruction_info d;
     instruction_info e;
     regs.r[15] = align_address(regs.r[15], HALFWORD);
-    SPDLOG_DEBUG("R15: {:#08x}", regs.r[15]);
+    // SPDLOG_DEBUG("R15: {:#08x}", regs.r[15]);
     pipeline = {};
     e.opcode = bus->read16(regs.r[15]);
     e.loc    = regs.r[15];
@@ -73,7 +69,7 @@ u32 ARM7TDMI::handle_shifts(instruction_info& instr, bool affects_flags) {
   if (instr.I == 0) {
     if (instr.shift_value_is_register) {
       // fmt::println("SHIFT VALUE IS REGISTER! Operand r{} (Rm) - r{} (Rs) [{:#010x}]", +instr.Rm, +instr.Rs, regs.r[instr.Rs] & 0xff);
-      instr.print_params();
+      // instr.print_params();
 
       if (instr.Rs == instr.Rm) { add_amount += 4; }
       if (instr.Rm == 15) { add_amount += 4; }
@@ -89,7 +85,7 @@ u32 ARM7TDMI::handle_shifts(instruction_info& instr, bool affects_flags) {
   }
 
   if (instr.S) {
-  // SPDLOG_DEBUG("immediate value rotate before: {}", instr.imm);
+    // SPDLOG_DEBUG("immediate value rotate before: {}", instr.imm);
     return shift(ROR, instr.imm, instr.rotate * 2, false, true);
   } else {
     SPDLOG_DEBUG("rot val: {:#x}", std::rotr(instr.imm, instr.rotate * 2));
@@ -113,6 +109,9 @@ instruction_info ARM7TDMI::fetch(u32 address) {
   // fmt::println("{:#x}",address);
   return instr;
 }
+
+inline bool ARM7TDMI::interrupt_queued() { return (bus->interrupt_control.IE.v & bus->interrupt_control.IF.v) != 0; }
+
 u16 ARM7TDMI::step() {
   if (!pipeline.fetch.empty) {
     pipeline.execute = pipeline.decode;
@@ -120,10 +119,34 @@ u16 ARM7TDMI::step() {
   }
   bus->cycles_elapsed += 1;
 
+  if (interrupt_queued() && bus->interrupt_control.IME.enabled && regs.CPSR.IRQ_DISABLE == 0) {
+    // spdlog::set_level(spdlog::level::trace);
+    // fmt::println("servicing");
+    SPDLOG_DEBUG("INTERRUPT PENDING SERVICING");
+    // fmt::println("fun value: {}", bus->fun_value);
+    auto cpsr  = regs.CPSR.value;
+    CPU_MODE m = regs.CPSR.STATE_BIT;
+
+    regs.CPSR.STATE_BIT   = ARM_MODE;
+    regs.CPSR.IRQ_DISABLE = true;
+    // IRQ
+    regs.copy(IRQ);
+    regs.CPSR.MODE_BITS = IRQ;
+
+    regs.r[14]    = regs.r[15] - (m == ARM_MODE ? 4 : 0);
+    regs.SPSR_svc = cpsr;
+    regs.r[15]    = 0x18;
+
+    flush_pipeline();
+
+    return 0;
+  };
+
+  // fmt::println("stepping....");
+
   pipeline.fetch = fetch(regs.r[15]);
 
   if (this->pipeline.decode.opcode != 0) { pipeline.decode = decode(pipeline.decode); }
-
   if (this->pipeline.execute.opcode != 0) { execute(pipeline.execute); }
 
   regs.r[15] += regs.CPSR.STATE_BIT ? 2 : 4;
@@ -131,7 +154,6 @@ u16 ARM7TDMI::step() {
   // move everything up, so we can fetch a new value
 
   // print_pipeline();
-
   return 0;
 }
 
@@ -147,7 +169,8 @@ void ARM7TDMI::print_pipeline() {
 void ARM7TDMI::execute(instruction_info& instr) {
   if (instr.func_ptr == nullptr) {
     SPDLOG_CRITICAL("could not execute instruction {:#10X}", instr.opcode);
-    assert(0);
+    // assert(0);
+    return;
   }
   spdlog::info("{}", instr.mnemonic);
   if (check_condition(instr)) {
@@ -241,12 +264,11 @@ void ARM7TDMI::print_registers() {
   fmt::println("r15: {:#010x}\n", regs.r[15]);
 }
 
-
 std::unordered_map<u8, std::string_view> shift_string_map = {
-  {0, "LSL"},
-  {1, "LSR"},
-  {2, "ASR"},
-  {3, "ROR"},
+    {0, "LSL"},
+    {1, "LSR"},
+    {2, "ASR"},
+    {3, "ROR"},
 };
 
 std::string_view ARM7TDMI::get_shift_type_string(u8 shift_type) {
