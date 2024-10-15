@@ -1,9 +1,12 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "common.hpp"
 #include "pak.hpp"
 struct Bus;
 struct PPU;
+#include "dma.hpp"
 #include "ppu.hpp"
 
 struct Bus {
@@ -17,12 +20,15 @@ struct Bus {
   std::vector<u8> OAM;
   std::vector<u8> SRAM;
 
+
+
   Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) { BIOS = read_file("roms/gba_bios.bin"); }
 
   Pak* pak = nullptr;
   PPU* ppu = nullptr;
+  // DMA_Controller* dma = nullptr;
 
-  unsigned long long fun_value = 0;
+  unsigned long long fun_value      = 0;
   unsigned long long cycles_elapsed = 0;
 
   [[nodiscard]] u8 read8(u32 address);
@@ -36,8 +42,23 @@ struct Bus {
   void write16(u32 address, u16 value);
   void write32(u32 address, u32 value);
 
+  inline void transfer16(const u32 src, const u32 dst, u32 word_count) {
+    for (size_t idx = 0; idx < word_count; idx++) {
+      fmt::println("copying to {:#010x}", dst + (idx * 2));
+      write16(dst + (idx * 2), read16(src + (idx * 2)));
+    }
+    fmt::println("dma copied successfully");
+  }
+  inline void transfer32(const u32 src, const u32 dst, u32 word_count) {
+    for (size_t idx = 0; idx < word_count; idx++) {
+      fmt::println("copying to {:#010x}", dst + (idx * 4));
+      write32(dst + (idx * 4), read32(src + (idx * 4)));
+    }
+    fmt::println("dma copied successfully");
+  }
+
   [[nodiscard]] u8 io_read(u32 address);
-  void handle_io_write(u32 address, u8 value);
+  void io_write(u32 address, u8 value);
 
   struct {
     union {
@@ -267,7 +288,7 @@ struct Bus {
     } BLDY;
 
     // u8 RESERVED[218];
-  } display_fields;
+  } display_fields = {};
 
   struct {
     union {
@@ -321,7 +342,7 @@ struct Bus {
         u32                    : 2;
       };
     } IF;
-  } interrupt_control;
+  } interrupt_control = {};
 
   struct {
     union {
@@ -347,6 +368,95 @@ struct Bus {
 
   struct {
     union {
+      u32 v = 0;
+      struct {
+        u32 src : 28;
+        u8      : 4;
+      };
+    } DMA0SAD, DMA1SAD, DMA2SAD, DMA3SAD;
+
+    union {
+      u32 v = 0;
+      struct {
+        u32 dst : 28;
+        u8      : 4;
+      };
+    } DMA0DAD, DMA1DAD, DMA2DAD, DMA3DAD;
+
+    union {
+      u16 v = 0;
+      struct {
+        u8                          : 5;
+        DST_CONTROL dst_control     : 2;
+        SRC_CONTROL src_control     : 2;
+        u8 dma_repeat               : 1;
+        TRANSFER_TYPE transfer_type : 1;
+        u8 game_pak_drq             : 1;
+        DMA_TIMING start_timing     : 2;
+        u8 irq_at_end               : 1;
+        u8 dma_enable               : 1;
+      };
+    } DMA0CNT_H, DMA1CNT_H, DMA2CNT_H, DMA3CNT_H;
+
+    union {
+      u16 v = 0;
+      struct {
+        u16 word_count;
+      };
+    } DMA0CNT_L, DMA1CNT_L, DMA2CNT_L, DMA3CNT_L;
+
+    void print_dma_info(u8 id) {
+      switch (id) {
+        case 0: {
+          fmt::println("============ DMA0 INFO ============");
+          fmt::println("src: {:#010x}", +DMA0SAD.src);
+          fmt::println("dst: {:#010x}", +DMA0DAD.dst);
+          fmt::println("timing: {}", TIMING_MAP.at(DMA0CNT_H.start_timing));
+          fmt::println("word count: {:#010x}", DMA0CNT_L.word_count);
+          fmt::println("word size: {}", DMA0CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
+          fmt::println("===================================");
+          break;
+        }
+        case 1: {
+          fmt::println("============ DMA1 INFO ============");
+          fmt::println("src: {:#010x}", +DMA1SAD.src);
+          fmt::println("dst: {:#010x}", +DMA1DAD.dst);
+          fmt::println("timing: {}", TIMING_MAP.at(DMA1CNT_H.start_timing));
+          fmt::println("word count: {:#010x}", DMA1CNT_L.word_count);
+          fmt::println("word size: {}", DMA1CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
+          fmt::println("===================================");
+          break;
+        }
+        case 2: {
+          fmt::println("============ DMA2 INFO ============");
+          fmt::println("src: {:#010x}", +DMA2SAD.src);
+          fmt::println("dst: {:#010x}", +DMA2DAD.dst);
+          fmt::println("timing: {}", TIMING_MAP.at(DMA2CNT_H.start_timing));
+          fmt::println("word count: {:#010x}", DMA2CNT_L.word_count);
+          fmt::println("word size: {}", DMA2CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
+          fmt::println("===================================");
+          break;
+        }
+        case 3: {
+          fmt::println("============ DMA3 INFO ============");
+          fmt::println("src: {:#010x}", +DMA3SAD.src);
+          fmt::println("dst: {:#010x}", +DMA3DAD.dst);
+          fmt::println("timing: {}", (u8)DMA3CNT_H.start_timing);
+          fmt::println("timing: {}", TIMING_MAP.at(DMA3CNT_H.start_timing));
+          fmt::println("word count: {:#010x}", DMA3CNT_L.word_count);
+          fmt::println("word size: {}", DMA3CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
+          fmt::println("===================================");
+          break;
+        }
+        default: {
+          assert(0);
+        }
+      }
+    }
+  } dma_control;
+
+  struct {
+    union {
       u16 v = 0xFFFF;
       struct {
         u8 A      : 1;
@@ -363,5 +473,5 @@ struct Bus {
       };
     } KEYINPUT;
 
-  } keypad_input;
+  } keypad_input = {};
 };
