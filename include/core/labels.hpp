@@ -3,7 +3,7 @@
 #include <unordered_map>
 
 #include "common.hpp"
-#include "spdlog/fmt/fmt.h"
+
 enum REG : u32 {
   DISPCNT    = 0x4000000,  //   LCD Control
   GREEN_SWAP = 0x4000002,  //   Undocumented - Green Swap

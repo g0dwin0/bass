@@ -12,4 +12,5 @@ struct Bass {
   Pak pak;
 
   Bass();
+  void check_and_handle_interrupts();
 };
