@@ -1,8 +1,7 @@
 #include "bus.hpp"
 
 #include <cstdio>
-#include <stdexcept>
-
+#include "common/bytes.hpp"
 #include "labels.hpp"
 
 void Bus::request_interrupt(InterruptType t) { interrupt_control.IF.v |= (1 << t); }
@@ -235,7 +234,7 @@ void Bus::write8(const u32 address, u8 value) {
 
     case 0x04000000 ... 0x040003FE: {
       // IO
-      handle_io_write(address, value);
+      io_write(address, value);
       break;
     }
 
@@ -249,7 +248,7 @@ void Bus::write8(const u32 address, u8 value) {
 
     case 0x06000000 ... 0x06017FFF: {
       // VRAM
-      assert(0);
+      // assert(0);
       return;
       // VRAM.at(address - 0x06000000) = value;
       // // set32(VRAM, address - 0x06000000, value);
@@ -305,7 +304,7 @@ void Bus::write16(const u32 address, u16 value) {
       break; /*  */
     }
 
-    case 0x06000000 ... 0x06017FFF: {
+    case 0x06000000 ... 0x06FFFFFF   : {
       *(uint16_t*)(&VRAM.data()[address % 0x18000]) = value;
       break;
     }
@@ -428,7 +427,10 @@ u8 Bus::io_read(u32 address) {
     case DMA3SAD: SPDLOG_DEBUG("READING FROM DMA3SAD UNIMPL"); break;
     case DMA3DAD: SPDLOG_DEBUG("READING FROM DMA3DAD UNIMPL"); break;
     case DMA3CNT_L: SPDLOG_DEBUG("READING FROM DMA3CNT_L UNIMPL"); break;
-    case DMA3CNT_H: SPDLOG_DEBUG("READING FROM DMA3CNT_H UNIMPL"); break;
+    case DMA3CNT_H: {
+      retval = read_byte(dma_control.DMA3CNT_H.v, address % 0x2);
+      break;
+    }
     case TM0CNT_L: SPDLOG_DEBUG("READING FROM TM0CNT_L UNIMPL"); break;
     case TM0CNT_H: SPDLOG_DEBUG("READING FROM TM0CNT_H UNIMPL"); break;
     case TM1CNT_L: SPDLOG_DEBUG("READING FROM TM1CNT_L UNIMPL"); break;
@@ -470,13 +472,14 @@ u8 Bus::io_read(u32 address) {
     case HALTCNT: break;
     default: {
       fmt::println("misaligned/partial read {:#08x}", address);
-      assert(0);
+      // assert(0);
+      break;
     }
   }
   // fmt::println("[IO READ] {} => {:#010x}", get_label(address), retval);
   return retval;
 }
-void Bus::handle_io_write(u32 address, u8 value) {
+void Bus::io_write(u32 address, u8 value) {
   // auto r = (REG)address;
   // fmt::println("write: {:#010x}", address);
   switch (address) {
@@ -608,10 +611,30 @@ void Bus::handle_io_write(u32 address, u8 value) {
     case DMA2DAD: SPDLOG_DEBUG("WRITING TO DMA2DAD UNIMPL"); break;
     case DMA2CNT_L: SPDLOG_DEBUG("WRITING TO DMA2CNT_L UNIMPL"); break;
     case DMA2CNT_H: SPDLOG_DEBUG("WRITING TO DMA2CNT_H UNIMPL"); break;
-    case DMA3SAD: SPDLOG_DEBUG("WRITING TO DMA3SAD UNIMPL"); break;
-    case DMA3DAD: SPDLOG_DEBUG("WRITING TO DMA3DAD UNIMPL"); break;
-    case DMA3CNT_L: SPDLOG_DEBUG("WRITING TO DMA3CNT_L UNIMPL"); break;
-    case DMA3CNT_H: SPDLOG_DEBUG("WRITING TO DMA3CNT_H UNIMPL"); break;
+    case DMA3SAD ... DMA3SAD + 3: {
+      set_byte(dma_control.DMA3SAD.v, address % 0x4, value);
+      break;
+    }
+    case DMA3DAD ... DMA3DAD + 3: {
+      set_byte(dma_control.DMA3DAD.v, address % 0x4, value);
+      break;
+    }
+    case DMA3CNT_L ... DMA3CNT_L + 1: {
+      set_byte(dma_control.DMA3CNT_L.v, address % 0x2, value);
+      break;
+    }
+    case DMA3CNT_H ... DMA3CNT_H + 1: {
+      set_byte(dma_control.DMA3CNT_H.v, address % 0x2, value);
+
+      if (dma_control.DMA3CNT_H.dma_enable) {
+        fmt::println("dma3 fired");
+        // dma_control.print_dma_info();
+
+        transfer16(dma_control.DMA3SAD.src, dma_control.DMA3DAD.dst, dma_control.DMA3CNT_L.word_count);
+        // assert(0);
+      }
+      break;
+    }
     case TM0CNT_L: SPDLOG_DEBUG("WRITING TO TM0CNT_L UNIMPL"); break;
     case TM0CNT_H: SPDLOG_DEBUG("WRITING TO TM0CNT_H UNIMPL"); break;
     case TM1CNT_L: SPDLOG_DEBUG("WRITING TO TM1CNT_L UNIMPL"); break;

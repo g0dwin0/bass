@@ -1,7 +1,6 @@
 #pragma once
 
 #include <climits>
-#include <limits>
 #define SPDLOG_COMPILED_LIB
 #define CONCAT(x, y) x##y
 #define EXPAND(x, y) CONCAT(x, y)
@@ -14,12 +13,9 @@
 #include <iterator>
 #include <vector>
 
-#include <type_traits>
 #include "spdlog/fmt/fmt.h" 
 #include "spdlog/spdlog.h"
-#include "common/bytes.hpp"
 #include "common/defs.hpp"
-#include "common/color_conversion.hpp"
 
 inline std::vector<u8> read_file(std::string_view filename) {
   std::ifstream file(filename.data(), std::ios::binary);

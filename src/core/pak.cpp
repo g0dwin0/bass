@@ -1,6 +1,5 @@
 #include "core/pak.hpp"
 #include "common.hpp"
-#include "spdlog/spdlog.h"
 
 void Pak::load_data(std::vector<u8>& f) {
   for (size_t i = 0; i < f.size(); ++i) {

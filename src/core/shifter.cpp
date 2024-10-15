@@ -1,8 +1,6 @@
 #include <stdexcept>
 
 #include "core/cpu.hpp"
-#include "spdlog/common.h"
-#include "spdlog/spdlog.h"
 
 u32 asr(u32 x, u32 shift) {
   u32 signBit = x & 0x80000000;
@@ -22,7 +20,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
   switch (mode) {
     case LSL: {
       if (amount == 0) {
-        SPDLOG_DEBUG("[LSL] shift amount is 0, returning inital value of {:#010x}", value);
+        // SPDLOG_DEBUG("[LSL] shift amount is 0, returning inital value of {:#010x}", value);
         return value;
       }
 
@@ -64,7 +62,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
 
 
       u32 s_m = (value >> amount);
-            SPDLOG_DEBUG("performed LSR with value: {:#010x}, by LSR'd by amount: {} result: {:#010x} - setting flag?: {}", value, amount, s_m, (value & (1 << (amount - 1))) != 0);
+            // SPDLOG_DEBUG("performed LSR with value: {:#010x}, by LSR'd by amount: {} result: {:#010x} - setting flag?: {}", value, amount, s_m, (value & (1 << (amount - 1))) != 0);
 
       if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
 
@@ -91,7 +89,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
 
       u32 m = asr(value, amount);
 
-      SPDLOG_DEBUG("performed ASR with value: {:#010x}, by ASR'd by amount: {} result: {:#010x}", value, amount, m);
+      // SPDLOG_DEBUG("performed ASR with value: {:#010x}, by ASR'd by amount: {} result: {:#010x}", value, amount, m);
 
       if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
 
@@ -110,7 +108,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
       if (amount > 32) amount %= 32;
       u32 r = std::rotr(static_cast<u32>(value), amount);
 
-      SPDLOG_DEBUG("performed ROR with value: {:#010x}, by ROR'd by amount: {:#010x} result: {:#010x} - setting carry: {} - RRX?: {}", value, amount, r, (value & (1 << (amount - 1))), is_rrx);
+      // SPDLOG_DEBUG("performed ROR with value: {:#010x}, by ROR'd by amount: {:#010x} result: {:#010x} - setting carry: {} - RRX?: {}", value, amount, r, (value & (1 << (amount - 1))), is_rrx);
       if (is_rrx) {  // RRX
 
         r &= ~(1 << 31);
