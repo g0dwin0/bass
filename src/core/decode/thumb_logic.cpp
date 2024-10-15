@@ -224,7 +224,6 @@ instruction_info ARM7TDMI::thumb_decode(instruction_info& instr) {
       }
       case 0xA: {
         instr.func_ptr = ARM::Instructions::CMP;
-        SPDLOG_TRACE("HI!");
         instr.mnemonic = fmt::format("cmp r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }

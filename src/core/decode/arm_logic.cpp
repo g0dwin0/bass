@@ -4,8 +4,7 @@
 #include "instructions/instruction.hpp"
 
 #define UNDEFINED_MASK 0x6000010
-#define BX_MASK 0xffffff0
-#define OPCODE_MASK 0x1e00000
+#define DATA_PROC_OPCODE_MASK 0x1e00000
 
 instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
   instr.condition = (Condition)(instr.opcode >> 28);
@@ -247,9 +246,8 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     return instr;
   }
 
-  if ((instr.opcode & BX_MASK) == 0x12fff10) {  // BX
-    // spdlog::debug("read instruction {:#010X} is of branch and exchange",
-    //               instr.opcode);
+  if ((instr.opcode & 0xffffff0) == 0x12fff10) {  // BX
+  
     instr.Rn = instr.opcode & 0xf;
 
     instr.func_ptr = ARM::Instructions::BX;
@@ -260,7 +258,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
   if ((instr.opcode & 0xe000010) == 0) {  // shift value is immediate
     // fmt::println("Data Processing (shift value is immediate)");
 
-    u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
+    u32 data_proc_opcode = ((instr.opcode & DATA_PROC_OPCODE_MASK) >> 21);
 
     instr.Rd = (instr.opcode & 0xf000) >> 12;
     instr.S  = (instr.opcode & 0x100000) ? 1 : 0;
@@ -277,7 +275,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     std::string_view shift_string = get_shift_type_string(instr.shift_type);
     assert((instr.opcode & (1 << 4)) == 0);
     // assert(0);
-    switch (o_opcode) {
+    switch (data_proc_opcode) {
       case AND: {
         instr.func_ptr = ARM::Instructions::AND;
         instr.mnemonic = fmt::format("and{}{} r{},r{},#{:#x} {}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2, shift_string);
@@ -343,7 +341,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
         instr.mnemonic = fmt::format("orr{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
-        instr.print_params();
+        // instr.print_params();
         break;
       }
       case MOV: {
@@ -365,7 +363,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       }
 
       default: {
-        SPDLOG_ERROR("could not resolve data processing opcode: {:08b}", o_opcode);
+        SPDLOG_ERROR("could not resolve data processing opcode: {:08b}", data_proc_opcode);
         assert(0);
       }
     }
@@ -375,7 +373,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
   if ((instr.opcode & 0xe000090) == 0x10) {  // shift value is a register
     // fmt::println("Data Processing (shift value is a register)");
-    u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
+    u32 o_opcode = ((instr.opcode & DATA_PROC_OPCODE_MASK) >> 21);
     instr.Rd     = (instr.opcode & 0xf000) >> 12;
     instr.S      = (instr.opcode & (1 << 20)) ? 1 : 0;
     instr.Rm     = instr.opcode & 0xf;
@@ -388,7 +386,6 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     SPDLOG_DEBUG("OPCODE: {:#010x}", instr.opcode);
     std::string_view shift_string = get_shift_type_string(instr.shift_type);
 
-    // Should be impossible.
     instr.I = (instr.opcode & (1 << 25)) != 0 ? 1 : 0;
   
     assert(instr.I == 0);
@@ -488,7 +485,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
   if ((instr.opcode & 0xe000000) == 0x2000000) {  // Data Processing (immediate value)
     // fmt::println("Data Processing (immediate value)");
 
-    u32 o_opcode = ((instr.opcode & OPCODE_MASK) >> 21);
+    u32 o_opcode = ((instr.opcode & DATA_PROC_OPCODE_MASK) >> 21);
     instr.Rd     = (instr.opcode & 0xf000) >> 12;
     instr.op2    = instr.opcode & 0xfff;
     instr.S      = (instr.opcode & 0x100000) ? 1 : 0;
@@ -714,11 +711,11 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     //   return instr;
     // }
 
-    // instr.mnemonic = fmt::format("swi #{:#010x}", (instr.opcode & 0xff0000) >> 16);
-    // instr.func_ptr = ARM::Instructions::SWI;
-    fmt::println("failed on {} - SWI number: {:#02x} [{:#010x}]", regs.r[0], (instr.opcode & 0xff0000) >> 16, instr.loc);
+    instr.mnemonic = fmt::format("swi #{:#010x}", (instr.opcode & 0xff0000) >> 16);
+    instr.func_ptr = ARM::Instructions::SWI;
+    // fmt::println("failed on {} - SWI number: {:#02x} [{:#010x}]", regs.r[0], (instr.opcode & 0xff0000) >> 16, instr.loc);
 
-    assert(0);
+    // assert(0);
 
     return instr;
   }
