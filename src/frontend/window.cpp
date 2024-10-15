@@ -2,14 +2,17 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_pixels.h>
+#include <SDL2/SDL_render.h>
 #include <SDL2/SDL_timer.h>
+#include <spdlog/common.h>
+
+#include <thread>
 
 #include "cpu.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
 #include "imgui_memory_edit.h"
-#include "spdlog/spdlog.h"
 #include "tinyfiledialogs.h"
 
 static MemoryEditor editor_instance;
@@ -100,7 +103,53 @@ void Frontend::show_debugger() {
 
   ImGui::End();
 }
+void Frontend::show_irq_status() {
+  ImGui::Begin("IRQ STATUS");
+  ImGui::Text("%s", fmt::format("IME: {}", bass->bus.interrupt_control.IME.v ? 1 : 0).c_str());
+  ImGui::Separator();
+  ImGui::Text("IE - IF");
+  ImGui::Text("%s", fmt::format("LCD VBLANK:        {} - {}", bass->bus.interrupt_control.IE.LCD_VBLANK ? 1 : 0, bass->bus.interrupt_control.IF.LCD_VBLANK ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("LCD HBLANK:        {} - {}", bass->bus.interrupt_control.IE.LCD_HBLANK ? 1 : 0, bass->bus.interrupt_control.IF.LCD_HBLANK ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("LCD VCOUNT_MATCH:  {} - {}", bass->bus.interrupt_control.IE.LCD_V_COUNTER_MATCH ? 1 : 0, bass->bus.interrupt_control.IF.LCD_V_COUNTER_MATCH ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER0 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER0_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER0_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER1 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER1_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER1_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER2 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER2_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER2_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER3 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER3_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER3_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("SERIAL COMM:       {} - {}", bass->bus.interrupt_control.IE.SERIAL_COM ? 1 : 0, bass->bus.interrupt_control.IF.SERIAL_COM ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA0:              {} - {}", bass->bus.interrupt_control.IE.DMA0 ? 1 : 0, bass->bus.interrupt_control.IF.DMA0 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA1:              {} - {}", bass->bus.interrupt_control.IE.DMA1 ? 1 : 0, bass->bus.interrupt_control.IF.DMA1 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA2:              {} - {}", bass->bus.interrupt_control.IE.DMA2 ? 1 : 0, bass->bus.interrupt_control.IF.DMA2 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA3:              {} - {}", bass->bus.interrupt_control.IE.DMA3 ? 1 : 0, bass->bus.interrupt_control.IF.DMA3 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("KEYPAD:            {} - {}", bass->bus.interrupt_control.IE.KEYPAD ? 1 : 0, bass->bus.interrupt_control.IF.KEYPAD ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("GAMEPAK_EXT:       {} - {}", bass->bus.interrupt_control.IE.GAMEPAK ? 1 : 0, bass->bus.interrupt_control.IF.GAMEPAK ? 1 : 0).c_str());
+  ImGui::End();
+}
+void Frontend::show_tiles() {
+  ImGui::Begin("Tile Window");
+  // SDL_Rect sz{240,160};
+  ImGui::Text("Tile Set");
+  ImGui::Image(state.tile_set_texture, ImVec2(256, 256));
+  ImGui::Separator();
+  ImGui::Text("Tilemap");
+  ImGui::Image(state.tile_map_texture, ImVec2(256 * 2, 256 * 2));
+  ImGui::End();
+}
 
+void Frontend::show_backgrounds() {
+  ImGui::Begin("Backgrounds", &state.backgrounds_window_open, 0);
+  const char* backgrounds[] = {
+      "BG0",
+      "BG1",
+      "BG2",
+      "BG3",
+  };
+
+  static int SelectedItem = 0;
+
+  if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_ARRAYSIZE(backgrounds))) { fmt::println("switched to: {}", backgrounds[SelectedItem]); }
+  // ImGui::Image(bass->ppu.tile_map_texture_buffer_arr[SelectedItem], {512, 512});
+  ImGui::End();
+}
 void Frontend::show_cpu_info() {
   ImGui::Begin("CPU INFO", &state.cpu_info_open, 0);
   ImGui::Columns(4, "Registers");
@@ -115,7 +164,6 @@ void Frontend::show_cpu_info() {
   ImGui::Text("%s", fmt::format("SPSR_svc: {:#010x}", bass->cpu.regs.SPSR_svc).c_str());
   ImGui::Text("%s", fmt::format("SPSR_abt: {:#010x}", bass->cpu.regs.SPSR_abt).c_str());
   ImGui::Text("%s", fmt::format("SPSR_und: {:#010x}", bass->cpu.regs.SPSR_und).c_str());
-  
   ImGui::Separator();
   bool zero     = bass->cpu.regs.CPSR.ZERO_FLAG;
   bool negative = bass->cpu.regs.CPSR.SIGN_FLAG;
@@ -149,19 +197,52 @@ void Frontend::show_cpu_info() {
   ImGui::Text("FIQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.FIQ_DISABLE);
   ImGui::Text("IRQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.IRQ_DISABLE);
   ImGui::Text("KEYINPUT: 0x%02x\n", bass->bus.keypad_input.KEYINPUT.v);
-
+  ImGui::InputInt("step amount", &state.step_amount, 0, 0, 0);
   if (ImGui::Button("STEP")) { bass->cpu.step(); }
+  if (ImGui::Button("STEP AMOUNT")) {
+    for (int i = 0; i < state.step_amount; i++) {
+      bass->cpu.step();
+    }
+  }
+
+  ImGui::Separator();
+  if (ImGui::Button("Enable Logging")) { spdlog::set_level(spdlog::level::trace); }
+  if (ImGui::Button("Disable Logging")) { spdlog::set_level(spdlog::level::off); }
   if (ImGui::Button("UNHALT")) { state.halted = false; }
 
   ImGui::End();
 }
+
 void Frontend::show_ppu_info() {
   ImGui::Begin("PPU INFO", &state.cpu_info_open, 0);
+
+  ImGui::Text("BG0 PRIORITY: %d", bass->bus.display_fields.BG0CNT.BG_PRIORITY);
+  ImGui::Text("BG0 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG0CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG0 MOSAIC: %d", bass->bus.display_fields.BG0CNT.MOSAIC);
+  ImGui::Text("BG0 COLOR MODE: %s", bass->bus.display_fields.BG0CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG0 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG0CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG0CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG0CNT.SCREEN_SIZE).c_str());
+
+  ImGui::Text("BG1 PRIORITY: %d", bass->bus.display_fields.BG1CNT.BG_PRIORITY);
+  ImGui::Text("BG1 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG1CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG1 MOSAIC: %d", bass->bus.display_fields.BG1CNT.MOSAIC);
+  ImGui::Text("BG1 COLOR MODE: %s", bass->bus.display_fields.BG1CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG1CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG1CNT.SCREEN_SIZE).c_str());
+
+  ImGui::Text("BG0HOFS: %d", bass->bus.display_fields.BG0HOFS.v);
+  ImGui::Text("BG0VOFS: %d", bass->bus.display_fields.BG0VOFS.v);
+  ImGui::Separator();
 
   ImGui::Text("BG MODE: %#010x", bass->bus.display_fields.DISPCNT.BG_MODE);
   if (ImGui::Button("Set VBLANK")) { bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 1; }
   if (ImGui::Button("Reset VBLANK")) { bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 0; }
   if (ImGui::Button("Draw")) { bass->ppu.draw(); }
+  if (ImGui::Button("Draw Tileset")) {
+    bass->ppu.draw(true);
+    // SDL_UpdateTexture(state.tile_set_texture, nullptr, bass->ppu.tile_set_texture, 240 * 4);
+    // SDL_UpdateTexture(state.tile_map_texture, nullptr, bass->ppu.tile_map_texture_buffer, 512 * 4);
+  }
   ImGui::Separator();
   ImGui::End();
 }
@@ -253,9 +334,13 @@ void Frontend::render_frame() {
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
+  // show_menubar();
   show_cpu_info();
   show_ppu_info();
   show_debugger();
+  // show_irq_status();
+  show_tiles();
+  show_backgrounds();
 
   // Rendering
   ImGui::Render();
@@ -269,10 +354,8 @@ void Frontend::render_frame() {
   ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
   SDL_RenderPresent(renderer);
 }
-
-Frontend::Frontend(Bass* c) {
-  bass = c;  // maybe a smart pointer could be better?
-
+void Frontend::init_sdl() {
+  // bass = c;  // maybe a smart pointer could be better?
   state.frame_buf_ptr = bass->ppu.frame_buffer;
 
   SPDLOG_DEBUG("constructed frontend with instance pointer");
@@ -284,6 +367,7 @@ Frontend::Frontend(Bass* c) {
   this->window   = SDL_CreateWindow("bass", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 240 * 5, 160 * 5, window_flags);
   this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
+  fmt::println("initializing SDL");
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -294,8 +378,37 @@ Frontend::Frontend(Bass* c) {
 
   ImGui::StyleColorsDark();
 
-  this->state.ppu_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
-  
+  this->state.ppu_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
+  this->state.tile_set_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
+  this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+
+  //   for (size_t bg_buffer = 0; bg_buffer < 4; bg_buffer++) {
+  //     this->state.tile_maps_textures[bg_buffer] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+  //   }
+
   ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
   ImGui_ImplSDLRenderer2_Init(renderer);
+
+  // GFX Loop
+
+  while (state.running) {
+    handle_events();
+    render_frame();
+  }
+
+  stop();  // Joins the thread and then executes cleanup code
+};
+
+void Frontend::run() {
+  sdlThread     = std::thread(&Frontend::init_sdl, this);
+  state.running = true;
+}
+void Frontend::stop() {
+  state.running = false;
+  if (sdlThread.joinable()) { sdlThread.join(); }
+}
+
+Frontend::Frontend(Bass* c) {
+  bass = c;
+  run();
 }
