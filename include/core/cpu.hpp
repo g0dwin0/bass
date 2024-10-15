@@ -23,7 +23,7 @@ enum DATA_PROCESSING_OPS {
   BIC = 0xE,
   MVN = 0xF,
 };
-enum DATA_PROCESSING_MODE { IMMEDIATE, REGISTER_SHIFT, IMMEDIATE_SHIFT };
+
 enum BOUNDARY { HALFWORD, WORD };
 struct ARM7TDMI {
   ARM7TDMI();
@@ -64,6 +64,8 @@ struct ARM7TDMI {
   [[nodiscard]] std::string_view get_shift_type_string(u8 shift_type);
   [[nodiscard]] u32 shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool never_rrx = false, bool affect_flags = true);
 
+  [[nodiscard]] bool interrupt_queued();
+  
   inline void set_zero() { regs.CPSR.ZERO_FLAG = 1; };
   inline void reset_zero() { regs.CPSR.ZERO_FLAG = 0; };
 

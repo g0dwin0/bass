@@ -5,14 +5,18 @@
 #include <unordered_map>
 
 #include "bass.hpp"
-#include "common.hpp"
 #include "imgui.h"
 
 // TODO: add breakpoints in debugger
 
 struct State {
-  SDL_Texture* ppu_texture = nullptr;
-  u32* frame_buf_ptr       = nullptr;
+  SDL_Texture* ppu_texture      = nullptr;
+  SDL_Texture* tile_set_texture = nullptr;
+  SDL_Texture* tile_map_texture = nullptr;
+
+  std::array<SDL_Texture*, 4> tile_maps_textures = {nullptr, nullptr, nullptr, nullptr};
+
+  u32* frame_buf_ptr = nullptr;
 
   const u8* keyboardState = SDL_GetKeyboardState(nullptr);
   bool running            = true;
@@ -21,7 +25,11 @@ struct State {
   bool cpu_info_open        = true;
   bool ppu_info_open        = true;
   bool controls_window_open = true;
-    bool halted = false;
+  bool tile_window_open     = true;
+
+  bool backgrounds_window_open = true;
+  bool halted                  = false;
+  int step_amount              = 0;
 
   ImGuiIO* io = nullptr;
 };
@@ -55,19 +63,29 @@ struct Frontend {
   SDL_Renderer* renderer;
   State state;
   Bass* bass = nullptr;
+  std::thread sdlThread;
 
   char const* patterns[1] = {"*.gba"};
 
+  void init_sdl();
+
   void handle_events();
+
   void render_frame();
 
   void show_menubar();
+  void show_backgrounds();
 
   void shutdown();
   void show_debugger();
   void show_cpu_info();
   void show_ppu_info();
   void show_controls_menu(bool*);
+  void show_irq_status();
+  void show_tiles();
+
+  void run();
+  void stop();
 
   explicit Frontend(Bass*);
 
