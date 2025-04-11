@@ -48,21 +48,21 @@ struct instruction_info {
 
   void (*func_ptr)(ARM7TDMI& c, instruction_info& instr) = NULL;
   void print_params() {
-    SPDLOG_DEBUG("opcode: {:#010x} ", +opcode);
-    SPDLOG_DEBUG("loc: {:#010x}", +loc);
-    SPDLOG_DEBUG("Rd: {:#010x} {}", +Rd, +Rd);
-    SPDLOG_DEBUG("Rn: {:#010x} {}", +Rn, +Rn);
-    SPDLOG_DEBUG("Rs: {:#010x} {}", +Rs, +Rs);
-    SPDLOG_DEBUG("Rm: {:#010x} {}", +Rm, +Rm);
-    SPDLOG_DEBUG("A: {:#x}\n", +A);
-    SPDLOG_DEBUG("P: {:#x}", +P);
-    SPDLOG_DEBUG("U: {:#x}", +U);
-    SPDLOG_DEBUG("S: {:#x}", +S);
-    SPDLOG_DEBUG("W: {:#x}", +W);
-    SPDLOG_DEBUG("L: {:#x}\n", +L);
-    SPDLOG_DEBUG("B: {:#x}", +B);
-    SPDLOG_DEBUG("I: {:#x}", +I);
-    SPDLOG_DEBUG("H: {:#x}", +H);
-    SPDLOG_DEBUG("op2: {:#x}", +op2);
+    // SPDLOG_DEBUG("opcode: {:#010x} ", +opcode);
+    // SPDLOG_DEBUG("loc: {:#010x}", +loc);
+    // // SPDLOG_DEBUG("Rd: {:#010x} {}", +Rd, +Rd);
+    // // SPDLOG_DEBUG("Rn: {:#010x} {}", +Rn, +Rn);
+    // // SPDLOG_DEBUG("Rs: {:#010x} {}", +Rs, +Rs);
+    // // SPDLOG_DEBUG("Rm: {:#010x} {}", +Rm, +Rm);
+    // // SPDLOG_DEBUG("A: {:#x}\n", +A);
+    // // SPDLOG_DEBUG("P: {:#x}", +P);
+    // // SPDLOG_DEBUG("U: {:#x}", +U);
+    // // SPDLOG_DEBUG("S: {:#x}", +S);
+    // // SPDLOG_DEBUG("W: {:#x}", +W);
+    // // SPDLOG_DEBUG("L: {:#x}\n", +L);
+    // // SPDLOG_DEBUG("B: {:#x}", +B);
+    // // SPDLOG_DEBUG("I: {:#x}", +I);
+    // // SPDLOG_DEBUG("H: {:#x}", +H);
+    // SPDLOG_DEBUG("op2: {:#x}", +op2);
   }
 };

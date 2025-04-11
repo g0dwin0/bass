@@ -11,15 +11,16 @@
 
 struct State {
   SDL_Texture* ppu_texture      = nullptr;
+  SDL_Texture* backdrop         = nullptr;
   SDL_Texture* tile_set_texture = nullptr;
   SDL_Texture* tile_map_texture = nullptr;
 
-  std::array<SDL_Texture*, 4> tile_maps_textures = {nullptr, nullptr, nullptr, nullptr};
+  std::array<SDL_Texture*, 4> background_textures{};
 
   u32* frame_buf_ptr = nullptr;
 
-  const u8* keyboardState = SDL_GetKeyboardState(nullptr);
-  bool running            = true;
+  const u8* keyboardState   = SDL_GetKeyboardState(nullptr);
+  std::atomic<bool> running = true;
 
   bool debugger_open        = true;
   bool cpu_info_open        = true;
@@ -65,7 +66,14 @@ struct Frontend {
   Bass* bass = nullptr;
   std::thread sdlThread;
 
-  char const* patterns[1] = {"*.gba"};
+  Uint32 frameStartTime = 0;
+  Uint32 frameCount     = 0;
+  Uint32 fpsStartTime   = SDL_GetTicks();  // Start time for FPS calculation
+  float fps             = 0.0f;
+
+  SDL_Rect rect{0, 0, 240, 160};
+
+  const char* patterns[1] = {"*.gba"};
 
   void init_sdl();
 
@@ -83,9 +91,6 @@ struct Frontend {
   void show_controls_menu(bool*);
   void show_irq_status();
   void show_tiles();
-
-  void run();
-  void stop();
 
   explicit Frontend(Bass*);
 

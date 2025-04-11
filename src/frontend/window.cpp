@@ -1,12 +1,17 @@
 #include "frontend/window.h"
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_error.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
+#include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_timer.h>
+#include <SDL2/SDL_version.h>
 #include <spdlog/common.h>
 
-#include <thread>
+#include <atomic>
+#include <iostream>
+#include <mutex>
 
 #include "cpu.hpp"
 #include "imgui.h"
@@ -137,17 +142,33 @@ void Frontend::show_tiles() {
 
 void Frontend::show_backgrounds() {
   ImGui::Begin("Backgrounds", &state.backgrounds_window_open, 0);
-  const char* backgrounds[] = {
-      "BG0",
-      "BG1",
-      "BG2",
-      "BG3",
-  };
+  const char* backgrounds[] = {"BG0", "BG1", "BG2", "BG3", "viewport", "backdrop"};
 
   static int SelectedItem = 0;
-
+  ImGui::Text("Enabled BG(s)");
+  for (int bg_id = 0; bg_id < 4; bg_id++) {
+    if (!bass->ppu.background_enabled(bg_id)) continue;
+    ImGui::Text("BG %d", bg_id);
+  }
   if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_ARRAYSIZE(backgrounds))) { fmt::println("switched to: {}", backgrounds[SelectedItem]); }
-  // ImGui::Image(bass->ppu.tile_map_texture_buffer_arr[SelectedItem], {512, 512});
+
+  if (SelectedItem < 4) { ImGui::Image(state.background_textures[SelectedItem], {512, 512}); }
+
+  switch (SelectedItem) {
+    case 0 ... 3: {
+      ImGui::Image(state.background_textures[SelectedItem], {512, 512});
+      break;
+    }
+    case 4: {
+      ImGui::Image(state.ppu_texture, {512, 512});
+      break;
+    }
+    case 5: {
+      ImGui::Image(state.backdrop, {512, 512});
+      break;
+    }
+  }
+
   ImGui::End();
 }
 void Frontend::show_cpu_info() {
@@ -194,6 +215,8 @@ void Frontend::show_cpu_info() {
 
   ImGui::Separator();
 
+  ImGui::Separator();
+
   ImGui::Text("FIQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.FIQ_DISABLE);
   ImGui::Text("IRQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.IRQ_DISABLE);
   ImGui::Text("KEYINPUT: 0x%02x\n", bass->bus.keypad_input.KEYINPUT.v);
@@ -202,6 +225,7 @@ void Frontend::show_cpu_info() {
   if (ImGui::Button("STEP AMOUNT")) {
     for (int i = 0; i < state.step_amount; i++) {
       bass->cpu.step();
+      bass->check_and_handle_interrupts();
     }
   }
 
@@ -230,16 +254,36 @@ void Frontend::show_ppu_info() {
   ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
   ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG1CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG1CNT.SCREEN_SIZE).c_str());
 
-  ImGui::Text("BG0HOFS: %d", bass->bus.display_fields.BG0HOFS.v);
-  ImGui::Text("BG0VOFS: %d", bass->bus.display_fields.BG0VOFS.v);
+  ImGui::Text("BG2 PRIORITY: %d", bass->bus.display_fields.BG2CNT.BG_PRIORITY);
+  ImGui::Text("BG2 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG2CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG2 MOSAIC: %d", bass->bus.display_fields.BG2CNT.MOSAIC);
+  ImGui::Text("BG2 COLOR MODE: %s", bass->bus.display_fields.BG2CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG2 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG2CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG2CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG2CNT.SCREEN_SIZE).c_str());
+
+  ImGui::Text("BG3 PRIORITY: %d", bass->bus.display_fields.BG3CNT.BG_PRIORITY);
+  ImGui::Text("BG3 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG3CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG3 MOSAIC: %d", bass->bus.display_fields.BG3CNT.MOSAIC);
+  ImGui::Text("BG3 COLOR MODE: %s", bass->bus.display_fields.BG3CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG3 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG3CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG3CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG3CNT.SCREEN_SIZE).c_str());
+
+  ImGui::Text("BG0HOFS: %d", bass->bus.display_fields.BG0HOFS.OFFSET);
+  ImGui::Text("BG0VOFS: %d", bass->bus.display_fields.BG0VOFS.OFFSET);
+
+  ImGui::Text("BG1HOFS: %d", bass->bus.display_fields.BG1HOFS.OFFSET);
+  ImGui::Text("BG1VOFS: %d", bass->bus.display_fields.BG1VOFS.OFFSET);
+
+  ImGui::Text("LY: %d", bass->bus.display_fields.VCOUNT.LY);
+
   ImGui::Separator();
 
   ImGui::Text("BG MODE: %#010x", bass->bus.display_fields.DISPCNT.BG_MODE);
   if (ImGui::Button("Set VBLANK")) { bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 1; }
   if (ImGui::Button("Reset VBLANK")) { bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 0; }
-  if (ImGui::Button("Draw")) { bass->ppu.draw(); }
+  if (ImGui::Button("Draw")) { bass->ppu.step(); }
   if (ImGui::Button("Draw Tileset")) {
-    bass->ppu.draw(true);
+    bass->ppu.step(true);
     // SDL_UpdateTexture(state.tile_set_texture, nullptr, bass->ppu.tile_set_texture, 240 * 4);
     // SDL_UpdateTexture(state.tile_map_texture, nullptr, bass->ppu.tile_map_texture_buffer, 512 * 4);
   }
@@ -335,12 +379,12 @@ void Frontend::render_frame() {
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
   // show_menubar();
-  show_cpu_info();
-  show_ppu_info();
-  show_debugger();
+  // show_cpu_info();
+  // show_ppu_info();
+  // show_debugger();
   // show_irq_status();
-  show_tiles();
-  show_backgrounds();
+  // show_tiles();
+  // show_backgrounds();
 
   // Rendering
   ImGui::Render();
@@ -348,26 +392,72 @@ void Frontend::render_frame() {
 
   SDL_SetRenderTarget(renderer, NULL);
   SDL_RenderClear(renderer);
-  SDL_Rect rect{0, 0, 240, 160};
-  SDL_UpdateTexture(state.ppu_texture, nullptr, state.frame_buf_ptr, 240 * 4);
+
+  PPU::DoubleBuffer& buffer = bass->ppu.db;
+
+  {
+    std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
+    buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
+    std::swap(buffer.disp_buf, buffer.write_buf);
+  }
+
+  SDL_UpdateTexture(state.background_textures[0], nullptr, bass->ppu.tile_map_texture_buffer_0, 512 * 4);
+  SDL_UpdateTexture(state.background_textures[1], nullptr, bass->ppu.tile_map_texture_buffer_1, 512 * 4);
+  SDL_UpdateTexture(state.background_textures[2], nullptr, bass->ppu.tile_map_texture_buffer_2, 512 * 4);
+  SDL_UpdateTexture(state.background_textures[3], nullptr, bass->ppu.tile_map_texture_buffer_3, 512 * 4);
+  // SDL_UpdateTexture(state.backdrop, nullptr, bass->ppu.backdrop, 512 * 4);
+  SDL_UpdateTexture(state.ppu_texture, nullptr, buffer.write_buf, 240 * 4);
   SDL_RenderCopy(renderer, state.ppu_texture, &rect, NULL);
+
   ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+
   SDL_RenderPresent(renderer);
+  frameCount++;
+  Uint32 currentTime = SDL_GetTicks();
+  
+  if (currentTime - fpsStartTime >= 1000) {
+    fps          = frameCount / ((currentTime - fpsStartTime) / 1000.0f);
+    fpsStartTime = currentTime;  // Reset FPS timer
+    frameCount   = 0;
+
+    // Print FPS to the console
+    std::cout << "FPS: " << fps << std::endl;
+  }
+  // Reset the ready flag for the next frame
+  {
+    std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
+    buffer.framebuffer_ready = false;
+  }
 }
 void Frontend::init_sdl() {
-  // bass = c;  // maybe a smart pointer could be better?
-  state.frame_buf_ptr = bass->ppu.frame_buffer;
+  state.frame_buf_ptr = bass->ppu.db.disp_buf;
 
   SPDLOG_DEBUG("constructed frontend with instance pointer");
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0) { fmt::println("ERROR: failed initialize SDL"); }
 
-  auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+  auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
-  this->window   = SDL_CreateWindow("bass", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 240 * 5, 160 * 5, window_flags);
-  this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  this->window = SDL_CreateWindow("bass", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 240 * 5, 160 * 5, window_flags);
+  if (this->window == NULL) {
+    fmt::println("failed to create window");
+    assert(0);
+  }
+  this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+  if (this->renderer == NULL) {
+    fmt::println("failed to create renderer");
+    assert(0);
+  }
 
   fmt::println("initializing SDL");
+  printf("window ptr: %p\n", this->window);
+  printf("render ptr: %p\n", this->renderer);
+
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -375,40 +465,22 @@ void Frontend::init_sdl() {
   (void)io;
 
   this->state.io = &io;
+  SDL_version version;
+  SDL_GetVersion(&version);
+  printf("SDL version %d.%d.%d\n", version.major, version.minor, version.patch);
 
   ImGui::StyleColorsDark();
 
+  ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+  ImGui_ImplSDLRenderer2_Init(renderer);
   this->state.ppu_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
   this->state.tile_set_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
   this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+  this->state.backdrop         = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
 
-  //   for (size_t bg_buffer = 0; bg_buffer < 4; bg_buffer++) {
-  //     this->state.tile_maps_textures[bg_buffer] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
-  //   }
-
-  ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-  ImGui_ImplSDLRenderer2_Init(renderer);
-
-  // GFX Loop
-
-  while (state.running) {
-    handle_events();
-    render_frame();
+  for (size_t bg_id = 0; bg_id < 4; bg_id++) {
+    this->state.background_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
   }
-
-  stop();  // Joins the thread and then executes cleanup code
 };
 
-void Frontend::run() {
-  sdlThread     = std::thread(&Frontend::init_sdl, this);
-  state.running = true;
-}
-void Frontend::stop() {
-  state.running = false;
-  if (sdlThread.joinable()) { sdlThread.join(); }
-}
-
-Frontend::Frontend(Bass* c) {
-  bass = c;
-  run();
-}
+Frontend::Frontend(Bass* c) : bass(c) { init_sdl(); }

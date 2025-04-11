@@ -23,12 +23,12 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
     switch (op) {
       case 0: {  // MUL
-        instr.mnemonic = fmt::format("mul r{}, r{}, r{}, r{}", +instr.Rd, +instr.Rm, +instr.Rs, +instr.Rn);
+        // instr.mnemonic = fmt::format("mul r{}, r{}, r{}, r{}", +instr.Rd, +instr.Rm, +instr.Rs, +instr.Rn);
         instr.func_ptr = ARM::Instructions::MUL;
         break;
       }
       case 1: {  // MLA
-        instr.mnemonic = fmt::format("mla r{}, r{}, r{}, r{}", +instr.Rd, +instr.Rm, +instr.Rs, +instr.Rn);
+        // instr.mnemonic = fmt::format("mla r{}, r{}, r{}, r{}", +instr.Rd, +instr.Rm, +instr.Rs, +instr.Rn);
         instr.func_ptr = ARM::Instructions::MLA;
         break;
       }
@@ -53,23 +53,23 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
     switch (op) {
       case 4: {  // UMULL
-        instr.mnemonic = fmt::format("umull{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
+        // instr.mnemonic = fmt::format("umull{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
         instr.func_ptr = ARM::Instructions::UMULL;
 
         break;
       }
       case 5: {  // UMLAL
-        instr.mnemonic = fmt::format("umlal{} r{} r{} r{} r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
+        // instr.mnemonic = fmt::format("umlal{} r{} r{} r{} r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
         instr.func_ptr = ARM::Instructions::UMLAL;
         break;
       }
       case 6: {  // SMULL
-        instr.mnemonic = fmt::format("smull{}{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
+        // instr.mnemonic = fmt::format("smull{}{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
         instr.func_ptr = ARM::Instructions::SMULL;
         break;
       }
       case 7: {  // SMLAL
-        instr.mnemonic = fmt::format("smlal{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
+        // instr.mnemonic = fmt::format("smlal{} r{}, r{}, r{}, r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rd, +instr.Rm, +instr.Rs);
         instr.func_ptr = ARM::Instructions::SMLAL;
         break;
       }
@@ -91,7 +91,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
     assert(instr.Rm != 15);
 
-    instr.mnemonic = fmt::format("swp{} r{}, r{}, [r{}]", condition_map.at(instr.condition), +instr.Rd, +instr.Rm, +instr.Rn);
+    // instr.mnemonic = fmt::format("swp{} r{}, r{}, [r{}]", condition_map.at(instr.condition), +instr.Rd, +instr.Rm, +instr.Rn);
     instr.func_ptr = ARM::Instructions::SWP;
 
     return instr;
@@ -112,7 +112,8 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     instr.offset = (((instr.opcode & 0xf00) >> 8) << 4) + (instr.opcode & 0xf);
 
     u32 c_address = regs.r[instr.Rn];
-
+    (void)(c_address);
+    
     if (instr.P == 1 && instr.W) {
       if (instr.U == 1) {
         // SPDLOG_INFO("UP");
@@ -123,9 +124,9 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       }
     }
 
-    instr.mnemonic = fmt::format("{}rh{} r{},[r{}], {}#${:#x} [#${:#x}]", instr.L ? "ld" : "st", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, c_address
+    // instr.mnemonic = fmt::format("{}rh{} r{},[r{}], {}#${:#x} [#${:#x}]", instr.L ? "ld" : "st", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, c_address
 
-    );
+    // );
 
     if (instr.L) {
       instr.func_ptr = ARM::Instructions::LDRH;
@@ -133,7 +134,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       instr.func_ptr = ARM::Instructions::STRH;
     }
 
-    // SPDLOG_INFO(instr.mnemonic);
+    // SPDLOG_INFO(// instr.mnemonic);
 
     return instr;
   }
@@ -188,9 +189,9 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       default: assert("invalid opcode");
     }
 
-    instr.mnemonic = fmt::format("ldr{}{} r{},[r{}], {}#${:#x} [${:#x}]", mode_string, condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, c_address
+    // instr.mnemonic = fmt::format("ldr{}{} r{},[r{}], {}#${:#x} [${:#x}]", mode_string, condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, c_address
 
-    );
+    // );
 
     return instr;
   }
@@ -206,7 +207,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     instr.Rd = (instr.opcode & 0xf000) >> 12;
 
     instr.func_ptr = ARM::Instructions::MRS;
-    instr.mnemonic = fmt::format("mrs{} r{}, {}", condition_map.at(instr.condition), +instr.Rd, instr.P == 0 ? "cpsr" : "spsr");
+    // instr.mnemonic = fmt::format("mrs{} r{}, {}", condition_map.at(instr.condition), +instr.Rd, instr.P == 0 ? "cpsr" : "spsr");
     return instr;
   }
 
@@ -216,11 +217,11 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     instr.Rm = (instr.opcode & 0xf);
     instr.I  = (instr.opcode & (1 << 25)) ? 1 : 0;
 
-    bool modify_flag_field    = (instr.opcode & (1 << 19)) ? true : false;
-    bool modify_control_field = (instr.opcode & (1 << 16)) ? true : false;
+    // bool modify_flag_field    = (instr.opcode & (1 << 19)) ? true : false;
+    // bool modify_control_field = (instr.opcode & (1 << 16)) ? true : false;
 
     instr.func_ptr = ARM::Instructions::MSR;
-    instr.mnemonic = fmt::format("msr{} {}_{}{}, r{}", condition_map.at(instr.condition), instr.P == 0 ? "cpsr" : "spsr", modify_flag_field ? "f" : "",modify_control_field ? "c" : "",+instr.Rm);
+    // instr.mnemonic = fmt::format("msr{} {}_{}{}, r{}", condition_map.at(instr.condition), instr.P == 0 ? "cpsr" : "spsr", modify_flag_field ? "f" : "",modify_control_field ? "c" : "",+instr.Rm);
     return instr;
   }
 
@@ -241,7 +242,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
     std::string modifier_string = fmt::format("_{}{}{}{}", modify_flag_field ? "f" : "", modify_status_field ? "s" : "", modify_extension_field ? "x" : "", modify_control_field ? "c" : "");
 
-    instr.mnemonic = fmt::format("msr{} {}{}, #{:#x}", condition_map.at(instr.condition), instr.P == 0 ? "cpsr" : "spsr", modifier_string, amount);
+    // instr.mnemonic = fmt::format("msr{} {}{}, #{:#x}", condition_map.at(instr.condition), instr.P == 0 ? "cpsr" : "spsr", modifier_string, amount);
     instr.func_ptr = ARM::Instructions::MSR;
     return instr;
   }
@@ -251,7 +252,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     instr.Rn = instr.opcode & 0xf;
 
     instr.func_ptr = ARM::Instructions::BX;
-    instr.mnemonic = fmt::format("bx r{} [{:#010x}]", +instr.Rn, regs.r[instr.Rn]);
+    // instr.mnemonic = fmt::format("bx r{} [{:#010x}]", +instr.Rn, regs.r[instr.Rn]);
     return instr;
   }
 
@@ -272,92 +273,92 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     instr.shift_amount = (instr.opcode & 0xf80) >> 7;
 
     // instr.SHIFT                   = true;
-    std::string_view shift_string = get_shift_type_string(instr.shift_type);
+    // std::string_view shift_string = get_shift_type_string(instr.shift_type);
     assert((instr.opcode & (1 << 4)) == 0);
     // assert(0);
     switch (data_proc_opcode) {
       case AND: {
         instr.func_ptr = ARM::Instructions::AND;
-        instr.mnemonic = fmt::format("and{}{} r{},r{},#{:#x} {}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2, shift_string);
+        // instr.mnemonic = fmt::format("and{}{} r{},r{},#{:#x} {}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2, shift_string);
         break;
       }
       case EOR: {
         instr.func_ptr = ARM::Instructions::EOR;
-        instr.mnemonic = fmt::format("eor{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("eor{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case SUB: {
         instr.func_ptr = ARM::Instructions::SUB;
-        instr.mnemonic = fmt::format("sub{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("sub{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case RSB: {
         instr.func_ptr = ARM::Instructions::RSB;
-        instr.mnemonic = fmt::format("rsb{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("rsb{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case ADD: {
         instr.func_ptr = ARM::Instructions::ADD;
-        instr.mnemonic = fmt::format("add{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("add{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case ADC: {
         instr.func_ptr = ARM::Instructions::ADC;
-        instr.mnemonic = fmt::format("adc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("adc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
 
         break;
       }
       case SBC: {
         instr.func_ptr = ARM::Instructions::SBC;
-        instr.mnemonic = fmt::format("sbc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("sbc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case RSC: {
         instr.func_ptr = ARM::Instructions::RSC;
-        instr.mnemonic = fmt::format("rsc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("rsc{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
 
         break;
       }
       case TST: {
         instr.func_ptr = ARM::Instructions::TST;
-        instr.mnemonic = fmt::format("tst{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("tst{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case TEQ: {
         instr.func_ptr = ARM::Instructions::TEQ;
-        instr.mnemonic = fmt::format("teq{} r{},r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rm);
+        // instr.mnemonic = fmt::format("teq{} r{},r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rm);
         break;
       }
       case CMP: {
         instr.func_ptr = ARM::Instructions::CMP;
-        instr.mnemonic = fmt::format("cmp{} r{},r{}, r{} {} #{:#x}", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("cmp{} r{},r{}, r{} {} #{:#x}", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case CMN: {
         instr.func_ptr = ARM::Instructions::CMN;
-        instr.mnemonic = fmt::format("cmn{} r{}, r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rm, shift_string);
+        // instr.mnemonic = fmt::format("cmn{} r{}, r{}", condition_map.at(instr.condition), +instr.Rn, +instr.Rm, shift_string);
         break;
       }
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
-        instr.mnemonic = fmt::format("orr{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("orr{}{} r{},r{}, r{} {} #{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, +instr.Rm, shift_string, instr.shift_amount);
         // instr.print_params();
         break;
       }
       case MOV: {
         instr.func_ptr = ARM::Instructions::MOV;
-        instr.mnemonic = fmt::format("mov{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("mov{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
         break;
       }
       case BIC: {
         instr.func_ptr = ARM::Instructions::BIC;
-        instr.mnemonic = fmt::format("bic{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("bic{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
 
         break;
       }
       case MVN: {
         instr.func_ptr = ARM::Instructions::MVN;
-        instr.mnemonic = fmt::format("mvn{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
+        // instr.mnemonic = fmt::format("mvn{}{} r{}, r{}, {} #{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, instr.shift_amount);
 
         break;
       }
@@ -382,9 +383,9 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
     instr.shift_value_is_register = true;
     instr.shift_type              = (instr.opcode & 0x60) >> 5;
-    u8 shift_amount               = regs.r[instr.Rs] & 0xFF;
+    // u8 shift_amount               = regs.r[instr.Rs] & 0xFF;
     SPDLOG_DEBUG("OPCODE: {:#010x}", instr.opcode);
-    std::string_view shift_string = get_shift_type_string(instr.shift_type);
+    // std::string_view shift_string = get_shift_type_string(instr.shift_type);
 
     instr.I = (instr.opcode & (1 << 25)) != 0 ? 1 : 0;
   
@@ -393,7 +394,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     switch (o_opcode) {
       case AND: {
         instr.func_ptr = ARM::Instructions::AND;
-        instr.mnemonic = fmt::format("and{}{} r{},r{},#{:#x} {}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2, shift_string);
+        // instr.mnemonic = fmt::format("and{}{} r{},r{},#{:#x} {}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2, shift_string);
         break;
       }
       case EOR: {
@@ -402,22 +403,22 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       }
       case SUB: {
         instr.func_ptr = ARM::Instructions::SUB;
-        instr.mnemonic = fmt::format("sub{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, +instr.Rm, shift_string, +instr.Rs);
+        // instr.mnemonic = fmt::format("sub{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, +instr.Rm, shift_string, +instr.Rs);
         break;
       }
       case RSB: {
         instr.func_ptr = ARM::Instructions::RSB;
-        instr.mnemonic = fmt::format("rsb{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
+        // instr.mnemonic = fmt::format("rsb{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
         break;
       }
       case ADD: {
         instr.func_ptr = ARM::Instructions::ADD;
-        instr.mnemonic = fmt::format("add{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
+        // instr.mnemonic = fmt::format("add{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
         break;
       }
       case ADC: {
         instr.func_ptr = ARM::Instructions::ADC;
-        instr.mnemonic = fmt::format("adc{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
+        // instr.mnemonic = fmt::format("adc{}{} r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, shift_string, +instr.Rs);
         break;
       }
       case SBC: {
@@ -438,7 +439,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       }
       case CMP: {
         instr.func_ptr = ARM::Instructions::CMP;
-        instr.mnemonic = fmt::format("cmp{} r{}, #{:#x} {}", condition_map.at(instr.condition), +instr.Rn, instr.op2, shift_string);
+        // instr.mnemonic = fmt::format("cmp{} r{}, #{:#x} {}", condition_map.at(instr.condition), +instr.Rn, instr.op2, shift_string);
         break;
       }
       case CMN: {
@@ -447,18 +448,18 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
       }
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
-        instr.mnemonic = fmt::format("orr{}{} r{}, r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, +instr.Rm,  shift_string, +instr.Rs);
+        // instr.mnemonic = fmt::format("orr{}{} r{}, r{}, r{}, {} r{}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, +instr.Rm,  shift_string, +instr.Rs);
         // assert(0);
         break;
       }
       case MOV: {
         instr.func_ptr = ARM::Instructions::MOV;
-        instr.mnemonic = fmt::format("mov{}{} r{}, r{}, {} r{} [{}]", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, +instr.Rs, shift_amount);
+        // instr.mnemonic = fmt::format("mov{}{} r{}, r{}, {} r{} [{}]", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, +instr.Rs, shift_amount);
         break;
       }
       case BIC: {
         instr.func_ptr = ARM::Instructions::BIC;
-        instr.mnemonic = fmt::format("bic{}{} r{}, r{}, {} r{} [{}]", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, +instr.Rs, shift_amount);
+        // instr.mnemonic = fmt::format("bic{}{} r{}, r{}, {} r{} [{}]", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rm, shift_string, +instr.Rs, shift_amount);
         break;
       }
       case MVN: {
@@ -477,6 +478,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
   if ((instr.opcode & 0xfb00000) == 0x3000000) {  // undefined instructions
     SPDLOG_DEBUG("undefined instructions");
+    // assert(0);
     return instr;
     // assert(0);
     // return instr;
@@ -504,86 +506,86 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     switch (o_opcode) {
       case AND: {
         instr.func_ptr = ARM::Instructions::AND;
-        instr.mnemonic = fmt::format("and{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("and{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case EOR: {
         // throw std::runtime_error("EOR");
         instr.func_ptr = ARM::Instructions::EOR;
-        instr.mnemonic = fmt::format("eor{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("eor{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case SUB: {
         // instr.print_params();
         instr.func_ptr = ARM::Instructions::SUB;
-        instr.mnemonic = fmt::format("sub{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("sub{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case RSB: {
         instr.func_ptr = ARM::Instructions::RSB;
-        instr.mnemonic = fmt::format("rsb{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("rsb{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         // assert(0);
         break;
       }
       case ADD: {
         // ADD - Rd:= Op1 + Op2
         instr.func_ptr = ARM::Instructions::ADD;
-        instr.mnemonic = fmt::format("add{}{} r{},r{},#{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("add{}{} r{},r{},#{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case ADC: {
         instr.func_ptr = ARM::Instructions::ADC;
-        instr.mnemonic = fmt::format("adc{}{} r{},r{},#{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("adc{}{} r{},r{},#{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case SBC: {
         instr.func_ptr = ARM::Instructions::SBC;
-        instr.mnemonic = fmt::format("sbc{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("sbc{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case RSC: {
         instr.func_ptr = ARM::Instructions::RSC;
-        instr.mnemonic = fmt::format("rsc{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("rsc{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case TST: {
         instr.func_ptr = ARM::Instructions::TST;
-        instr.mnemonic = fmt::format("tst{} r{}, #{:#x}", condition_map.at(instr.condition), +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("tst{} r{}, #{:#x}", condition_map.at(instr.condition), +instr.Rn, instr.op2);
         break;
       }
       case TEQ: {
         instr.func_ptr = ARM::Instructions::TEQ;
-        instr.mnemonic = fmt::format("teq{} r{}, #{:#x}", condition_map.at(instr.condition), +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("teq{} r{}, #{:#x}", condition_map.at(instr.condition), +instr.Rn, instr.op2);
         break;
       }
       case CMP: {
         instr.func_ptr = ARM::Instructions::CMP;
-        instr.mnemonic = fmt::format("cmp{} r{}, #{:#x}", condition_map.at(instr.condition), +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("cmp{} r{}, #{:#x}", condition_map.at(instr.condition), +instr.Rn, instr.op2);
         break;
       }
       case CMN: {
         instr.func_ptr = ARM::Instructions::CMN;
-        instr.mnemonic = fmt::format("cmn{} r{}, r{}, #${:#x}", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("cmn{} r{}, r{}, #${:#x}", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case ORR: {
         instr.func_ptr = ARM::Instructions::ORR;
-        instr.mnemonic = fmt::format("orr{} r{}, r{}, #${:#x}", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("orr{} r{}, r{}, #${:#x}", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case MOV: {
         instr.func_ptr = ARM::Instructions::MOV;
-        instr.mnemonic = fmt::format("mov{}{} r{}, #{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, instr.op2);
+        // instr.mnemonic = fmt::format("mov{}{} r{}, #{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, instr.op2);
         break;
       }
       case BIC: {
         instr.func_ptr = ARM::Instructions::BIC;
-        instr.mnemonic = fmt::format("bic{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
+        // instr.mnemonic = fmt::format("bic{}{} r{},r{},#{:#x}", instr.S ? "s" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.op2);
         break;
       }
       case MVN: {
         instr.func_ptr = ARM::Instructions::MVN;
-        instr.mnemonic = fmt::format("mvn{}{} r{}, #{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, instr.op2);
+        // instr.mnemonic = fmt::format("mvn{}{} r{}, #{:#x}", condition_map.at(instr.condition), instr.S ? "s" : "", +instr.Rd, instr.op2);
         break;
       }
 
@@ -611,11 +613,11 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     if (instr.L) {
       instr.func_ptr = ARM::Instructions::LDR;
 
-      instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
-      // fmt::println("{}", instr.mnemonic);
+      // instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
+      // fmt::println("{}", // instr.mnemonic);
     } else {
       instr.func_ptr = ARM::Instructions::STR;
-      instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
+      // instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}#${:#06x}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", instr.offset);
     }
 
     return instr;
@@ -638,21 +640,21 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     instr.shift_amount = (instr.opcode & 0xf80) >> 7;
     instr.shift_type   = (instr.opcode & 0b1100000) >> 5;
 
-    std::string_view shift_string = get_shift_type_string(instr.shift_type);
+    // std::string_view shift_string = get_shift_type_string(instr.shift_type);
     assert(instr.I == 1);
 
     if (instr.L) {
       instr.func_ptr = ARM::Instructions::LDR;
       // LDR R3, [R2, -R1, LSL #2]!
-      instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
-                                   instr.shift_amount);
+      // instr.mnemonic = fmt::format("ldr{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
+                                  //  instr.shift_amount);
     } else {
       instr.func_ptr = ARM::Instructions::STR;
-      instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
-                                   instr.shift_amount);
+      // instr.mnemonic = fmt::format("str{}{} r{}, [r{}, {}r{}, {} #{}]", instr.B ? "b" : "", condition_map.at(instr.condition), +instr.Rd, +instr.Rn, instr.U ? "+" : "-", +instr.Rm, shift_string,
+                                  //  instr.shift_amount);
     }
 
-    SPDLOG_DEBUG("{}", instr.mnemonic);
+    // SPDLOG_DEBUG("{}", // instr.mnemonic);
     return instr;
     // assert(0);
   }
@@ -675,10 +677,10 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
 
     if (instr.L == 0) {  // STM
       instr.func_ptr = ARM::Instructions::STM;
-      instr.mnemonic = fmt::format("stm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
+      // instr.mnemonic = fmt::format("stm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
     } else {
       instr.func_ptr = ARM::Instructions::LDM;
-      instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
+      // instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode_string(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
     }
 
     return instr;
@@ -698,7 +700,7 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
     // fmt::println("offset calced: {:#010x}", x);
     instr.offset = x;
 
-    instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + x + 4);
+    // instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + x + 4);
 
     instr.func_ptr = ARM::Instructions::B;
     return instr;
@@ -707,11 +709,11 @@ instruction_info ARM7TDMI::arm_decode(instruction_info& instr) {
   if ((instr.opcode & 0xf000000) == 0xf000000) {  // SWI
     // if (instr.opcode == 0xEF060000) {
     //   instr.func_ptr = ARM::Instructions::DIV_STUB;
-    //   instr.mnemonic = "SWI stub - DIV";
+    //   // instr.mnemonic = "SWI stub - DIV";
     //   return instr;
     // }
 
-    instr.mnemonic = fmt::format("swi #{:#010x}", (instr.opcode & 0xff0000) >> 16);
+    // instr.mnemonic = fmt::format("swi #{:#010x}", (instr.opcode & 0xff0000) >> 16);
     instr.func_ptr = ARM::Instructions::SWI;
     // fmt::println("failed on {} - SWI number: {:#02x} [{:#010x}]", regs.r[0], (instr.opcode & 0xff0000) >> 16, instr.loc);
 

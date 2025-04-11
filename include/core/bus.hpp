@@ -1,12 +1,14 @@
 #pragma once
 
+
 #include <unordered_map>
 
 #include "common.hpp"
+#include "io_defs.hpp"
+#include "spdlog/sinks/stdout_color_sinks.h"
 #include "pak.hpp"
 struct Bus;
 struct PPU;
-#include "dma.hpp"
 #include "ppu.hpp"
 
 struct Bus {
@@ -20,13 +22,17 @@ struct Bus {
   std::vector<u8> OAM;
   std::vector<u8> SRAM;
 
-
-
-  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) { BIOS = read_file("roms/gba_bios.bin"); }
+  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) {
+    BIOS = read_file("roms/gba_bios.bin");
+    bus_logger->set_level(spdlog::level::trace);
+    mem_logger->set_level(spdlog::level::off);
+  }
 
   Pak* pak = nullptr;
   PPU* ppu = nullptr;
-  // DMA_Controller* dma = nullptr;
+  
+  std::shared_ptr<spdlog::logger> bus_logger = spdlog::stdout_color_mt("BUS");
+  std::shared_ptr<spdlog::logger> mem_logger = spdlog::stdout_color_mt("MEM");
 
   unsigned long long fun_value      = 0;
   unsigned long long cycles_elapsed = 0;
@@ -43,15 +49,17 @@ struct Bus {
   void write32(u32 address, u32 value);
 
   inline void transfer16(const u32 src, const u32 dst, u32 word_count) {
-    for (size_t idx = 0; idx < word_count; idx++) {
-      fmt::println("copying to {:#010x}", dst + (idx * 2));
+    if (word_count == 0) word_count = 0x10000;
+    for (size_t idx = 0; idx < word_count; idx++) {  // TODO: handle word count 0 edge case
+      // fmt::println("copying to {:#010x}", dst + (idx * 2));
       write16(dst + (idx * 2), read16(src + (idx * 2)));
     }
     fmt::println("dma copied successfully");
   }
   inline void transfer32(const u32 src, const u32 dst, u32 word_count) {
+    if (word_count == 0) word_count = 0x10000;
     for (size_t idx = 0; idx < word_count; idx++) {
-      fmt::println("copying to {:#010x}", dst + (idx * 4));
+      // fmt::println("copying to {:#010x}", dst + (idx * 4));
       write32(dst + (idx * 4), read32(src + (idx * 4)));
     }
     fmt::println("dma copied successfully");
@@ -94,25 +102,33 @@ struct Bus {
       struct {
         u8 VBLANK_FLAG          : 1;
         u8 HBLANK_FLAG          : 1;
-        u8 V_COUNTER_FLAG       : 1;
+        u8 VCOUNT_MATCH_FLAG    : 1;
         u8 VBLANK_IRQ_ENABLE    : 1;
         u8 HBLANK_IRQ_ENABLE    : 1;
         u8 V_COUNTER_IRQ_ENABLE : 1;
-        u8                      : 2;
-        u8 VCOUNT_SETTING;
+        u8 LCD_INIT_READY       : 1;
+        u8 VCOUNT_MSB           : 1;
+        u8 LYC;
       };
+
+      void SET_VBLANK() { VBLANK_FLAG = true; }
+      void RESET_VBLANK() { VBLANK_FLAG = false; }
+      void SET_HBLANK() { HBLANK_FLAG = true; }
+      void RESET_HBLANK() { HBLANK_FLAG = false; }
+      
+      
     } DISPSTAT;
 
     union {
       u16 v = 0;
 
       struct {
-        u8 LY;
-        u8 : 8;
+        u8 LY : 8;
+        u8    : 8;
       };
     } VCOUNT;
 
-    union {
+    union BGCNT {
       u16 v = 0;
 
       struct {
@@ -125,22 +141,7 @@ struct Bus {
         u8 BG_WRAP           : 1;
         u8 SCREEN_SIZE       : 2;
       };
-    } BG0CNT, BG1CNT;
-
-    union {
-      u16 v = 0;
-
-      struct {
-        u8 BG_PRIORITY           : 2;
-        u8 CHAR_BASE_BLOCK       : 2;
-        u8                       : 2;
-        u8 MOSAIC                : 1;
-        u8 COLORS_PALETTES       : 1;
-        u8 SCREEN_BASE_BLOCK     : 5;
-        u8 DISPLAY_AREA_OVERFLOW : 1;
-        u8 SCREEN_SIZE           : 2;
-      };
-    } BG2CNT, BG3CNT;
+    } BG0CNT, BG1CNT, BG2CNT, BG3CNT;
 
     union {
       u16 v = 0;
@@ -367,47 +368,16 @@ struct Bus {
   } system_control = {};
 
   struct {
-    union {
-      u32 v = 0;
-      struct {
-        u32 src : 28;
-        u8      : 4;
-      };
-    } DMA0SAD, DMA1SAD, DMA2SAD, DMA3SAD;
+    DMASAD DMA0SAD, DMA1SAD, DMA2SAD, DMA3SAD;
+    DMADAD DMA0DAD, DMA1DAD, DMA2DAD, DMA3DAD;
+    DMACNT_H DMA0CNT_H, DMA1CNT_H, DMA2CNT_H, DMA3CNT_H;
+    DMACNT_L DMA0CNT_L, DMA1CNT_L, DMA2CNT_L, DMA3CNT_L;
 
-    union {
-      u32 v = 0;
-      struct {
-        u32 dst : 28;
-        u8      : 4;
-      };
-    } DMA0DAD, DMA1DAD, DMA2DAD, DMA3DAD;
-
-    union {
-      u16 v = 0;
-      struct {
-        u8                          : 5;
-        DST_CONTROL dst_control     : 2;
-        SRC_CONTROL src_control     : 2;
-        u8 dma_repeat               : 1;
-        TRANSFER_TYPE transfer_type : 1;
-        u8 game_pak_drq             : 1;
-        DMA_TIMING start_timing     : 2;
-        u8 irq_at_end               : 1;
-        u8 dma_enable               : 1;
-      };
-    } DMA0CNT_H, DMA1CNT_H, DMA2CNT_H, DMA3CNT_H;
-
-    union {
-      u16 v = 0;
-      struct {
-        u16 word_count;
-      };
-    } DMA0CNT_L, DMA1CNT_L, DMA2CNT_L, DMA3CNT_L;
 
     void print_dma_info(u8 id) {
       switch (id) {
         case 0: {
+
           fmt::println("============ DMA0 INFO ============");
           fmt::println("src: {:#010x}", +DMA0SAD.src);
           fmt::println("dst: {:#010x}", +DMA0DAD.dst);
@@ -441,7 +411,7 @@ struct Bus {
           fmt::println("============ DMA3 INFO ============");
           fmt::println("src: {:#010x}", +DMA3SAD.src);
           fmt::println("dst: {:#010x}", +DMA3DAD.dst);
-          fmt::println("timing: {}", (u8)DMA3CNT_H.start_timing);
+          fmt::println("timing: {}", TIMING_MAP.at(DMA3CNT_H.start_timing));
           fmt::println("timing: {}", TIMING_MAP.at(DMA3CNT_H.start_timing));
           fmt::println("word count: {:#010x}", DMA3CNT_L.word_count);
           fmt::println("word size: {}", DMA3CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
@@ -449,6 +419,7 @@ struct Bus {
           break;
         }
         default: {
+          fmt::println("index out of range");
           assert(0);
         }
       }
@@ -474,4 +445,25 @@ struct Bus {
     } KEYINPUT;
 
   } keypad_input = {};
+
+  // enum PRESCALER_SEL { F_1, F_64, F_256, F_1024 };
+
+  // struct {
+  //   union TIMER_COUNTER {
+  //     u16 v = 0;
+  //   } TM0CNT_L, TM1CNT_L, TM2CNT_L, TM3CNT_L;
+
+  //   union TIMER_CONTROL {
+  //     u16 v = 0;
+  //     struct {
+  //       PRESCALER_SEL prescaler_selection : 2;
+  //       bool countup_timing               : 1;
+  //       u8                                : 3;
+  //       bool timer_irq                    : 1;
+  //       bool timer_start                  : 1;
+  //       u8                                : 8;
+  //     };
+  //   } TM0CNT_H, TM1CNT_H, TM2CNT_H, TM3CNT_H;
+
+  // } timer_fields = {};
 };

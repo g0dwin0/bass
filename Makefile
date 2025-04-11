@@ -1,4 +1,4 @@
-CPPFLAGS = -g -Ilib/imgui -Ilib/imgui/backends -Ilib/ -Ilib/cli11  -Ilib/tinyfiledialogs -Wall -Wextra -Werror -Iinclude/core -Iinclude/frontend -Iinclude/ -std=c++20 -Wno-deprecated-enum-enum-conversion
+CPPFLAGS = -g -pg -Ilib/imgui -Ilib/imgui/backends -Ilib/ -Ilib/cli11 $(sdl2-config --cflags --libs) -Ilib/tinyfiledialogs -Wall -Wextra -Werror -Iinclude/core -Iinclude/frontend -Iinclude/ -std=c++20 -Wno-deprecated-enum-enum-conversion
 OBJ_DIR = build/obj
 OBJ_IMGUI_PATH = $(OBJ_DIR)/imgui
 OBJS_IMGUI = $(OBJ_IMGUI_PATH)/imgui_demo.o $(OBJ_IMGUI_PATH)/imgui_draw.o $(OBJ_IMGUI_PATH)/imgui_impl_sdlrenderer2.o $(OBJ_IMGUI_PATH)/imgui_impl_sdl2.o $(OBJ_IMGUI_PATH)/imgui_tables.o $(OBJ_IMGUI_PATH)/imgui_widgets.o $(OBJ_IMGUI_PATH)/imgui.o
@@ -14,7 +14,7 @@ all: final
 
 final: $(OBJS) 
 	@echo "linking...."
-	$(CC) $(OBJS) $(OBJS_IMGUI) -o build/bin/$(PROJ_NAME) $(LD_FLAGS) 
+	$(CC) $(OBJS) $(OBJS_IMGUI) -pg -o build/bin/$(PROJ_NAME) $(LD_FLAGS) $(sdl2-config --cflags --libs) -ldl
 	chmod +x build/bin/$(PROJ_NAME)
 
 $(OBJ_DIR)/main.o: src/main.cpp include/common.hpp
@@ -41,7 +41,7 @@ $(OBJ_DIR)/registers.o: include/core/registers.hpp src/core/registers.cpp
 $(OBJ_DIR)/arm.o: src/core/instructions/arm.cpp  include/core/instructions/arm.hpp src/core/registers.cpp 
 	$(CC) $(CPPFLAGS) -c src/core/instructions/arm.cpp -o $(OBJ_DIR)/arm.o
 
-$(OBJ_DIR)/bus.o: src/core/bus.cpp include/core/bus.hpp include/core/dma.hpp 
+$(OBJ_DIR)/bus.o: src/core/bus.cpp include/core/bus.hpp
 	$(CC) $(CPPFLAGS) -c src/core/bus.cpp -o $(OBJ_DIR)/bus.o 
 
 $(OBJ_DIR)/pak.o: src/core/pak.cpp include/core/pak.hpp
