@@ -7,10 +7,12 @@ struct Bass {
     
   ARM7TDMI cpu;
   PPU ppu;
-  
   Bus bus;
   Pak pak;
+  std::atomic<bool> active = true;
 
   Bass();
   void check_and_handle_interrupts();
+  void step_system();
+  void system_loop();
 };

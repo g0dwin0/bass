@@ -11,6 +11,7 @@
 ARM7TDMI::ARM7TDMI() {
   regs.r[15] = 0x08000000;
   spdlog::debug("cpu initialized");
+
 }
 void ARM7TDMI::flush_pipeline() {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
@@ -54,6 +55,15 @@ void ARM7TDMI::flush_pipeline() {
     regs.r[15] += 2;
   }
   return;
+}
+
+void ARM7TDMI::initialize_lookup_table() {
+  
+  for(size_t i = 0; i < U16_MAX; i++) {
+    lookup_table_thumb[i].opcode = i;
+    
+    lookup_table_thumb[i] = thumb_decode(lookup_table_thumb[i])
+  }
 }
 
 u32 ARM7TDMI::align_address(u32 address, BOUNDARY b) {
@@ -119,8 +129,7 @@ u16 ARM7TDMI::step() {
   }
   bus->cycles_elapsed += 1;
 
-  if (interrupt_queued() && bus->interrupt_control.IME.enabled && regs.CPSR.IRQ_DISABLE == 0) {
-    // spdlog::set_level(spdlog::level::trace);
+  if (interrupt_queued() && bus->interrupt_control.IME.enabled && (regs.CPSR.IRQ_DISABLE == 0)) {
     // fmt::println("servicing");
     SPDLOG_DEBUG("INTERRUPT PENDING SERVICING");
     // fmt::println("fun value: {}", bus->fun_value);
@@ -130,6 +139,7 @@ u16 ARM7TDMI::step() {
     regs.CPSR.STATE_BIT   = ARM_MODE;
     regs.CPSR.IRQ_DISABLE = true;
     // IRQ
+    fmt::println("cpy from irq");
     regs.copy(IRQ);
     regs.CPSR.MODE_BITS = IRQ;
 
@@ -172,12 +182,12 @@ void ARM7TDMI::execute(instruction_info& instr) {
     // assert(0);
     return;
   }
-  spdlog::info("{}", instr.mnemonic);
+  // SPDLOG_INFO("{}", // instr.mnemonic);
   if (check_condition(instr)) {
     instr.func_ptr(*this, instr);
   } else {
     // fmt::println("N: {} Z: {} C: {} V: {}", +regs.CPSR.SIGN_FLAG, +regs.CPSR.ZERO_FLAG, +regs.CPSR.CARRY_FLAG, +regs.CPSR.OVERFLOW_FLAG);
-    // fmt::println("failed: {}", instr.mnemonic);
+    // fmt::println("failed: {}", // instr.mnemonic);
   }
 }
 

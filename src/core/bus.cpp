@@ -1,6 +1,7 @@
 #include "bus.hpp"
 
 #include <cstdio>
+
 #include "common/bytes.hpp"
 #include "labels.hpp"
 
@@ -28,7 +29,7 @@ u8 Bus::read8(u32 address) {
 
     case 0x04000000 ... 0x040003FE: {
       v = io_read(address);
-      fmt::println("8 bit IO read");
+      // fmt::println("8 bit IO read");
       break;
     }
 
@@ -271,7 +272,7 @@ void Bus::write8(const u32 address, u8 value) {
       // break;
     }
   }
-  SPDLOG_INFO("[W8] {} => {:#x}", get_label(address), value);
+  mem_logger->info("[W8] {} => {:#x}", get_label(address), value);
 }
 
 void Bus::write16(const u32 address, u16 value) {
@@ -304,7 +305,7 @@ void Bus::write16(const u32 address, u16 value) {
       break; /*  */
     }
 
-    case 0x06000000 ... 0x06FFFFFF   : {
+    case 0x06000000 ... 0x06FFFFFF: {
       *(uint16_t*)(&VRAM.data()[address % 0x18000]) = value;
       break;
     }
@@ -331,11 +332,13 @@ u8 Bus::io_read(u32 address) {
   switch (address) {
     case DISPCNT ... DISPCNT + 1: {
       retval = read_byte(display_fields.DISPCNT.v, address % 2);
+      bus_logger->info("dispcnt read");
       break;
     }
     case GREEN_SWAP ... GREEN_SWAP + 1: SPDLOG_DEBUG("READING FROM GREEN_SWAP UNIMPL"); break;
     case DISPSTAT ... DISPSTAT + 1: {
       retval = read_byte(display_fields.DISPSTAT.v, address % 2);
+      // bus_logger->info("disp stat read");
       break;
     }
     case VCOUNT ... VCOUNT + 1: {
@@ -362,99 +365,108 @@ u8 Bus::io_read(u32 address) {
       // SPDLOG_DEBUG("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
       break;
     }
-    case BG0HOFS: fmt::println("READING FROM BG0HOFS UNIMPL"); break;
-    case BG0VOFS: fmt::println("READING FROM BG0VOFS UNIMPL"); break;
-    case BG1HOFS: SPDLOG_DEBUG("READING FROM BG1HOFS UNIMPL"); break;
-    case BG1VOFS: SPDLOG_DEBUG("READING FROM BG1VOFS UNIMPL"); break;
-    case BG2HOFS: SPDLOG_DEBUG("READING FROM BG2HOFS UNIMPL"); break;
-    case BG2VOFS: SPDLOG_DEBUG("READING FROM BG2VOFS UNIMPL"); break;
-    case BG3HOFS: SPDLOG_DEBUG("READING FROM BG3HOFS UNIMPL"); break;
-    case BG3VOFS: SPDLOG_DEBUG("READING FROM BG3VOFS UNIMPL"); break;
-    case BG2PA: SPDLOG_DEBUG("READING FROM BG2PA UNIMPL"); break;
-    case BG2PB: SPDLOG_DEBUG("READING FROM BG2PB UNIMPL"); break;
-    case BG2PC: SPDLOG_DEBUG("READING FROM BG2PC UNIMPL"); break;
-    case BG2PD: SPDLOG_DEBUG("READING FROM BG2PD UNIMPL"); break;
-    case BG2X: SPDLOG_DEBUG("READING FROM BG2X UNIMPL"); break;
-    case BG2Y: SPDLOG_DEBUG("READING FROM BG2Y UNIMPL"); break;
-    case BG3PA: SPDLOG_DEBUG("READING FROM BG3PA UNIMPL"); break;
-    case BG3PB: SPDLOG_DEBUG("READING FROM BG3PB UNIMPL"); break;
-    case BG3PC: SPDLOG_DEBUG("READING FROM BG3PC UNIMPL"); break;
-    case BG3PD: SPDLOG_DEBUG("READING FROM BG3PD UNIMPL"); break;
-    case BG3X: SPDLOG_DEBUG("READING FROM BG3X UNIMPL"); break;
-    case BG3Y: SPDLOG_DEBUG("READING FROM BG3Y UNIMPL"); break;
-    case WIN0H: SPDLOG_DEBUG("READING FROM WIN0H UNIMPL"); break;
-    case WIN1H: SPDLOG_DEBUG("READING FROM WIN1H UNIMPL"); break;
-    case WIN0V: SPDLOG_DEBUG("READING FROM WIN0V UNIMPL"); break;
-    case WIN1V: SPDLOG_DEBUG("READING FROM WIN1V UNIMPL"); break;
-    case WININ: SPDLOG_DEBUG("READING FROM WININ UNIMPL"); break;
-    case WINOUT: SPDLOG_DEBUG("READING FROM WINOUT UNIMPL"); break;
-    case MOSAIC: SPDLOG_DEBUG("READING FROM MOSAIC UNIMPL"); break;
-    case BLDCNT: SPDLOG_DEBUG("READING FROM BLDCNT UNIMPL"); break;
-    case BLDALPHA: SPDLOG_DEBUG("READING FROM BLDALPHA UNIMPL"); break;
-    case BLDY: SPDLOG_DEBUG("READING FROM BLDY UNIMPL"); break;
-    case SOUND1CNT_L: SPDLOG_DEBUG("READING FROM SOUND1CNT_L UNIMPL"); break;
-    case SOUND1CNT_H: SPDLOG_DEBUG("READING FROM SOUND1CNT_H UNIMPL"); break;
-    case SOUND1CNT_X: SPDLOG_DEBUG("READING FROM SOUND1CNT_X UNIMPL"); break;
-    case SOUND2CNT_L: SPDLOG_DEBUG("READING FROM SOUND2CNT_L UNIMPL"); break;
-    case SOUND2CNT_H: SPDLOG_DEBUG("READING FROM SOUND2CNT_H UNIMPL"); break;
-    case SOUND3CNT_L: SPDLOG_DEBUG("READING FROM SOUND3CNT_L UNIMPL"); break;
-    case SOUND3CNT_H: SPDLOG_DEBUG("READING FROM SOUND3CNT_H UNIMPL"); break;
-    case SOUND3CNT_X: SPDLOG_DEBUG("READING FROM SOUND3CNT_X UNIMPL"); break;
-    case SOUND4CNT_L: SPDLOG_DEBUG("READING FROM SOUND4CNT_L UNIMPL"); break;
-    case SOUND4CNT_H: SPDLOG_DEBUG("READING FROM SOUND4CNT_H UNIMPL"); break;
-    case SOUNDCNT_L: SPDLOG_DEBUG("READING FROM SOUNDCNT_L UNIMPL"); break;
-    case SOUNDCNT_H: SPDLOG_DEBUG("READING FROM SOUNDCNT_H UNIMPL"); break;
-    case SOUNDCNT_X: SPDLOG_DEBUG("READING FROM SOUNDCNT_X UNIMPL"); break;
+    case BG0HOFS: bus_logger->warn("READING FROM BG0HOFS UNIMPL"); break;
+    case BG0VOFS: bus_logger->warn("READING FROM BG0VOFS UNIMPL"); break;
+    case BG1HOFS: bus_logger->warn("READING FROM BG1HOFS UNIMPL"); break;
+    case BG1VOFS: bus_logger->warn("READING FROM BG1VOFS UNIMPL"); break;
+    case BG2HOFS: bus_logger->warn("READING FROM BG2HOFS UNIMPL"); break;
+    case BG2VOFS: bus_logger->warn("READING FROM BG2VOFS UNIMPL"); break;
+    case BG3HOFS: bus_logger->warn("READING FROM BG3HOFS UNIMPL"); break;
+    case BG3VOFS: bus_logger->warn("READING FROM BG3VOFS UNIMPL"); break;
+    case BG2PA: bus_logger->warn("READING FROM BG2PA UNIMPL"); break;
+    case BG2PB: bus_logger->warn("READING FROM BG2PB UNIMPL"); break;
+    case BG2PC: bus_logger->warn("READING FROM BG2PC UNIMPL"); break;
+    case BG2PD: bus_logger->warn("READING FROM BG2PD UNIMPL"); break;
+    case BG2X: bus_logger->warn("READING FROM BG2X UNIMPL"); break;
+    case BG2Y: bus_logger->warn("READING FROM BG2Y UNIMPL"); break;
+    case BG3PA: bus_logger->warn("READING FROM BG3PA UNIMPL"); break;
+    case BG3PB: bus_logger->warn("READING FROM BG3PB UNIMPL"); break;
+    case BG3PC: bus_logger->warn("READING FROM BG3PC UNIMPL"); break;
+    case BG3PD: bus_logger->warn("READING FROM BG3PD UNIMPL"); break;
+    case BG3X: bus_logger->warn("READING FROM BG3X UNIMPL"); break;
+    case BG3Y: bus_logger->warn("READING FROM BG3Y UNIMPL"); break;
+    case WIN0H: bus_logger->warn("READING FROM WIN0H UNIMPL"); break;
+    case WIN1H: bus_logger->warn("READING FROM WIN1H UNIMPL"); break;
+    case WIN0V: bus_logger->warn("READING FROM WIN0V UNIMPL"); break;
+    case WIN1V: bus_logger->warn("READING FROM WIN1V UNIMPL"); break;
+    case WININ: bus_logger->warn("READING FROM WININ UNIMPL"); break;
+    case WINOUT: bus_logger->warn("READING FROM WINOUT UNIMPL"); break;
+    case MOSAIC: bus_logger->warn("READING FROM MOSAIC UNIMPL"); break;
+    case BLDCNT: bus_logger->warn("READING FROM BLDCNT UNIMPL"); break;
+    case BLDALPHA: bus_logger->warn("READING FROM BLDALPHA UNIMPL"); break;
+    case BLDY: bus_logger->warn("READING FROM BLDY UNIMPL"); break;
+    case SOUND1CNT_L: bus_logger->warn("READING FROM SOUND1CNT_L UNIMPL"); break;
+    case SOUND1CNT_H: bus_logger->warn("READING FROM SOUND1CNT_H UNIMPL"); break;
+    case SOUND1CNT_X: bus_logger->warn("READING FROM SOUND1CNT_X UNIMPL"); break;
+    case SOUND2CNT_L: bus_logger->warn("READING FROM SOUND2CNT_L UNIMPL"); break;
+    case SOUND2CNT_H: bus_logger->warn("READING FROM SOUND2CNT_H UNIMPL"); break;
+    case SOUND3CNT_L: bus_logger->warn("READING FROM SOUND3CNT_L UNIMPL"); break;
+    case SOUND3CNT_H: bus_logger->warn("READING FROM SOUND3CNT_H UNIMPL"); break;
+    case SOUND3CNT_X: bus_logger->warn("READING FROM SOUND3CNT_X UNIMPL"); break;
+    case SOUND4CNT_L: bus_logger->warn("READING FROM SOUND4CNT_L UNIMPL"); break;
+    case SOUND4CNT_H: bus_logger->warn("READING FROM SOUND4CNT_H UNIMPL"); break;
+    case SOUNDCNT_L: bus_logger->warn("READING FROM SOUNDCNT_L UNIMPL"); break;
+    case SOUNDCNT_H: bus_logger->warn("READING FROM SOUNDCNT_H UNIMPL"); break;
+    case SOUNDCNT_X: bus_logger->warn("READING FROM SOUNDCNT_X UNIMPL"); break;
     case SOUNDBIAS: {
       retval = system_control.sound_bias;
       break;
     }
-    case WAVE_RAM: SPDLOG_DEBUG("READING FROM WAVE_RAM UNIMPL"); break;
-    case FIFO_A: SPDLOG_DEBUG("READING FROM FIFO_A UNIMPL"); break;
-    case FIFO_B: SPDLOG_DEBUG("READING FROM FIFO_B UNIMPL"); break;
-    case DMA0SAD: SPDLOG_DEBUG("READING FROM DMA0SAD UNIMPL"); break;
-    case DMA0DAD: SPDLOG_DEBUG("READING FROM DMA0DAD UNIMPL"); break;
-    case DMA0CNT_L: SPDLOG_DEBUG("READING FROM DMA0CNT_L UNIMPL"); break;
-    case DMA0CNT_H: SPDLOG_DEBUG("READING FROM DMA0CNT_H UNIMPL"); break;
-    case DMA1SAD: SPDLOG_DEBUG("READING FROM DMA1SAD UNIMPL"); break;
-    case DMA1DAD: SPDLOG_DEBUG("READING FROM DMA1DAD UNIMPL"); break;
-    case DMA1CNT_L: SPDLOG_DEBUG("READING FROM DMA1CNT_L UNIMPL"); break;
-    case DMA1CNT_H: SPDLOG_DEBUG("READING FROM DMA1CNT_H UNIMPL"); break;
-    case DMA2SAD: SPDLOG_DEBUG("READING FROM DMA2SAD UNIMPL"); break;
-    case DMA2DAD: SPDLOG_DEBUG("READING FROM DMA2DAD UNIMPL"); break;
-    case DMA2CNT_L: SPDLOG_DEBUG("READING FROM DMA2CNT_L UNIMPL"); break;
-    case DMA2CNT_H: SPDLOG_DEBUG("READING FROM DMA2CNT_H UNIMPL"); break;
-    case DMA3SAD: SPDLOG_DEBUG("READING FROM DMA3SAD UNIMPL"); break;
-    case DMA3DAD: SPDLOG_DEBUG("READING FROM DMA3DAD UNIMPL"); break;
-    case DMA3CNT_L: SPDLOG_DEBUG("READING FROM DMA3CNT_L UNIMPL"); break;
-    case DMA3CNT_H: {
+    case WAVE_RAM: bus_logger->debug("READING FROM WAVE_RAM UNIMPL"); break;
+    case FIFO_A: bus_logger->debug("READING FROM FIFO_A UNIMPL"); break;
+    case FIFO_B: bus_logger->debug("READING FROM FIFO_B UNIMPL"); break;
+    case DMA0SAD: bus_logger->debug("READING FROM DMA0SAD UNIMPL"); break;
+    case DMA0DAD: bus_logger->debug("READING FROM DMA0DAD UNIMPL"); break;
+    case DMA0CNT_L: bus_logger->debug("READING FROM DMA0CNT_L UNIMPL"); break;
+    case DMA0CNT_H ... DMA0CNT_H + 1: {
+      retval = read_byte(dma_control.DMA0CNT_H.v, address % 0x2);
+      break;
+    }
+    case DMA1SAD: bus_logger->debug("READING FROM DMA1SAD UNIMPL"); break;
+    case DMA1DAD: bus_logger->debug("READING FROM DMA1DAD UNIMPL"); break;
+    case DMA1CNT_L: bus_logger->debug("READING FROM DMA1CNT_L UNIMPL"); break;
+    case DMA1CNT_H ... DMA1CNT_H + 1: {
+      retval = read_byte(dma_control.DMA1CNT_H.v, address % 0x2);
+      break;
+    }
+    case DMA2SAD: bus_logger->debug("READING FROM DMA2SAD UNIMPL"); break;
+    case DMA2DAD: bus_logger->debug("READING FROM DMA2DAD UNIMPL"); break;
+    case DMA2CNT_L: bus_logger->debug("READING FROM DMA2CNT_L UNIMPL"); break;
+    case DMA2CNT_H ... DMA2CNT_H + 1: {
+      retval = read_byte(dma_control.DMA2CNT_H.v, address % 0x2);
+      break;
+    }
+    case DMA3SAD: bus_logger->debug("READING FROM DMA3SAD UNIMPL"); break;
+    case DMA3DAD: bus_logger->debug("READING FROM DMA3DAD UNIMPL"); break;
+    case DMA3CNT_L: bus_logger->debug("READING FROM DMA3CNT_L UNIMPL"); break;
+    case DMA3CNT_H ... DMA3CNT_H + 1: {
       retval = read_byte(dma_control.DMA3CNT_H.v, address % 0x2);
       break;
     }
-    case TM0CNT_L: SPDLOG_DEBUG("READING FROM TM0CNT_L UNIMPL"); break;
-    case TM0CNT_H: SPDLOG_DEBUG("READING FROM TM0CNT_H UNIMPL"); break;
-    case TM1CNT_L: SPDLOG_DEBUG("READING FROM TM1CNT_L UNIMPL"); break;
-    case TM1CNT_H: SPDLOG_DEBUG("READING FROM TM1CNT_H UNIMPL"); break;
-    case TM2CNT_L: SPDLOG_DEBUG("READING FROM TM2CNT_L UNIMPL"); break;
-    case TM2CNT_H: SPDLOG_DEBUG("READING FROM TM2CNT_H UNIMPL"); break;
-    case TM3CNT_L: SPDLOG_DEBUG("READING FROM TM3CNT_L UNIMPL"); break;
-    case TM3CNT_H: SPDLOG_DEBUG("READING FROM TM3CNT_H UNIMPL"); break;
-    case SIODATA32: SPDLOG_DEBUG("READING FROM SIODATA32 UNIMPL"); break;
-    case SIOMULTI1: SPDLOG_DEBUG("READING FROM SIOMULTI1 UNIMPL"); break;
-    case SIOMULTI2: SPDLOG_DEBUG("READING FROM SIOMULTI2 UNIMPL"); break;
-    case SIOMULTI3: SPDLOG_DEBUG("READING FROM SIOMULTI3 UNIMPL"); break;
-    case SIOCNT: SPDLOG_DEBUG("READING FROM SIOCNT UNIMPL"); break;
-    case SIOMLT_SEND: SPDLOG_DEBUG("READING FROM SIOMLT_SEND UNIMPL"); break;
+    case TM0CNT_L: bus_logger->debug("READING FROM TM0CNT_L UNIMPL"); break;
+    case TM0CNT_H: bus_logger->debug("READING FROM TM0CNT_H UNIMPL"); break;
+    case TM1CNT_L: bus_logger->debug("READING FROM TM1CNT_L UNIMPL"); break;
+    case TM1CNT_H: bus_logger->debug("READING FROM TM1CNT_H UNIMPL"); break;
+    case TM2CNT_L: bus_logger->debug("READING FROM TM2CNT_L UNIMPL"); break;
+    case TM2CNT_H: bus_logger->debug("READING FROM TM2CNT_H UNIMPL"); break;
+    case TM3CNT_L: bus_logger->debug("READING FROM TM3CNT_L UNIMPL"); break;
+    case TM3CNT_H: bus_logger->debug("READING FROM TM3CNT_H UNIMPL"); break;
+    case SIODATA32: bus_logger->debug("READING FROM SIODATA32 UNIMPL"); break;
+    case SIOMULTI1: bus_logger->debug("READING FROM SIOMULTI1 UNIMPL"); break;
+    case SIOMULTI2: bus_logger->debug("READING FROM SIOMULTI2 UNIMPL"); break;
+    case SIOMULTI3: bus_logger->debug("READING FROM SIOMULTI3 UNIMPL"); break;
+    case SIOCNT: bus_logger->debug("READING FROM SIOCNT UNIMPL"); break;
+    case SIOMLT_SEND: bus_logger->debug("READING FROM SIOMLT_SEND UNIMPL"); break;
     case KEYINPUT ... KEYINPUT + 1: {
       retval = read_byte(keypad_input.KEYINPUT.v, address % 2);
       break;
     }
-    case KEYCNT: SPDLOG_DEBUG("READING FROM UNIMPL KEYCNT"); break;
-    case RCNT: SPDLOG_DEBUG("READING FROM UNIMPL RCNT"); break;
-    case JOYCNT: SPDLOG_DEBUG("READING FROM UNIMPL JOYCNT"); break;
-    case JOY_RECV: SPDLOG_DEBUG("READING FROM UNIMPL JOY_RECV"); break;
-    case JOY_TRANS: SPDLOG_DEBUG("READING FROM UNIMPL JOY_TRANS"); break;
-    case JOYSTAT: SPDLOG_DEBUG("READING FROM UNIMPL JOYSTAT"); break;
+    case KEYCNT: bus_logger->debug("READING FROM UNIMPL KEYCNT"); break;
+    case RCNT: bus_logger->debug("READING FROM UNIMPL RCNT"); break;
+    case JOYCNT: bus_logger->debug("READING FROM UNIMPL JOYCNT"); break;
+    case JOY_RECV: bus_logger->debug("READING FROM UNIMPL JOY_RECV"); break;
+    case JOY_TRANS: bus_logger->debug("READING FROM UNIMPL JOY_TRANS"); break;
+    case JOYSTAT: bus_logger->debug("READING FROM UNIMPL JOYSTAT"); break;
     case IE ... IE + 1: {
       retval = read_byte(interrupt_control.IE.v, address % 2);
       break;
@@ -463,7 +475,7 @@ u8 Bus::io_read(u32 address) {
       retval = read_byte(interrupt_control.IF.v, address % 2);
       break;
     }
-    case WAITCNT: SPDLOG_DEBUG("READING FROM UNIMPL WAITCNT"); break;
+    case WAITCNT: bus_logger->debug("READING FROM UNIMPL WAITCNT"); break;
     case IME ... IME + 3: {
       retval = read_byte(interrupt_control.IME.v, address % 4);
       break;
@@ -483,41 +495,61 @@ void Bus::io_write(u32 address, u8 value) {
   // auto r = (REG)address;
   // fmt::println("write: {:#010x}", address);
   switch (address) {
-    case DISPCNT ... DISPCNT + 1: {
-      set_byte(display_fields.DISPCNT.v, address % 2, value);
-      fmt::println("NEW DISPCNT: {:#010x}", display_fields.DISPCNT.v);
-      break;
-    }
-    case GREEN_SWAP ... GREEN_SWAP + 1: {
-      set_byte(display_fields.GREEN_SWAP.v, address % 2, value);
-      SPDLOG_DEBUG("NEW GREENSWAP: {:#010x}", display_fields.GREEN_SWAP.v);
-      break;
+    {
+      case DISPCNT ... DISPCNT + 1: {
+        set_byte(display_fields.DISPCNT.v, address % 2, value);
+        bus_logger->debug("NEW DISPCNT: {:#010x}", display_fields.DISPCNT.v);
+        break;
+      }
+      case GREEN_SWAP ... GREEN_SWAP + 1:
+        set_byte(display_fields.GREEN_SWAP.v, address % 2, value);
+        bus_logger->debug("NEW GREENSWAP: {:#010x}", display_fields.GREEN_SWAP.v);
+        break;
     }
     case DISPSTAT ... DISPSTAT + 1: {
       set_byte(display_fields.DISPSTAT.v, address % 2, value);
 
-      SPDLOG_DEBUG("NEW DISPSTAT: {:#010x}", display_fields.DISPSTAT.v, address);
+      bus_logger->debug("NEW DISPSTAT: {:#010x}", display_fields.DISPSTAT.v, address);
       break;
     }
-    case VCOUNT: SPDLOG_DEBUG("WRITING TO VCOUNT UNIMPL"); break;
+    case VCOUNT: bus_logger->debug("WRITING TO VCOUNT UNIMPL"); break;
     case BG0CNT ... BG0CNT + 1: {
+      u8 cbb = display_fields.BG0CNT.CHAR_BASE_BLOCK;
+
       set_byte(display_fields.BG0CNT.v, address % 0x2, value);
-      SPDLOG_DEBUG("NEW BG0CNT: {:#010x}", display_fields.BG0CNT.v);
+
+      u8 n_cbb = display_fields.BG0CNT.CHAR_BASE_BLOCK;
+
+      if (cbb != n_cbb) ppu->state.cbb_changed[0] = true;
+
+      bus_logger->debug("NEW BG0CNT: {:#010x}", display_fields.BG0CNT.v);
       break;
     }
     case BG1CNT ... BG1CNT + 1: {
+      u8 cbb = display_fields.BG1CNT.CHAR_BASE_BLOCK;
       set_byte(display_fields.BG1CNT.v, address % 0x2, value);
-      SPDLOG_DEBUG("NEW BG1CNT: {:#010x}", display_fields.BG1CNT.v);
+      u8 n_cbb = display_fields.BG1CNT.CHAR_BASE_BLOCK;
+
+      if (cbb != n_cbb) ppu->state.cbb_changed[1] = true;
+      bus_logger->debug("NEW BG1CNT: {:#010x}", display_fields.BG1CNT.v);
       break;
     }
     case BG2CNT ... BG2CNT + 1: {
+      u8 cbb = display_fields.BG2CNT.CHAR_BASE_BLOCK;
       set_byte(display_fields.BG2CNT.v, address % 0x2, value);
-      SPDLOG_DEBUG("NEW BG2CNT: {:#010x}", display_fields.BG2CNT.v);
+      bus_logger->debug("NEW BG2CNT: {:#010x}", display_fields.BG2CNT.v);
+      u8 n_cbb = display_fields.BG2CNT.CHAR_BASE_BLOCK;
+
+      if (cbb != n_cbb) ppu->state.cbb_changed[2] = true;
       break;
     }
     case BG3CNT ... BG3CNT + 1: {
+      u8 cbb = display_fields.BG3CNT.CHAR_BASE_BLOCK;
       set_byte(display_fields.BG3CNT.v, address % 0x2, value);
-      SPDLOG_DEBUG("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
+      u8 n_cbb = display_fields.BG3CNT.CHAR_BASE_BLOCK;
+
+      if (cbb != n_cbb) ppu->state.cbb_changed[3] = true;
+      bus_logger->debug("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
       break;
     }
 
@@ -557,60 +589,60 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
-    case BG2PA: SPDLOG_DEBUG("WRITING TO BG2PA UNIMPL"); break;
-    case BG2PB: SPDLOG_DEBUG("WRITING TO BG2PB UNIMPL"); break;
-    case BG2PC: SPDLOG_DEBUG("WRITING TO BG2PC UNIMPL"); break;
-    case BG2PD: SPDLOG_DEBUG("WRITING TO BG2PD UNIMPL"); break;
-    case BG2X: SPDLOG_DEBUG("WRITING TO BG2X UNIMPL"); break;
-    case BG2Y: SPDLOG_DEBUG("WRITING TO BG2Y UNIMPL"); break;
-    case BG3PA: SPDLOG_DEBUG("WRITING TO BG3PA UNIMPL"); break;
-    case BG3PB: SPDLOG_DEBUG("WRITING TO BG3PB UNIMPL"); break;
-    case BG3PC: SPDLOG_DEBUG("WRITING TO BG3PC UNIMPL"); break;
-    case BG3PD: SPDLOG_DEBUG("WRITING TO BG3PD UNIMPL"); break;
-    case BG3X: SPDLOG_DEBUG("WRITING TO BG3X UNIMPL"); break;
-    case BG3Y: SPDLOG_DEBUG("WRITING TO BG3Y UNIMPL"); break;
-    case WIN0H: SPDLOG_DEBUG("WRITING TO WIN0H UNIMPL"); break;
-    case WIN1H: SPDLOG_DEBUG("WRITING TO WIN1H UNIMPL"); break;
-    case WIN0V: SPDLOG_DEBUG("WRITING TO WIN0V UNIMPL"); break;
-    case WIN1V: SPDLOG_DEBUG("WRITING TO WIN1V UNIMPL"); break;
-    case WININ: SPDLOG_DEBUG("WRITING TO WININ UNIMPL"); break;
-    case WINOUT: SPDLOG_DEBUG("WRITING TO WINOUT UNIMPL"); break;
-    case MOSAIC: SPDLOG_DEBUG("WRITING TO MOSAIC UNIMPL"); break;
-    case BLDCNT: SPDLOG_DEBUG("WRITING TO BLDCNT UNIMPL"); break;
-    case BLDALPHA: SPDLOG_DEBUG("WRITING TO BLDALPHA UNIMPL"); break;
-    case BLDY: SPDLOG_DEBUG("WRITING TO BLDY UNIMPL"); break;
-    case SOUND1CNT_L: SPDLOG_DEBUG("WRITING TO SOUND1CNT_L UNIMPL"); break;
-    case SOUND1CNT_H: SPDLOG_DEBUG("WRITING TO SOUND1CNT_H UNIMPL"); break;
-    case SOUND1CNT_X: SPDLOG_DEBUG("WRITING TO SOUND1CNT_X UNIMPL"); break;
-    case SOUND2CNT_L: SPDLOG_DEBUG("WRITING TO SOUND2CNT_L UNIMPL"); break;
-    case SOUND2CNT_H: SPDLOG_DEBUG("WRITING TO SOUND2CNT_H UNIMPL"); break;
-    case SOUND3CNT_L: SPDLOG_DEBUG("WRITING TO SOUND3CNT_L UNIMPL"); break;
-    case SOUND3CNT_H: SPDLOG_DEBUG("WRITING TO SOUND3CNT_H UNIMPL"); break;
-    case SOUND3CNT_X: SPDLOG_DEBUG("WRITING TO SOUND3CNT_X UNIMPL"); break;
-    case SOUND4CNT_L: SPDLOG_DEBUG("WRITING TO SOUND4CNT_L UNIMPL"); break;
-    case SOUND4CNT_H: SPDLOG_DEBUG("WRITING TO SOUND4CNT_H UNIMPL"); break;
-    case SOUNDCNT_L: SPDLOG_DEBUG("WRITING TO SOUNDCNT_L UNIMPL"); break;
-    case SOUNDCNT_H: SPDLOG_DEBUG("WRITING TO SOUNDCNT_H UNIMPL"); break;
-    case SOUNDCNT_X: SPDLOG_DEBUG("WRITING TO SOUNDCNT_X UNIMPL"); break;
+    case BG2PA: bus_logger->debug("WRITING TO BG2PA UNIMPL"); break;
+    case BG2PB: bus_logger->debug("WRITING TO BG2PB UNIMPL"); break;
+    case BG2PC: bus_logger->debug("WRITING TO BG2PC UNIMPL"); break;
+    case BG2PD: bus_logger->debug("WRITING TO BG2PD UNIMPL"); break;
+    case BG2X: bus_logger->debug("WRITING TO BG2X UNIMPL"); break;
+    case BG2Y: bus_logger->debug("WRITING TO BG2Y UNIMPL"); break;
+    case BG3PA: bus_logger->debug("WRITING TO BG3PA UNIMPL"); break;
+    case BG3PB: bus_logger->debug("WRITING TO BG3PB UNIMPL"); break;
+    case BG3PC: bus_logger->debug("WRITING TO BG3PC UNIMPL"); break;
+    case BG3PD: bus_logger->debug("WRITING TO BG3PD UNIMPL"); break;
+    case BG3X: bus_logger->debug("WRITING TO BG3X UNIMPL"); break;
+    case BG3Y: bus_logger->debug("WRITING TO BG3Y UNIMPL"); break;
+    case WIN0H: bus_logger->debug("WRITING TO WIN0H UNIMPL"); break;
+    case WIN1H: bus_logger->debug("WRITING TO WIN1H UNIMPL"); break;
+    case WIN0V: bus_logger->debug("WRITING TO WIN0V UNIMPL"); break;
+    case WIN1V: bus_logger->debug("WRITING TO WIN1V UNIMPL"); break;
+    case WININ: bus_logger->debug("WRITING TO WININ UNIMPL"); break;
+    case WINOUT: bus_logger->debug("WRITING TO WINOUT UNIMPL"); break;
+    case MOSAIC: bus_logger->debug("WRITING TO MOSAIC UNIMPL"); break;
+    case BLDCNT: bus_logger->debug("WRITING TO BLDCNT UNIMPL"); break;
+    case BLDALPHA: bus_logger->debug("WRITING TO BLDALPHA UNIMPL"); break;
+    case BLDY: bus_logger->debug("WRITING TO BLDY UNIMPL"); break;
+    case SOUND1CNT_L: bus_logger->debug("WRITING TO SOUND1CNT_L UNIMPL"); break;
+    case SOUND1CNT_H: bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL"); break;
+    case SOUND1CNT_X: bus_logger->debug("WRITING TO SOUND1CNT_X UNIMPL"); break;
+    case SOUND2CNT_L: bus_logger->debug("WRITING TO SOUND2CNT_L UNIMPL"); break;
+    case SOUND2CNT_H: bus_logger->debug("WRITING TO SOUND2CNT_H UNIMPL"); break;
+    case SOUND3CNT_L: bus_logger->debug("WRITING TO SOUND3CNT_L UNIMPL"); break;
+    case SOUND3CNT_H: bus_logger->debug("WRITING TO SOUND3CNT_H UNIMPL"); break;
+    case SOUND3CNT_X: bus_logger->debug("WRITING TO SOUND3CNT_X UNIMPL"); break;
+    case SOUND4CNT_L: bus_logger->debug("WRITING TO SOUND4CNT_L UNIMPL"); break;
+    case SOUND4CNT_H: bus_logger->debug("WRITING TO SOUND4CNT_H UNIMPL"); break;
+    case SOUNDCNT_L: bus_logger->debug("WRITING TO SOUNDCNT_L UNIMPL"); break;
+    case SOUNDCNT_H: bus_logger->debug("WRITING TO SOUNDCNT_H UNIMPL"); break;
+    case SOUNDCNT_X: bus_logger->debug("WRITING TO SOUNDCNT_X UNIMPL"); break;
     case SOUNDBIAS: {
       system_control.sound_bias = value;
       break;
     }
-    case WAVE_RAM: SPDLOG_DEBUG("WRITING TO WAVE_RAM UNIMPL"); break;
-    case FIFO_A: SPDLOG_DEBUG("WRITING TO FIFO_A UNIMPL"); break;
-    case FIFO_B: SPDLOG_DEBUG("WRITING TO FIFO_B UNIMPL"); break;
-    case DMA0SAD: SPDLOG_DEBUG("WRITING TO DMA0SAD UNIMPL"); break;
-    case DMA0DAD: SPDLOG_DEBUG("WRITING TO DMA0DAD UNIMPL"); break;
-    case DMA0CNT_L: SPDLOG_DEBUG("WRITING TO DMA0CNT_L UNIMPL"); break;
-    case DMA0CNT_H: SPDLOG_DEBUG("WRITING TO DMA0CNT_H UNIMPL"); break;
-    case DMA1SAD: SPDLOG_DEBUG("WRITING TO DMA1SAD UNIMPL"); break;
-    case DMA1DAD: SPDLOG_DEBUG("WRITING TO DMA1DAD UNIMPL"); break;
-    case DMA1CNT_L: SPDLOG_DEBUG("WRITING TO DMA1CNT_L UNIMPL"); break;
-    case DMA1CNT_H: SPDLOG_DEBUG("WRITING TO DMA1CNT_H UNIMPL"); break;
-    case DMA2SAD: SPDLOG_DEBUG("WRITING TO DMA2SAD UNIMPL"); break;
-    case DMA2DAD: SPDLOG_DEBUG("WRITING TO DMA2DAD UNIMPL"); break;
-    case DMA2CNT_L: SPDLOG_DEBUG("WRITING TO DMA2CNT_L UNIMPL"); break;
-    case DMA2CNT_H: SPDLOG_DEBUG("WRITING TO DMA2CNT_H UNIMPL"); break;
+    case WAVE_RAM: bus_logger->debug("WRITING TO WAVE_RAM UNIMPL"); break;
+    case FIFO_A: bus_logger->debug("WRITING TO FIFO_A UNIMPL"); break;
+    case FIFO_B: bus_logger->debug("WRITING TO FIFO_B UNIMPL"); break;
+    case DMA0SAD: bus_logger->debug("WRITING TO DMA0SAD UNIMPL"); break;
+    case DMA0DAD: bus_logger->debug("WRITING TO DMA0DAD UNIMPL"); break;
+    case DMA0CNT_L: bus_logger->debug("WRITING TO DMA0CNT_L UNIMPL"); break;
+    case DMA0CNT_H: bus_logger->debug("WRITING TO DMA0CNT_H UNIMPL"); break;
+    case DMA1SAD: bus_logger->debug("WRITING TO DMA1SAD UNIMPL"); break;
+    case DMA1DAD: bus_logger->debug("WRITING TO DMA1DAD UNIMPL"); break;
+    case DMA1CNT_L: bus_logger->debug("WRITING TO DMA1CNT_L UNIMPL"); break;
+    case DMA1CNT_H: bus_logger->debug("WRITING TO DMA1CNT_H UNIMPL"); break;
+    case DMA2SAD: bus_logger->debug("WRITING TO DMA2SAD UNIMPL"); break;
+    case DMA2DAD: bus_logger->debug("WRITING TO DMA2DAD UNIMPL"); break;
+    case DMA2CNT_L: bus_logger->debug("WRITING TO DMA2CNT_L UNIMPL"); break;
+    case DMA2CNT_H: bus_logger->debug("WRITING TO DMA2CNT_H UNIMPL"); break;
     case DMA3SAD ... DMA3SAD + 3: {
       set_byte(dma_control.DMA3SAD.v, address % 0x4, value);
       break;
@@ -628,56 +660,65 @@ void Bus::io_write(u32 address, u8 value) {
 
       if (dma_control.DMA3CNT_H.dma_enable) {
         fmt::println("dma3 fired");
-        // dma_control.print_dma_info();
+        // assert(dma_control.DMA3CNT_H.start_timing == 0);
 
-        transfer16(dma_control.DMA3SAD.src, dma_control.DMA3DAD.dst, dma_control.DMA3CNT_L.word_count);
+        if (dma_control.DMA3CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD) {
+          transfer16(dma_control.DMA3SAD.src, dma_control.DMA3DAD.dst, dma_control.DMA3CNT_L.word_count);
+        } else {
+          transfer32(dma_control.DMA3SAD.src, dma_control.DMA3DAD.dst, dma_control.DMA3CNT_L.word_count);
+        }
         // assert(0);
+        dma_control.print_dma_info(3);
+        if (dma_control.DMA3CNT_H.irq_at_end) { request_interrupt(InterruptType::DMA3); }
       }
       break;
     }
-    case TM0CNT_L: SPDLOG_DEBUG("WRITING TO TM0CNT_L UNIMPL"); break;
-    case TM0CNT_H: SPDLOG_DEBUG("WRITING TO TM0CNT_H UNIMPL"); break;
-    case TM1CNT_L: SPDLOG_DEBUG("WRITING TO TM1CNT_L UNIMPL"); break;
-    case TM1CNT_H: SPDLOG_DEBUG("WRITING TO TM1CNT_H UNIMPL"); break;
-    case TM2CNT_L: SPDLOG_DEBUG("WRITING TO TM2CNT_L UNIMPL"); break;
-    case TM2CNT_H: SPDLOG_DEBUG("WRITING TO TM2CNT_H UNIMPL"); break;
-    case TM3CNT_L: SPDLOG_DEBUG("WRITING TO TM3CNT_L UNIMPL"); break;
-    case TM3CNT_H: SPDLOG_DEBUG("WRITING TO TM3CNT_H UNIMPL"); break;
-    case SIODATA32: SPDLOG_DEBUG("WRITING TO SIODATA32 UNIMPL"); break;
-    case SIOMULTI1: SPDLOG_DEBUG("WRITING TO SIOMULTI1 UNIMPL"); break;
-    case SIOMULTI2: SPDLOG_DEBUG("WRITING TO SIOMULTI2 UNIMPL"); break;
-    case SIOMULTI3: SPDLOG_DEBUG("WRITING TO SIOMULTI3 UNIMPL"); break;
-    case SIOCNT: SPDLOG_DEBUG("WRITING TO SIOCNT UNIMPL"); break;
-    case SIOMLT_SEND: SPDLOG_DEBUG("WRITING TO SIOMLT_SEND UNIMPL"); break;
+    case TM0CNT_L: bus_logger->debug("WRITING TO TM0CNT_L UNIMPL"); break;
+    case TM0CNT_H: bus_logger->debug("WRITING TO TM0CNT_H UNIMPL"); break;
+    case TM1CNT_L: bus_logger->debug("WRITING TO TM1CNT_L UNIMPL"); break;
+    case TM1CNT_H: bus_logger->debug("WRITING TO TM1CNT_H UNIMPL"); break;
+    case TM2CNT_L: bus_logger->debug("WRITING TO TM2CNT_L UNIMPL"); break;
+    case TM2CNT_H: bus_logger->debug("WRITING TO TM2CNT_H UNIMPL"); break;
+    case TM3CNT_L: bus_logger->debug("WRITING TO TM3CNT_L UNIMPL"); break;
+    case TM3CNT_H: bus_logger->debug("WRITING TO TM3CNT_H UNIMPL"); break;
+    case SIODATA32: bus_logger->debug("WRITING TO SIODATA32 UNIMPL"); break;
+    case SIOMULTI1: bus_logger->debug("WRITING TO SIOMULTI1 UNIMPL"); break;
+    case SIOMULTI2: bus_logger->debug("WRITING TO SIOMULTI2 UNIMPL"); break;
+    case SIOMULTI3: bus_logger->debug("WRITING TO SIOMULTI3 UNIMPL"); break;
+    case SIOCNT: bus_logger->debug("WRITING TO SIOCNT UNIMPL"); break;
+    case SIOMLT_SEND: bus_logger->debug("WRITING TO SIOMLT_SEND UNIMPL"); break;
     case KEYINPUT: break;
-    case KEYCNT: SPDLOG_DEBUG("WRITING TO UNIMPL KEYCNT"); break;
-    case RCNT: SPDLOG_DEBUG("WRITING TO UNIMPL RCNT"); break;
-    case JOYCNT: SPDLOG_DEBUG("WRITING TO UNIMPL JOYCNT"); break;
-    case JOY_RECV: SPDLOG_DEBUG("WRITING TO UNIMPL JOY_RECV"); break;
-    case JOY_TRANS: SPDLOG_DEBUG("WRITING TO UNIMPL JOY_TRANS"); break;
-    case JOYSTAT: SPDLOG_DEBUG("WRITING TO UNIMPL JOYSTAT"); break;
+    case KEYCNT: bus_logger->debug("WRITING TO UNIMPL KEYCNT"); break;
+    case RCNT: bus_logger->debug("WRITING TO UNIMPL RCNT"); break;
+    case JOYCNT: bus_logger->debug("WRITING TO UNIMPL JOYCNT"); break;
+    case JOY_RECV: bus_logger->debug("WRITING TO UNIMPL JOY_RECV"); break;
+    case JOY_TRANS: bus_logger->debug("WRITING TO UNIMPL JOY_TRANS"); break;
+    case JOYSTAT: bus_logger->debug("WRITING TO UNIMPL JOYSTAT"); break;
     case IE ... IE + 1: {
+      auto old_ie = interrupt_control.IE.v;
       set_byte(interrupt_control.IE.v, address % 2, value);
-      SPDLOG_DEBUG("WROTE {:#010x} to IE - [{:#010x}]", value, address);
-      SPDLOG_DEBUG("NEW IE: {:#010x}", interrupt_control.IE.v, address);
+      if (old_ie == interrupt_control.IE.v) break;
+      // bus_logger->debug("WROTE {:#010x} to IE - [{:#010x}]", value, address);
+      // bus_logger->debug("NEW IE: {:#010x}", interrupt_control.IE.v, address);
       break;
     }
     case IF ... IF + 1: {
+      auto old_if = interrupt_control.IF.v;
       set_byte(interrupt_control.IF.v, address % 2, value);
-      SPDLOG_DEBUG("WROTE {:#010x} to IF - [{:#010x}]", value, address);
-      SPDLOG_DEBUG("NEW IF: {:#010x}", interrupt_control.IE.v, address);
+      if (old_if == interrupt_control.IF.v) break;
+      // bus_logger->debug("WROTE {:#010x} to IF - [{:#010x}]", value, address);
+      // bus_logger->debug("NEW IF: {:#010x}", interrupt_control.IF.v, address);
       break;
     }
-    case WAITCNT: SPDLOG_DEBUG("WRITING TO UNIMPL WAITCNT"); break;
+    case WAITCNT: bus_logger->debug("WRITING TO UNIMPL WAITCNT"); break;
     case IME ... IME + 3: {
       set_byte(interrupt_control.IME.v, address % 4, value);
-      SPDLOG_DEBUG("new IME: {:#010x} - [{:#010x}]", interrupt_control.IME.v, address);
+      // bus_logger->debug("new IME: {:#010x} - [{:#010x}]", interrupt_control.IME.v, address);
     }
     case POSTFLG: break;
     case HALTCNT: break;
     default: {
       fmt::println("misaligned write: {:#010x}", address);
-      // exit(-1);
     }
   }
 }

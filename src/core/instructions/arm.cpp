@@ -774,6 +774,7 @@ void ARM::Instructions::SWI(ARM7TDMI& c, [[gnu::unused]] instruction_info& instr
   c.regs.svc_r[14] = c.regs.r[15] - 2;
   c.regs.SPSR_svc  = c.regs.CPSR.value;
 
+  fmt::println("cpy from SWI");
   c.regs.copy(SUPERVISOR);
   c.regs.CPSR.MODE_BITS = SUPERVISOR;
 
@@ -819,6 +820,8 @@ void ARM::Instructions::MSR(ARM7TDMI& c, instruction_info& instr) {
       if (modify_control_field) {
         op_value |= 0x10;
         SPDLOG_DEBUG("[CPSR] new control field: {:#x}", op_value & 0x000000FF);
+        // fmt::println("new op v: {:#x}", op_value & 0x1f);
+        fmt::println("cpy from msr");
         c.regs.copy((BANK_MODE)(op_value & 0x1f));
         c.regs.CPSR.value &= ~0x000000FF;
         c.regs.CPSR.value |= (op_value & 0x000000FF);

@@ -1,9 +1,14 @@
 #pragma once
 
+#include <spdlog/logger.h>
+#include <unordered_map>
+
 #include "bus.hpp"
 #include "common.hpp"
+#include "common/defs.hpp"
 #include "instructions/instruction.hpp"
 #include "registers.hpp"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 enum DATA_PROCESSING_OPS {
   AND = 0x0,
@@ -28,6 +33,18 @@ enum BOUNDARY { HALFWORD, WORD };
 struct ARM7TDMI {
   ARM7TDMI();
   Registers regs;
+
+  std::unordered_map<u16, instruction_info> lookup_table_arm = {
+
+  };
+
+  std::unordered_map<u16, instruction_info> lookup_table_thumb = {
+
+  };
+
+  
+
+  void initialize_lookup_table();
 
   enum SHIFT_MODE : u8 {
     LSL,
@@ -65,7 +82,7 @@ struct ARM7TDMI {
   [[nodiscard]] u32 shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool never_rrx = false, bool affect_flags = true);
 
   [[nodiscard]] bool interrupt_queued();
-  
+
   inline void set_zero() { regs.CPSR.ZERO_FLAG = 1; };
   inline void reset_zero() { regs.CPSR.ZERO_FLAG = 0; };
 

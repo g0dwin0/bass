@@ -1,25 +1,18 @@
 #include "registers.hpp"
 
 #include <cassert>
-#include "instructions/arm.hpp"
+// #include "instructions/arm.hpp"
 
 u32 Registers::get_spsr(BANK_MODE m) {
   switch (m) {
     case USER:
-    case SYSTEM:
-      return CPSR.value;
-    case FIQ:
-      return SPSR_fiq;
-    case IRQ:
-      return SPSR_irq;
-    case SUPERVISOR:
-      return SPSR_svc;
-    case ABORT:
-      return SPSR_abt;
-    case UNDEFINED:
-      return SPSR_und;
-    default:
-      assert(0);
+    case SYSTEM: return CPSR.value;
+    case FIQ: return SPSR_fiq;
+    case IRQ: return SPSR_irq;
+    case SUPERVISOR: return SPSR_svc;
+    case ABORT: return SPSR_abt;
+    case UNDEFINED: return SPSR_und;
+    default: assert(0);
   }
 }
 
@@ -27,10 +20,7 @@ void Registers::copy(BANK_MODE new_mode) {
   BANK_MODE current_mode = CPSR.MODE_BITS;
 
   if (new_mode == CPSR.MODE_BITS) return;
-  if ((new_mode == USER || new_mode == SYSTEM) &&
-      (current_mode == USER || current_mode == SYSTEM)) {
-    return;
-  }
+  if ((new_mode == USER || new_mode == SYSTEM) && (current_mode == USER || current_mode == SYSTEM)) { return; }
   // if(new_mode != FIQ || current_mode != FIQ) return;
 
   // SPDLOG_DEBUG("copying {} into active bank", mode_map.at(new_mode));
@@ -44,7 +34,7 @@ void Registers::copy(BANK_MODE new_mode) {
       switch (current_mode) {
         case SUPERVISOR: {
           // SVC -> System/User
-          
+
           for (size_t i = 13; i < 15; i++) {
             svc_r[i] = r[i];
           }
@@ -56,7 +46,7 @@ void Registers::copy(BANK_MODE new_mode) {
         }
         case ABORT: {
           // ABT -> System/User
-          
+
           for (size_t i = 13; i < 15; i++) {
             abt_r[i] = r[i];
           }
@@ -86,8 +76,7 @@ void Registers::copy(BANK_MODE new_mode) {
             fiq_r[i] = r[i];
           }
 
-          for (size_t i = 8; i < 15;
-               i++) {  // copy IRQ bank values to current bank
+          for (size_t i = 8; i < 15; i++) {  // copy IRQ bank values to current bank
             r[i] = user_system_bank[i];
           }
 
@@ -238,11 +227,10 @@ void Registers::copy(BANK_MODE new_mode) {
         }
         case SUPERVISOR: {
           // SVC -> IRQ
-          
+
           for (size_t i = 13; i < 15; i++) {
             svc_r[i] = r[i];
           }
-
 
           for (size_t i = 13; i < 15; i++) {
             r[i] = irq_r[i];
@@ -257,8 +245,6 @@ void Registers::copy(BANK_MODE new_mode) {
           for (size_t i = 13; i < 15; i++) {
             abt_r[i] = r[i];
           }
-
-
 
           for (size_t i = 13; i < 15; i++) {
             r[i] = irq_r[i];
@@ -302,8 +288,7 @@ void Registers::copy(BANK_MODE new_mode) {
             r[i] = user_system_bank[i];
           }
 
-          for (size_t i = 13; i < 15;
-               i++) {  // copy IRQ bank values to current bank
+          for (size_t i = 13; i < 15; i++) {  // copy IRQ bank values to current bank
             r[i] = irq_r[i];
           }
 
@@ -311,6 +296,7 @@ void Registers::copy(BANK_MODE new_mode) {
         }
 
         default: {
+          fmt::println("X: {}",+current_mode);
           assert(0);
         }
       }
@@ -377,8 +363,7 @@ void Registers::copy(BANK_MODE new_mode) {
             r[i] = user_system_bank[i];
           }
 
-          for (size_t i = 13; i < 15;
-               i++) {  // copy SVC bank values to current bank
+          for (size_t i = 13; i < 15; i++) {  // copy SVC bank values to current bank
             r[i] = svc_r[i];
           }
 
@@ -449,8 +434,7 @@ void Registers::copy(BANK_MODE new_mode) {
             r[i] = user_system_bank[i];
           }
 
-          for (size_t i = 13; i < 15;
-               i++) {  // copy SVC bank values to current bank
+          for (size_t i = 13; i < 15; i++) {  // copy SVC bank values to current bank
             r[i] = abt_r[i];
           }
 
@@ -530,8 +514,7 @@ void Registers::copy(BANK_MODE new_mode) {
             r[i] = user_system_bank[i];
           }
 
-          for (size_t i = 13; i < 15;
-               i++) {  // copy UND bank values to current bank
+          for (size_t i = 13; i < 15; i++) {  // copy UND bank values to current bank
             r[i] = und_r[i];
           }
 
@@ -575,7 +558,7 @@ void Registers::copy(BANK_MODE new_mode) {
   }
 }
 
-// When we load an SPSR, we should first copy registers, then copy the actual
+// When we load a SPSR, we should first copy registers, then copy the actual
 // SPSR value into CPSR (get mode bits from SPSR, then copy)
 
 void Registers::load_spsr_to_cpsr() {
@@ -610,7 +593,8 @@ void Registers::load_spsr_to_cpsr() {
       CPSR.value = SPSR_und;
       break;
     }
-    default:{
-      assert(0);}
+    default: {
+      assert(0);
+    }
   }
 }

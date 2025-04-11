@@ -2,8 +2,8 @@
 
 #include "bus.hpp"
 #include "common/defs.hpp"
-
-
+#include "spdlog/logger.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 enum BG_MODE { MODE_0 = 0, MODE_1 = 1, MODE_2 = 2, MODE_3 = 3, MODE_4 = 4, MODE_5 = 5 };
 enum FLIP { NORMAL, MIRRORED };
 
@@ -17,25 +17,74 @@ union ScreenEntry {
   };
 };
 
-typedef std::array<u8, 64> Tile;
+typedef std::array<u8, 8 * 8> Tile;
 typedef std::array<Tile, 512> TileSet;
 typedef std::array<ScreenEntry, 64 * 64> TileMap;
 
 struct PPU {
-  PPU() { std::memset(frame_buffer, 0, sizeof(frame_buffer) * 4); }
+  PPU() { std::memset(disp_buf, 0, sizeof(disp_buf) * 4); }
 
-  Bus* bus              = nullptr;
-  u32* frame_buffer     = new u32[38400];
+  std::shared_ptr<spdlog::logger> ppu_logger = spdlog::stdout_color_mt("PPU");
+
+  Bus* bus = nullptr;
+
+  enum ACTIVE_BUFFER { BUF1, BUF2 };
+
+  u32* disp_buf          = new u32[240 * 160];
+  u32* write_buf         = new u32[240 * 160];
+  bool framebuffer_ready = true;
+
+  bool fresh_buffer = false;
+
+  struct State {  // track changes to ppu specific registers, for example the changing of the character/screen base blocks
+    std::array<bool, 4> cbb_changed = {true, true, true, true};
+  } state;
+
+  // ACTIVE_BUFFER current_buf = BUF1;
+  // u32* active_buffer        = frame_buffer;
+
+  struct DoubleBuffer {
+    u32* disp_buf;
+    u32* write_buf;
+
+    bool framebuffer_ready = false;
+    std::mutex framebuffer_mutex;
+    std::condition_variable framebuffer_cv;
+
+   public:
+    // DoubleBuffer() = delete;
+    DoubleBuffer(u32* buf, u32* buf1) {
+      disp_buf  = buf;
+      write_buf = buf1;
+    }
+
+    void write(size_t idx, u32 value) {
+      write_buf[idx] = value;
+      // Set fresh_buffer to true when writing is complete
+      if (idx == (240 * 160) - 1) {
+        std::lock_guard<std::mutex> lock(framebuffer_mutex);
+        framebuffer_ready = true;
+        framebuffer_cv.notify_one();
+      }
+    }
+
+    // void swap_bufs() { std::swap(disp_buf, write_buf); }
+  };
+
   u32* tile_set_texture = new u32[38400];
 
-  u32* tile_map_texture_buffer_0   = new u32[512 * 512];
-  u32* tile_map_texture_buffer_1   = new u32[512 * 512];
-  u32* tile_map_texture_buffer_2   = new u32[512 * 512];
-  u32* tile_map_texture_buffer_3   = new u32[512 * 512];
+  u32* backdrop                  = new u32[512 * 512];
+  u32* tile_map_texture_buffer_0 = new u32[512 * 512];
+  u32* tile_map_texture_buffer_1 = new u32[512 * 512];
+  u32* tile_map_texture_buffer_2 = new u32[512 * 512];
+  u32* tile_map_texture_buffer_3 = new u32[512 * 512];
 
   std::array<u32*, 4> tile_map_texture_buffer_arr = {tile_map_texture_buffer_0, tile_map_texture_buffer_1, tile_map_texture_buffer_2, tile_map_texture_buffer_3};
-  
+  std::array<std::array<bool, 512 * 512>, 4> transparency_maps;
+
   u32* composite_bg_texture_buffer = new u32[512 * 512];
+
+  DoubleBuffer db = DoubleBuffer(disp_buf, write_buf);
 
   std::unordered_map<u8, std::string> screen_sizes = {
       {0, "32x32"},
@@ -44,13 +93,18 @@ struct PPU {
       {3, "64x64"},
   };
 
-  std::array<TileSet, 4> tile_sets  = {};
+  std::array<TileSet, 4> tile_sets = {};
   std::array<TileMap, 4> tile_maps = {};
 
-  [[nodiscard]] u32 get_color_by_index(const u8 x, u8 palette_num = 0);
+  [[nodiscard]] u32 get_color_by_index(const u8 x, u8 palette_num = 0, bool offset_colors = false);
 
-  void step();
-  void draw(bool called_manually = false);
+  void step(bool called_manually = false);
+  void load_tiles(u8 bg, u8 color_depth);
   u32 absolute_sbb(u8 bg, u8 map_x = 0);
   u32 relative_cbb(u8 bg);
+
+  // Returns tuple containing BGxHOFS, BGxVOFS (in that order)
+  std::tuple<u16, u16> get_bg_offset(u8 bg_id);
+
+  bool background_enabled(u8 bg_id);
 };
