@@ -1,7 +1,7 @@
 #include "core/pak.hpp"
 #include "common.hpp"
 
-void Pak::load_data(std::vector<u8>& f) {
+void Pak::load_data(std::vector<u8>& f) { // REFACTOR: header bytes are in data too... use that instead of loading it in two places
   for (size_t i = 0; i < f.size(); ++i) {
     data.at(i) = f.at(i);
   }
