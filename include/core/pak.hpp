@@ -1,17 +1,22 @@
 #pragma once
-#define ENTRY_POINT_LEN 4
-#define BITMAP_SIZE 156
-#define GAME_TITLE_LENGTH 12
-#define GAME_CODE_LENGTH 4
-#define MAKER_CODE_LENGTH 2
+#include "spdlog/sinks/stdout_color_sinks.h"
+
+static constexpr uint8_t ENTRY_POINT_LEN   = 4;
+static constexpr uint8_t BITMAP_SIZE       = 156;
+static constexpr uint8_t GAME_TITLE_LENGTH = 12;
+static constexpr uint8_t GAME_CODE_LENGTH  = 4;
+static constexpr uint8_t MAKER_CODE_LENGTH = 2;
+
 #include <vector>
 
 #include "common.hpp"
 
 struct Pak {
-  Pak() : data(0x2000000) {}
+  Pak() : data(0x2000000) {};
 
-  std::vector<u8> data;  // swap out for heap allocated array
+  std::shared_ptr<spdlog::logger> pak_logger = spdlog::stdout_color_mt("PAK");
+
+  std::vector<u8> data;
 
   union {
     u8 header_bytes[192];

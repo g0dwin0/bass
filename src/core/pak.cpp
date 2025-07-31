@@ -15,8 +15,8 @@ void Pak::load_data(std::vector<u8>& f) { // REFACTOR: header bytes are in data 
 };
 
 void Pak::log_cart_info() {
-  spdlog::info("GAME TITLE:       {:.12}", info.game_title);
-  spdlog::info("GAME CODE:        {:.4}", info.game_code);
-  spdlog::info("MAKER CODE:       {:.2}", info.maker_code);
-  spdlog::info("SOFTWARE VERSION: {}", info.software_version);
+  pak_logger->info("GAME TITLE:       {:.12}", info.game_title);
+  pak_logger->info("GAME CODE:        {:.4}", info.game_code);
+  pak_logger->info("MAKER CODE:       {:.2}", info.maker_code);
+  pak_logger->info("SOFTWARE VERSION: {}", info.software_version);
 }

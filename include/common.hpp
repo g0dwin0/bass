@@ -17,11 +17,12 @@
 #include "spdlog/spdlog.h"
 #include "common/defs.hpp"
 
-inline std::vector<u8> read_file(std::string_view filename) {
+
+inline std::vector<u8> read_file(std::string filename) {
   std::ifstream file(filename.data(), std::ios::binary);
 
   if (!file.good()) {
-    fmt::println("io: failed to load file: {}", filename);
+    fmt::println("failed to load file: {}", filename);
     // assert(0 & "failed to load file");
     assert(0);
   }
