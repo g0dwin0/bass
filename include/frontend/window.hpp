@@ -19,10 +19,10 @@ struct State {
 
   u32* frame_buf_ptr = nullptr;
 
-  const u8* keyboardState   = SDL_GetKeyboardState(nullptr);
+  const u8* keyboard_state  = SDL_GetKeyboardState(nullptr);
   std::atomic<bool> running = true;
 
-  bool debugger_open        = true;
+  bool memory_viewer_open   = true;
   bool cpu_info_open        = true;
   bool ppu_info_open        = true;
   bool controls_window_open = true;
@@ -81,14 +81,14 @@ struct Frontend {
 
   void render_frame();
 
-  void show_menubar();
+  void show_menu_bar();
   void show_backgrounds();
 
   void shutdown();
-  void show_debugger();
+  void show_memory_viewer();
   void show_cpu_info();
   void show_ppu_info();
-  void show_controls_menu(bool*);
+  void ShowControlsMenu(bool*);
   void show_irq_status();
   void show_tiles();
 
