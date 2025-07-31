@@ -1,0 +1,1 @@
+make -j12 $2 && build/bin/bass -f $1
