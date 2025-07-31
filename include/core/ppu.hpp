@@ -17,18 +17,25 @@ union ScreenEntry {
   };
 };
 
-typedef std::array<u8, 8 * 8> Tile;
-typedef std::array<Tile, 512> TileSet;
-typedef std::array<ScreenEntry, 64 * 64> TileMap;
+using Tile            = std::array<u8, 8 * 8>;
+using TileSet         = std::array<Tile, 512>;
+using TileMap         = std::array<ScreenEntry, 64 * 64>;
+using TransparencyMap = std::array<bool, 512 * 512>;
 
 struct PPU {
-  PPU() { std::memset(disp_buf, 0, sizeof(disp_buf) * 4); }
+  static constexpr u32 VRAM_BASE           = 0x06000000;
+  static constexpr u32 PALETTE_RAM_BASE    = 0x05000000;
+  static constexpr u32 MAIN_VIEWPORT_PITCH = 240;
+  static constexpr u32 _4BPP               = 0;
+  static constexpr u32 _8BPP               = 1;
 
   std::shared_ptr<spdlog::logger> ppu_logger = spdlog::stdout_color_mt("PPU");
 
   Bus* bus = nullptr;
 
   enum ACTIVE_BUFFER { BUF1, BUF2 };
+
+  // u32 scanline_cycle = 0;
 
   u32* disp_buf          = new u32[240 * 160];
   u32* write_buf         = new u32[240 * 160];
@@ -60,7 +67,7 @@ struct PPU {
 
     void write(size_t idx, u32 value) {
       write_buf[idx] = value;
-      // Set fresh_buffer to true when writing is complete
+      
       if (idx == (240 * 160) - 1) {
         std::lock_guard<std::mutex> lock(framebuffer_mutex);
         framebuffer_ready = true;
@@ -68,7 +75,6 @@ struct PPU {
       }
     }
 
-    // void swap_bufs() { std::swap(disp_buf, write_buf); }
   };
 
   u32* tile_set_texture = new u32[38400];
@@ -80,6 +86,7 @@ struct PPU {
   u32* tile_map_texture_buffer_3 = new u32[512 * 512];
 
   std::array<u32*, 4> tile_map_texture_buffer_arr = {tile_map_texture_buffer_0, tile_map_texture_buffer_1, tile_map_texture_buffer_2, tile_map_texture_buffer_3};
+
   std::array<std::array<bool, 512 * 512>, 4> transparency_maps;
 
   u32* composite_bg_texture_buffer = new u32[512 * 512];

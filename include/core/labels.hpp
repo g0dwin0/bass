@@ -44,73 +44,77 @@ enum REG : u32 {
   BLDALPHA   = 0x4000052,  //   Alpha Blending Coefficients
   BLDY       = 0x4000054,  //   Brightness (Fade-In/Out) Coefficient
 
-  SOUND1CNT_L = 0x4000060,  //  Channel 1 Sweep register       (NR10)
-  SOUND1CNT_H = 0x4000062,  //  Channel 1 Duty/Length/Envelope (NR11, NR12)
-  SOUND1CNT_X = 0x4000064,  //  Channel 1 Frequency/Control    (NR13, NR14)
-  SOUND2CNT_L = 0x4000068,  //  Channel 2 Duty/Length/Envelope (NR21, NR22)
-  SOUND2CNT_H = 0x400006C,  //  Channel 2 Frequency/Control    (NR23, NR24)
-  SOUND3CNT_L = 0x4000070,  //  Channel 3 Stop/Wave RAM select (NR30)
-  SOUND3CNT_H = 0x4000072,  //  Channel 3 Length/Volume        (NR31, NR32)
-  SOUND3CNT_X = 0x4000074,  //  Channel 3 Frequency/Control    (NR33, NR34)
-  SOUND4CNT_L = 0x4000078,  //  Channel 4 Length/Envelope      (NR41, NR42)
-  SOUND4CNT_H = 0x400007C,  //  Channel 4 Frequency/Control    (NR43, NR44)
-  SOUNDCNT_L  = 0x4000080,  //  Control Stereo/Volume/Enable   (NR50, NR51)
-  SOUNDCNT_H  = 0x4000082,  //  Control Mixing/DMA Control
-  SOUNDCNT_X  = 0x4000084,  //  Control Sound on/off           (NR52)
-  SOUNDBIAS   = 0x4000088,  //  Sound PWM Control
-  WAVE_RAM    = 0x4000090,  //  Channel 3 Wave Pattern RAM (2 banks!!)
-  FIFO_A      = 0x40000A0,  //  Channel A FIFO, Data 0-3
-  FIFO_B      = 0x40000A4,  //  Channel B FIFO, Data 0-3
-  DMA0SAD     = 0x40000B0,  //  DMA 0 Source Address
-  DMA0DAD     = 0x40000B4,  //  DMA 0 Destination Address
-  DMA0CNT_L   = 0x40000B8,  //  DMA 0 Word Count
-  DMA0CNT_H   = 0x40000BA,  //  DMA 0 Control
-  DMA1SAD     = 0x40000BC,  //  DMA 1 Source Address
-  DMA1DAD     = 0x40000C0,  //  DMA 1 Destination Address
-  DMA1CNT_L   = 0x40000C4,  //  DMA 1 Word Count
-  DMA1CNT_H   = 0x40000C6,  //  DMA 1 Control
-  DMA2SAD     = 0x40000C8,  //  DMA 2 Source Address
-  DMA2DAD     = 0x40000CC,  //  DMA 2 Destination Address
-  DMA2CNT_L   = 0x40000D0,  //  DMA 2 Word Count
-  DMA2CNT_H   = 0x40000D2,  //  DMA 2 Control
-  DMA3SAD     = 0x40000D4,  //  DMA 3 Source Address
-  DMA3DAD     = 0x40000D8,  //  DMA 3 Destination Address
-  DMA3CNT_L   = 0x40000DC,  //  DMA 3 Word Count
-  DMA3CNT_H   = 0x40000DE,  //  DMA 3 Control
-  TM0CNT_L    = 0x4000100,  //  Timer 0 Counter/Reload
-  TM0CNT_H    = 0x4000102,  //  Timer 0 Control
-  TM1CNT_L    = 0x4000104,  //  Timer 1 Counter/Reload
-  TM1CNT_H    = 0x4000106,  //  Timer 1 Control
-  TM2CNT_L    = 0x4000108,  //  Timer 2 Counter/Reload
-  TM2CNT_H    = 0x400010A,  //  Timer 2 Control
-  TM3CNT_L    = 0x400010C,  //  Timer 3 Counter/Reload
-  TM3CNT_H    = 0x400010E,  //  Timer 3 Control
-  SIODATA32   = 0x4000120,  //  SIO Data (Normal-32bit Mode; shared with below)
-  SIOMULTI0   = 0x4000120,  //  SIO Data 0 (Parent)    (Multi-Player Mode)
-  SIOMULTI1   = 0x4000122,  //  SIO Data 1 (1st Child) (Multi-Player Mode)
-  SIOMULTI2   = 0x4000124,  //  SIO Data 2 (2nd Child) (Multi-Player Mode)
-  SIOMULTI3   = 0x4000126,  //  SIO Data 3 (3rd Child) (Multi-Player Mode)
-  SIOCNT      = 0x4000128,  //  SIO Control Register
-  SIOMLT_SEND = 0x400012A,  //  SIO Data (Local of MultiPlayer; shared below)
-  SIODATA8    = 0x400012A,  //  SIO Data (Normal-8bit and UART Mode)
-  KEYINPUT    = 0x4000130,  //  Key Status
-  KEYCNT      = 0x4000132,  //  Key Interrupt Control
-  RCNT        = 0x4000134,  //  SIO Mode Select/General Purpose Data
-  JOYCNT      = 0x4000140,  //  SIO JOY Bus Control
-  JOY_RECV    = 0x4000150,  //  SIO JOY Bus Receive Data
-  JOY_TRANS   = 0x4000154,  //  SIO JOY Bus Transmit Data
-  JOYSTAT     = 0x4000158,  //  SIO JOY Bus Receive Status
-  IE          = 0x4000200,  //  Interrupt Enable Register
-  IF          = 0x4000202,  //  Interrupt Request Flags / IRQ Acknowledge
-  WAITCNT     = 0x4000204,  //  Game Pak Waitstate Control
-  IME         = 0x4000208,  //  Interrupt Master Enable Register
-  POSTFLG     = 0x4000300,  //  Undocumented - Post Boot Flag
-  HALTCNT     = 0x4000301,  //  Undocumented - Power Down Control
+  SOUND1CNT_L  = 0x4000060,  //  Channel 1 Sweep register       (NR10)
+  SOUND1CNT_H  = 0x4000062,  //  Channel 1 Duty/Length/Envelope (NR11, NR12)
+  SOUND1CNT_X  = 0x4000064,  //  Channel 1 Frequency/Control    (NR13, NR14)
+  SOUND2CNT_L  = 0x4000068,  //  Channel 2 Duty/Length/Envelope (NR21, NR22)
+  SOUND2CNT_H  = 0x400006C,  //  Channel 2 Frequency/Control    (NR23, NR24)
+  SOUND3CNT_L  = 0x4000070,  //  Channel 3 Stop/Wave RAM select (NR30)
+  SOUND3CNT_H  = 0x4000072,  //  Channel 3 Length/Volume        (NR31, NR32)
+  SOUND3CNT_X  = 0x4000074,  //  Channel 3 Frequency/Control    (NR33, NR34)
+  SOUND4CNT_L  = 0x4000078,  //  Channel 4 Length/Envelope      (NR41, NR42)
+  SOUND4CNT_H  = 0x400007C,  //  Channel 4 Frequency/Control    (NR43, NR44)
+  SOUNDCNT_L   = 0x4000080,  //  Control Stereo/Volume/Enable   (NR50, NR51)
+  SOUNDCNT_H   = 0x4000082,  //  Control Mixing/DMA Control
+  SOUNDCNT_X   = 0x4000084,  //  Control Sound on/off           (NR52)
+  SOUNDBIAS    = 0x4000088,  //  Sound PWM Control
+  WAVE_RAM     = 0x4000090,  //  Channel 3 Wave Pattern RAM (2 banks!!)
+  FIFO_A       = 0x40000A0,  //  Channel A FIFO, Data 0-3
+  FIFO_B       = 0x40000A4,  //  Channel B FIFO, Data 0-3
+  DMA0SAD      = 0x40000B0,  //  DMA 0 Source Address
+  DMA0DAD      = 0x40000B4,  //  DMA 0 Destination Address
+  DMA0CNT_L    = 0x40000B8,  //  DMA 0 Word Count
+  DMA0CNT_H    = 0x40000BA,  //  DMA 0 Control
+  DMA1SAD      = 0x40000BC,  //  DMA 1 Source Address
+  DMA1DAD      = 0x40000C0,  //  DMA 1 Destination Address
+  DMA1CNT_L    = 0x40000C4,  //  DMA 1 Word Count
+  DMA1CNT_H    = 0x40000C6,  //  DMA 1 Control
+  DMA2SAD      = 0x40000C8,  //  DMA 2 Source Address
+  DMA2DAD      = 0x40000CC,  //  DMA 2 Destination Address
+  DMA2CNT_L    = 0x40000D0,  //  DMA 2 Word Count
+  DMA2CNT_H    = 0x40000D2,  //  DMA 2 Control
+  DMA3SAD      = 0x40000D4,  //  DMA 3 Source Address
+  DMA3DAD      = 0x40000D8,  //  DMA 3 Destination Address
+  DMA3CNT_L    = 0x40000DC,  //  DMA 3 Word Count
+  DMA3CNT_H    = 0x40000DE,  //  DMA 3 Control
+  TM0CNT_L     = 0x4000100,  //  Timer 0 Counter/Reload
+  TM0CNT_H     = 0x4000102,  //  Timer 0 Control
+  TM1CNT_L     = 0x4000104,  //  Timer 1 Counter/Reload
+  TM1CNT_H     = 0x4000106,  //  Timer 1 Control
+  TM2CNT_L     = 0x4000108,  //  Timer 2 Counter/Reload
+  TM2CNT_H     = 0x400010A,  //  Timer 2 Control
+  TM3CNT_L     = 0x400010C,  //  Timer 3 Counter/Reload
+  TM3CNT_H     = 0x400010E,  //  Timer 3 Control
+  SIODATA32    = 0x4000120,  //  SIO Data (Normal-32bit Mode; shared with below)
+  SIOMULTI0    = 0x4000120,  //  SIO Data 0 (Parent)    (Multi-Player Mode)
+  SIOMULTI1    = 0x4000122,  //  SIO Data 1 (1st Child) (Multi-Player Mode)
+  SIOMULTI2    = 0x4000124,  //  SIO Data 2 (2nd Child) (Multi-Player Mode)
+  SIOMULTI3    = 0x4000126,  //  SIO Data 3 (3rd Child) (Multi-Player Mode)
+  SIOCNT       = 0x4000128,  //  SIO Control Register
+  SIOMLT_SEND  = 0x400012A,  //  SIO Data (Local of MultiPlayer; shared below)
+  SIODATA8     = 0x400012A,  //  SIO Data (Normal-8bit and UART Mode)
+  KEYINPUT     = 0x4000130,  //  Key Status
+  KEYCNT       = 0x4000132,  //  Key Interrupt Control
+  RCNT         = 0x4000134,  //  SIO Mode Select/General Purpose Data
+  UNKNOWN136   = 0x4000136,
+  JOYCNT       = 0x4000140,  //  SIO JOY Bus Control
+  UNKNOWN142   = 0x4000142,
+  JOY_RECV     = 0x4000150,  //  SIO JOY Bus Receive Data
+  JOY_TRANS    = 0x4000154,  //  SIO JOY Bus Transmit Data
+  JOYSTAT      = 0x4000158,  //  SIO JOY Bus Receive Status
+  UNKNOWN15A   = 0x400015A,
+  IE           = 0x4000200,  //  Interrupt Enable Register
+  IF           = 0x4000202,  //  Interrupt Request Flags / IRQ Acknowledge
+  WAITCNT      = 0x4000204,  //  Game Pak Waitstate Control
+  UNKNOWN206   = 0x4000206,
+  IME          = 0x4000208,  //  Interrupt Master Enable Register
+  POSTFLG      = 0x4000300,  //  Undocumented - Post Boot Flag
+  HALTCNT      = 0x4000301,  //  Undocumented - Power Down Control
+  UNKNOWN302   = 0x4000302,
+  UNKNOWN1000C = 0x400100C
 };
 
-
-
-const std::unordered_map<u32, std::string_view> label_map = {
+const std::unordered_map<u32, std::string> label_map = {
     {   DISPSTAT,    "DISPSTAT"},
     {     VCOUNT,      "VCOUNT"},
     {     BG0CNT,      "BG0CNT"},
@@ -204,9 +208,9 @@ const std::unordered_map<u32, std::string_view> label_map = {
 inline std::string get_label(const u32 address) {
   auto label_entry = label_map.find(address);
 
-  std::string resulting = fmt::format("{:#010x}", address);
+  std::string result = fmt::format("{:#010x}", address);
 
-  if (label_entry != label_map.end()) { resulting = fmt::format("{:#010x} [{}]", address, label_entry->second); }
+  if (label_entry != label_map.end()) { result = fmt::format("{:#010x} [{}]", address, label_entry->second); }
 
-  return resulting;
+  return result;
 }

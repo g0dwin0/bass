@@ -1,4 +1,4 @@
-#include "frontend/window.h"
+#include "frontend/window.hpp"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_error.h>
@@ -18,7 +18,6 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer2.h"
 #include "imgui_memory_edit.h"
-#include "tinyfiledialogs.h"
 
 static MemoryEditor editor_instance;
 
@@ -34,31 +33,31 @@ void Frontend::handle_events() {
       }
 
       case SDL_KEYDOWN: {
-        if (state.keyboardState[settings.keybinds.control_map.at(RIGHT).current_key]) { bass->bus.keypad_input.KEYINPUT.RIGHT = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(LEFT).current_key]) { bass->bus.keypad_input.KEYINPUT.LEFT = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(UP).current_key]) { bass->bus.keypad_input.KEYINPUT.UP = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(DOWN).current_key]) { bass->bus.keypad_input.KEYINPUT.DOWN = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(A).current_key]) { bass->bus.keypad_input.KEYINPUT.A = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(B).current_key]) { bass->bus.keypad_input.KEYINPUT.B = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(L).current_key]) { bass->bus.keypad_input.KEYINPUT.L = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(R).current_key]) { bass->bus.keypad_input.KEYINPUT.R = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(SELECT).current_key]) { bass->bus.keypad_input.KEYINPUT.SELECT = 0; }
-        if (state.keyboardState[settings.keybinds.control_map.at(START).current_key]) { bass->bus.keypad_input.KEYINPUT.START = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) { bass->bus.keypad_input.KEYINPUT.RIGHT = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) { bass->bus.keypad_input.KEYINPUT.LEFT = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) { bass->bus.keypad_input.KEYINPUT.UP = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) { bass->bus.keypad_input.KEYINPUT.DOWN = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) { bass->bus.keypad_input.KEYINPUT.A = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) { bass->bus.keypad_input.KEYINPUT.B = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) { bass->bus.keypad_input.KEYINPUT.L = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) { bass->bus.keypad_input.KEYINPUT.R = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) { bass->bus.keypad_input.KEYINPUT.SELECT = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) { bass->bus.keypad_input.KEYINPUT.START = 0; }
 
         break;
       }
 
       case SDL_KEYUP: {
-        if (!state.keyboardState[settings.keybinds.control_map.at(RIGHT).current_key]) { bass->bus.keypad_input.KEYINPUT.RIGHT = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(LEFT).current_key]) { bass->bus.keypad_input.KEYINPUT.LEFT = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(UP).current_key]) { bass->bus.keypad_input.KEYINPUT.UP = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(DOWN).current_key]) { bass->bus.keypad_input.KEYINPUT.DOWN = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(A).current_key]) { bass->bus.keypad_input.KEYINPUT.A = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(B).current_key]) { bass->bus.keypad_input.KEYINPUT.B = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(L).current_key]) { bass->bus.keypad_input.KEYINPUT.L = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(R).current_key]) { bass->bus.keypad_input.KEYINPUT.R = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(SELECT).current_key]) { bass->bus.keypad_input.KEYINPUT.SELECT = 1; }
-        if (!state.keyboardState[settings.keybinds.control_map.at(START).current_key]) { bass->bus.keypad_input.KEYINPUT.START = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) { bass->bus.keypad_input.KEYINPUT.RIGHT = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) { bass->bus.keypad_input.KEYINPUT.LEFT = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) { bass->bus.keypad_input.KEYINPUT.UP = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) { bass->bus.keypad_input.KEYINPUT.DOWN = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) { bass->bus.keypad_input.KEYINPUT.A = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) { bass->bus.keypad_input.KEYINPUT.B = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) { bass->bus.keypad_input.KEYINPUT.L = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) { bass->bus.keypad_input.KEYINPUT.R = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) { bass->bus.keypad_input.KEYINPUT.SELECT = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) { bass->bus.keypad_input.KEYINPUT.START = 1; }
 
         break;
       }
@@ -67,8 +66,8 @@ void Frontend::handle_events() {
   }
 }
 
-void Frontend::show_debugger() {
-  ImGui::Begin("DEBUGGER", &state.debugger_open, 0);
+void Frontend::show_memory_viewer() {
+  ImGui::Begin("Memory Viewer", &state.memory_viewer_open, 0);
   const char* regions[] = {
       "Region: [0x00000000 - 0x00003FFF] BIOS",
       "Region: [0x02000000 - 0x0203FFFF] EWRAM",
@@ -80,11 +79,7 @@ void Frontend::show_debugger() {
       "Region: [0x08000000 - 0x09FFFFFF] Game Pak ROM",
       "Region: [0x0E000000 - 0x0E00FFFF] Game Pak SRAM",
   };
-  // ImGui::Text("KEYCNT: {:%#010X}", bass->bus.keypad.KEYINPUT.value);
-  // ImGui::Text("KEYCNT: {:%10s}", +bass->bus.keypad.KEYINPUT.trv_ptr);
-  // ImGui::Text("keys pressed: %s", bass->bus.keypad.KEYINPUT.get_keys_pressed().c_str());
 
-  // ImGui::Text("Cycles Consumed: UNIMPL");
   const std::vector<u8>* memory_partitions[] = {
       &bass->bus.BIOS,
       &bass->bus.EWRAM,
@@ -110,7 +105,7 @@ void Frontend::show_debugger() {
 }
 void Frontend::show_irq_status() {
   ImGui::Begin("IRQ STATUS");
-  ImGui::Text("%s", fmt::format("IME: {}", bass->bus.interrupt_control.IME.v ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("IME: {}", bass->bus.interrupt_control.IME.enabled ? 1 : 0).c_str());
   ImGui::Separator();
   ImGui::Text("IE - IF");
   ImGui::Text("%s", fmt::format("LCD VBLANK:        {} - {}", bass->bus.interrupt_control.IE.LCD_VBLANK ? 1 : 0, bass->bus.interrupt_control.IF.LCD_VBLANK ? 1 : 0).c_str());
@@ -131,7 +126,7 @@ void Frontend::show_irq_status() {
 }
 void Frontend::show_tiles() {
   ImGui::Begin("Tile Window");
-  // SDL_Rect sz{240,160};
+  
   ImGui::Text("Tile Set");
   ImGui::Image(state.tile_set_texture, ImVec2(256, 256));
   ImGui::Separator();
@@ -176,7 +171,7 @@ void Frontend::show_cpu_info() {
   ImGui::Columns(4, "Registers");
   for (u8 i = 0; i < 16; i++) {
     if (i % 4 == 0 && i != 0) ImGui::NextColumn();
-    ImGui::Text("%s", fmt::format("r{:d}: {:#010x}", i, bass->cpu.regs.r[i]).c_str());
+    ImGui::Text("%s", fmt::format("r{:d}: {:#010x}", i, bass->cpu.regs.get_reg(i)).c_str());
   }
   ImGui::Columns(1);
   ImGui::Separator();
@@ -205,10 +200,10 @@ void Frontend::show_cpu_info() {
 
   ImGui::BeginDisabled(true);
   ImGui::Text("CPSR: %#010x", bass->cpu.regs.CPSR.value);
-  ImGui::Text("SPSR: %#010x", bass->cpu.regs.get_spsr(bass->cpu.regs.CPSR.MODE_BITS));
+  ImGui::Text("SPSR: %#010x", bass->cpu.regs.get_spsr(bass->cpu.regs.CPSR.MODE_BIT));
 
   ImGui::Text("CPU MODE: %s", bass->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
-  ImGui::Text("OPERATING MODE: %s", fmt::format("{}", mode_map.at(bass->cpu.regs.CPSR.MODE_BITS)).c_str());
+  ImGui::Text("OPERATING MODE: %s", fmt::format("{}", mode_map.at(bass->cpu.regs.CPSR.MODE_BIT)).c_str());
   ImGui::Text("CYCLES ELAPSED: %s", fmt::format("{}", bass->bus.cycles_elapsed).c_str());
 
   ImGui::EndDisabled();
@@ -217,22 +212,31 @@ void Frontend::show_cpu_info() {
 
   ImGui::Separator();
 
-  ImGui::Text("FIQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.FIQ_DISABLE);
-  ImGui::Text("IRQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.IRQ_DISABLE);
+  ImGui::Text("FIQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.fiq_disable);
+  ImGui::Text("IRQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.irq_disable);
   ImGui::Text("KEYINPUT: 0x%02x\n", bass->bus.keypad_input.KEYINPUT.v);
   ImGui::InputInt("step amount", &state.step_amount, 0, 0, 0);
   if (ImGui::Button("STEP")) { bass->cpu.step(); }
   if (ImGui::Button("STEP AMOUNT")) {
     for (int i = 0; i < state.step_amount; i++) {
       bass->cpu.step();
-      bass->check_and_handle_interrupts();
+      bass->set_ppu_interrupts();
     }
   }
 
   ImGui::Separator();
-  if (ImGui::Button("Enable Logging")) { spdlog::set_level(spdlog::level::trace); }
-  if (ImGui::Button("Disable Logging")) { spdlog::set_level(spdlog::level::off); }
-  if (ImGui::Button("UNHALT")) { state.halted = false; }
+  if (ImGui::Button("Enable Logging")) {
+    spdlog::set_level(spdlog::level::trace);
+
+    bass->cpu.cpu_logger->set_level(spdlog::level::trace);
+  }
+  if (ImGui::Button("Disable Logging")) {
+    spdlog::set_level(spdlog::level::off);
+    bass->cpu.cpu_logger->set_level(spdlog::level::off);
+  }
+  if (ImGui::Button("UNHALT")) {
+    
+  }
 
   ImGui::End();
 }
@@ -245,28 +249,28 @@ void Frontend::show_ppu_info() {
   ImGui::Text("BG0 MOSAIC: %d", bass->bus.display_fields.BG0CNT.MOSAIC);
   ImGui::Text("BG0 COLOR MODE: %s", bass->bus.display_fields.BG0CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG0 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG0CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG0CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG0CNT.SCREEN_SIZE).c_str());
+  ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG0CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG0CNT.SCREEN_SIZE).data());
 
   ImGui::Text("BG1 PRIORITY: %d", bass->bus.display_fields.BG1CNT.BG_PRIORITY);
   ImGui::Text("BG1 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG1CNT.CHAR_BASE_BLOCK);
   ImGui::Text("BG1 MOSAIC: %d", bass->bus.display_fields.BG1CNT.MOSAIC);
   ImGui::Text("BG1 COLOR MODE: %s", bass->bus.display_fields.BG1CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG1CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG1CNT.SCREEN_SIZE).c_str());
+  ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG1CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG1CNT.SCREEN_SIZE).data());
 
   ImGui::Text("BG2 PRIORITY: %d", bass->bus.display_fields.BG2CNT.BG_PRIORITY);
   ImGui::Text("BG2 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG2CNT.CHAR_BASE_BLOCK);
   ImGui::Text("BG2 MOSAIC: %d", bass->bus.display_fields.BG2CNT.MOSAIC);
   ImGui::Text("BG2 COLOR MODE: %s", bass->bus.display_fields.BG2CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG2 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG2CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG2CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG2CNT.SCREEN_SIZE).c_str());
+  ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG2CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG2CNT.SCREEN_SIZE).data());
 
   ImGui::Text("BG3 PRIORITY: %d", bass->bus.display_fields.BG3CNT.BG_PRIORITY);
   ImGui::Text("BG3 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG3CNT.CHAR_BASE_BLOCK);
   ImGui::Text("BG3 MOSAIC: %d", bass->bus.display_fields.BG3CNT.MOSAIC);
   ImGui::Text("BG3 COLOR MODE: %s", bass->bus.display_fields.BG3CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG3 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG3CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG3CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG3CNT.SCREEN_SIZE).c_str());
+  ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG3CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG3CNT.SCREEN_SIZE).data());
 
   ImGui::Text("BG0HOFS: %d", bass->bus.display_fields.BG0HOFS.OFFSET);
   ImGui::Text("BG0VOFS: %d", bass->bus.display_fields.BG0VOFS.OFFSET);
@@ -275,6 +279,7 @@ void Frontend::show_ppu_info() {
   ImGui::Text("BG1VOFS: %d", bass->bus.display_fields.BG1VOFS.OFFSET);
 
   ImGui::Text("LY: %d", bass->bus.display_fields.VCOUNT.LY);
+  // ImGui::Text("Scanline Cycle: %d", bass->ppu.scanline_cycle);
 
   ImGui::Separator();
 
@@ -291,7 +296,7 @@ void Frontend::show_ppu_info() {
   ImGui::End();
 }
 
-void Frontend::show_controls_menu(bool* p_open) {
+void Frontend::ShowControlsMenu(bool* p_open) {
   ImGui::Begin("Controls", p_open);
   ImGui::Text("Remap your controls here.");
   ImGui::Separator();
@@ -299,10 +304,10 @@ void Frontend::show_controls_menu(bool* p_open) {
   bool invalid_keybind = false;
 
   for (SDL_Scancode current_scancode = SDL_SCANCODE_A; current_scancode < SDL_SCANCODE_AUDIOFASTFORWARD; current_scancode = (SDL_Scancode)(current_scancode + 1)) {
-    if (!state.keyboardState[current_scancode]) continue;
+    if (!state.keyboard_state[current_scancode]) continue;
     ImGui::SameLine();
 
-    // refactor: hard to read; use structured bindings
+    // REFACTOR: hard to read; use structured bindings
     for (auto& current_key : settings.keybinds.control_map) {
       // Actual key represents the key on GBA (L, R, START etc...);
       auto& actual_key = current_key.first;
@@ -344,21 +349,17 @@ void Frontend::show_controls_menu(bool* p_open) {
   ImGui::End();
 }
 
-void Frontend::show_menubar() {
+void Frontend::show_menu_bar() {
   if (ImGui::BeginMainMenuBar()) {
     ImGui::Separator();
     if (ImGui::BeginMenu("File")) {
-      if (ImGui::MenuItem("Load ROM")) {
-        auto path = tinyfd_openFileDialog("Load ROM", "./", 2, patterns, "Gameboy Advance ROMs", 0);
-        if (path != nullptr) {
-          // TODO: add cart loading logic
-        }
-      }
+      if (ImGui::MenuItem("Load ROM")) {}
       if (ImGui::MenuItem("Reset")) {}
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("State")) {
-      if (ImGui::MenuItem("Load state..")) {}
+      if (ImGui::MenuItem("Save state...")) {}
+      if (ImGui::MenuItem("Load state...")) {}
       if (ImGui::MenuItem("Reset")) {}
       ImGui::EndMenu();
     }
@@ -378,14 +379,15 @@ void Frontend::render_frame() {
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
+  // #ifdef BASS_DEBUG
   // show_menubar();
-  // show_cpu_info();
-  // show_ppu_info();
-  // show_debugger();
-  // show_irq_status();
-  // show_tiles();
-  // show_backgrounds();
-
+  show_cpu_info();
+  show_ppu_info();
+  show_memory_viewer();
+  show_irq_status();
+  show_tiles();
+  show_backgrounds();
+  // #endif
   // Rendering
   ImGui::Render();
   SDL_RenderSetScale(renderer, state.io->DisplayFramebufferScale.x, state.io->DisplayFramebufferScale.y);
@@ -395,15 +397,15 @@ void Frontend::render_frame() {
 
   PPU::DoubleBuffer& buffer = bass->ppu.db;
 
-  {
-    std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
-    buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
-  }
+  // {
+  //   std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
+  //   buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
+  // }
 
-  {
-    std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
-    std::swap(buffer.disp_buf, buffer.write_buf);
-  }
+  // {
+  //   std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
+  //   std::swap(buffer.disp_buf, buffer.write_buf);
+  // }
 
   SDL_UpdateTexture(state.background_textures[0], nullptr, bass->ppu.tile_map_texture_buffer_0, 512 * 4);
   SDL_UpdateTexture(state.background_textures[1], nullptr, bass->ppu.tile_map_texture_buffer_1, 512 * 4);
@@ -418,16 +420,15 @@ void Frontend::render_frame() {
   SDL_RenderPresent(renderer);
   frameCount++;
   Uint32 currentTime = SDL_GetTicks();
-  
+
   if (currentTime - fpsStartTime >= 1000) {
     fps          = frameCount / ((currentTime - fpsStartTime) / 1000.0f);
     fpsStartTime = currentTime;  // Reset FPS timer
     frameCount   = 0;
 
-    // Print FPS to the console
     std::cout << "FPS: " << fps << std::endl;
   }
-  // Reset the ready flag for the next frame
+
   {
     std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
     buffer.framebuffer_ready = false;

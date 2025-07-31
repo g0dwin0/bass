@@ -1,19 +1,27 @@
 #pragma once
 
-
+#include <type_traits>
 #include <unordered_map>
 
 #include "common.hpp"
+#include "common/defs.hpp"
+#include "common/test_structs.hpp"
+struct ARM7TDMI;
+#include "cpu.hpp"
+#include "enums.hpp"
 #include "io_defs.hpp"
-#include "spdlog/sinks/stdout_color_sinks.h"
 #include "pak.hpp"
+
 struct Bus;
 struct PPU;
 #include "ppu.hpp"
 
 struct Bus {
-  enum InterruptType { LCD_VBLANK, LCD_HBLANK, LCD_VCOUNT_MATCH, TIMER0_OVERFLOW, TIMER1_OVERFLOW, TIMER2_OVERFLOW, TIMER3_OVERFLOW, SERIAL_COMM, DMA0, DMA1, DMA2, DMA3, KEYPAD, GAMEPAK_EXT };
+  enum class ACCESS_TYPE { SEQUENTIAL, NON_SEQUENTIAL };
+
   // memory/devices
+  // TODO: replace vectors with arrays, dynamically allocate bus to avoid stack issues
+  // (these vectors might get resized, that's not gewd)
   std::vector<u8> BIOS;
   std::vector<u8> IWRAM;
   std::vector<u8> EWRAM;
@@ -21,28 +29,33 @@ struct Bus {
   std::vector<u8> PALETTE_RAM;
   std::vector<u8> OAM;
   std::vector<u8> SRAM;
+  std::vector<Transaction> transactions;
 
   Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) {
     BIOS = read_file("roms/gba_bios.bin");
-    bus_logger->set_level(spdlog::level::trace);
+    bus_logger->set_level(spdlog::level::off);
     mem_logger->set_level(spdlog::level::off);
   }
 
-  Pak* pak = nullptr;
-  PPU* ppu = nullptr;
-  
   std::shared_ptr<spdlog::logger> bus_logger = spdlog::stdout_color_mt("BUS");
   std::shared_ptr<spdlog::logger> mem_logger = spdlog::stdout_color_mt("MEM");
+  std::shared_ptr<spdlog::logger> dma_logger = spdlog::stdout_color_mt("DMA");
 
-  unsigned long long fun_value      = 0;
-  unsigned long long cycles_elapsed = 0;
+  // internal cycle counter
+  u64 cycles_elapsed = 0;
 
-  [[nodiscard]] u8 read8(u32 address);
-  [[nodiscard]] u16 read16(u32 address);
-  [[nodiscard]] u32 read32(u32 address);
+  // components
+  ARM7TDMI* cpu = nullptr;
+  Pak* pak      = nullptr;
+  PPU* ppu      = nullptr;
+
+  // loggers
 
   void request_interrupt(InterruptType type);
-  void handle_interrupts();
+
+  [[nodiscard]] u8 read8(u32 address, ACCESS_TYPE access_type = ACCESS_TYPE::NON_SEQUENTIAL);
+  [[nodiscard]] u16 read16(u32 address, ACCESS_TYPE access_type = ACCESS_TYPE::NON_SEQUENTIAL);
+  [[nodiscard]] u32 read32(u32 address, ACCESS_TYPE access_type = ACCESS_TYPE::NON_SEQUENTIAL);
 
   void write8(u32 address, u8 value);
   void write16(u32 address, u16 value);
@@ -54,19 +67,21 @@ struct Bus {
       // fmt::println("copying to {:#010x}", dst + (idx * 2));
       write16(dst + (idx * 2), read16(src + (idx * 2)));
     }
-    fmt::println("dma copied successfully");
+    dma_logger->info("dma copied successfully");
   }
+
   inline void transfer32(const u32 src, const u32 dst, u32 word_count) {
     if (word_count == 0) word_count = 0x10000;
     for (size_t idx = 0; idx < word_count; idx++) {
-      // fmt::println("copying to {:#010x}", dst + (idx * 4));
       write32(dst + (idx * 4), read32(src + (idx * 4)));
     }
-    fmt::println("dma copied successfully");
+    dma_logger->info("dma copied successfully");
   }
 
   [[nodiscard]] u8 io_read(u32 address);
   void io_write(u32 address, u8 value);
+
+  void align_by_current_mode();
 
   struct {
     union {
@@ -87,7 +102,7 @@ struct Bus {
         u8 WINDOW_1_DISPLAY_FLAG   : 1;
         u8 OBJ_WINDOW_DISPLAY_FLAG : 1;
       };
-    } DISPCNT;
+    } DISPCNT = {};
 
     union {
       u16 v = 0;
@@ -95,7 +110,7 @@ struct Bus {
         u8 GREEN_SWAP : 1;
         u16           : 15;
       };
-    } GREEN_SWAP;
+    } GREEN_SWAP = {};
 
     union {
       u16 v = 0;
@@ -111,22 +126,21 @@ struct Bus {
         u8 LYC;
       };
 
-      void SET_VBLANK() { VBLANK_FLAG = true; }
-      void RESET_VBLANK() { VBLANK_FLAG = false; }
-      void SET_HBLANK() { HBLANK_FLAG = true; }
-      void RESET_HBLANK() { HBLANK_FLAG = false; }
-      
-      
-    } DISPSTAT;
+      void set_vblank() { VBLANK_FLAG = 1; }
+      void reset_vblank() { VBLANK_FLAG = 0; }
+      void set_hblank() { HBLANK_FLAG = 1; }
+      void reset_hblank() { HBLANK_FLAG = 0; }
+
+    } DISPSTAT = {};
 
     union {
       u16 v = 0;
 
       struct {
-        u8 LY : 8;
-        u8    : 8;
+        u8 LY;
+        u8 : 8;
       };
-    } VCOUNT;
+    } VCOUNT = {};
 
     union BGCNT {
       u16 v = 0;
@@ -141,7 +155,7 @@ struct Bus {
         u8 BG_WRAP           : 1;
         u8 SCREEN_SIZE       : 2;
       };
-    } BG0CNT, BG1CNT, BG2CNT, BG3CNT;
+    } BG0CNT, BG1CNT, BG2CNT, BG3CNT = {};
 
     union {
       u16 v = 0;
@@ -150,7 +164,7 @@ struct Bus {
         u16 OFFSET : 9;
         u8         : 7;
       };
-    } BG0HOFS, BG0VOFS, BG1HOFS, BG1VOFS, BG2HOFS, BG2VOFS, BG3HOFS, BG3VOFS;
+    } BG0HOFS, BG0VOFS, BG1HOFS, BG1VOFS, BG2HOFS, BG2VOFS, BG3HOFS, BG3VOFS = {};
 
     union {
       u16 v = 0;
@@ -160,7 +174,7 @@ struct Bus {
         u32 INTEGER_PORT : 7;
         u8 SIGN          : 1;
       };
-    } BG2PA, BG2PB, BG2PC, BG2PD;
+    } BG2PA, BG2PB, BG2PC, BG2PD = {};
 
     union {
       u32 v = 0;
@@ -170,7 +184,7 @@ struct Bus {
         u8 SIGN          : 1;
         u8               : 4;
       };
-    } BG2X_L, BG2X_H, BG2Y_L, BG2Y_H;
+    } BG2X_L, BG2X_H, BG2Y_L, BG2Y_H = {};
 
     union {
       u16 v = 0;
@@ -179,7 +193,7 @@ struct Bus {
         u32 INTEGER_PORT : 7;
         u8 SIGN          : 1;
       };
-    } BG3PA, BG3PB, BG3PC, BG3PD;
+    } BG3PA, BG3PB, BG3PC, BG3PD = {};
 
     union {
       u32 v = 0;
@@ -189,7 +203,7 @@ struct Bus {
         u8 SIGN          : 1;
         u8               : 4;
       };
-    } BG3X_L, BG23_H, BG3Y_L, BG3Y_H;
+    } BG3X_L, BG23_H, BG3Y_L, BG3Y_H = {};
 
     union {
       u32 v = 0;
@@ -197,7 +211,7 @@ struct Bus {
         u8 X2;
         u8 X1;
       };
-    } WIN0H, WIN1H;
+    } WIN0H, WIN1H = {};
 
     union {
       u32 v = 0;
@@ -205,7 +219,7 @@ struct Bus {
         u8 Y2;
         u8 Y1;
       };
-    } WIN0V, WIN1V;
+    } WIN0V, WIN1V = {};
 
     union {
       u16 v;
@@ -213,13 +227,13 @@ struct Bus {
         u8 WIN0_BG_ENABLE_BITS   : 4;
         u8 WIN0_OBJ_ENABLE_BIT   : 1;
         u8 WIN0_COLOR_SPECIAL_FX : 1;
-        u8 RESERVED              : 2;
+        u8                       : 2;
         u8 WIN1_BG_ENABLE_BITS   : 4;
         u8 WIN1_OBJ_ENABLE_BIT   : 1;
         u8 WIN1_COLOR_SPECIAL_FX : 1;
         u8                       : 2;
       };
-    } WININ;
+    } WININ = {};
 
     union {
       u16 v = 0;
@@ -233,7 +247,7 @@ struct Bus {
         u8 OBJ_WINDOW_COLOR_SPECIAL_FX : 1;
         u8                             : 2;
       };
-    } WINOUT;
+    } WINOUT = {};
 
     union {
       u32 v = 0;
@@ -242,11 +256,11 @@ struct Bus {
         u8 BG_MOSAIC_V_SIZE  : 4;
         u8 OBJ_MOSAIC_H_SIZE : 4;
         u8 OBJ_MOSAIC_V_SIZE : 4;
-        u16 RESERVED;
+        u16                  : 16;
       };
-    } MOSAIC;
+    } MOSAIC = {};
 
-    u16 RESERVED : 16 = 0;
+    u16 : 16;
 
     union {
       u16 v = 0;
@@ -268,7 +282,7 @@ struct Bus {
 
         u8 RESERVED             : 2;
       };
-    } BLDCNT;
+    } BLDCNT = {};
 
     union {
       u16 v = 0;
@@ -278,7 +292,7 @@ struct Bus {
         u8 OBJ_MOSAIC_V_SIZE            : 5;
         u8 RESERVED                     : 3;
       };
-    } BLDALPHA;
+    } BLDALPHA = {};
 
     union {
       u32 v = 0;
@@ -298,7 +312,7 @@ struct Bus {
         u8 enabled : 1;
         u32        : 31;
       };
-    } IME;
+    } IME = {};
 
     union {
       u16 v = 0;
@@ -317,10 +331,9 @@ struct Bus {
         u8 DMA3                : 1;
         u8 KEYPAD              : 1;
         u8 GAMEPAK             : 1;
-
-        u32                    : 2;
+        u8                     : 2;
       };
-    } IE;
+    } IE = {};
 
     union {
       u16 v = 0;
@@ -343,6 +356,7 @@ struct Bus {
         u32                    : 2;
       };
     } IF;
+
   } interrupt_control = {};
 
   struct {
@@ -365,6 +379,8 @@ struct Bus {
     } WAITCNT;
     u32 sound_bias = 0;
 
+    u8 POSTFLG = 0;
+
   } system_control = {};
 
   struct {
@@ -373,58 +389,9 @@ struct Bus {
     DMACNT_H DMA0CNT_H, DMA1CNT_H, DMA2CNT_H, DMA3CNT_H;
     DMACNT_L DMA0CNT_L, DMA1CNT_L, DMA2CNT_L, DMA3CNT_L;
 
+    // DMAContext ch1, ch2, ch3, ch4;
 
-    void print_dma_info(u8 id) {
-      switch (id) {
-        case 0: {
-
-          fmt::println("============ DMA0 INFO ============");
-          fmt::println("src: {:#010x}", +DMA0SAD.src);
-          fmt::println("dst: {:#010x}", +DMA0DAD.dst);
-          fmt::println("timing: {}", TIMING_MAP.at(DMA0CNT_H.start_timing));
-          fmt::println("word count: {:#010x}", DMA0CNT_L.word_count);
-          fmt::println("word size: {}", DMA0CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
-          fmt::println("===================================");
-          break;
-        }
-        case 1: {
-          fmt::println("============ DMA1 INFO ============");
-          fmt::println("src: {:#010x}", +DMA1SAD.src);
-          fmt::println("dst: {:#010x}", +DMA1DAD.dst);
-          fmt::println("timing: {}", TIMING_MAP.at(DMA1CNT_H.start_timing));
-          fmt::println("word count: {:#010x}", DMA1CNT_L.word_count);
-          fmt::println("word size: {}", DMA1CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
-          fmt::println("===================================");
-          break;
-        }
-        case 2: {
-          fmt::println("============ DMA2 INFO ============");
-          fmt::println("src: {:#010x}", +DMA2SAD.src);
-          fmt::println("dst: {:#010x}", +DMA2DAD.dst);
-          fmt::println("timing: {}", TIMING_MAP.at(DMA2CNT_H.start_timing));
-          fmt::println("word count: {:#010x}", DMA2CNT_L.word_count);
-          fmt::println("word size: {}", DMA2CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
-          fmt::println("===================================");
-          break;
-        }
-        case 3: {
-          fmt::println("============ DMA3 INFO ============");
-          fmt::println("src: {:#010x}", +DMA3SAD.src);
-          fmt::println("dst: {:#010x}", +DMA3DAD.dst);
-          fmt::println("timing: {}", TIMING_MAP.at(DMA3CNT_H.start_timing));
-          fmt::println("timing: {}", TIMING_MAP.at(DMA3CNT_H.start_timing));
-          fmt::println("word count: {:#010x}", DMA3CNT_L.word_count);
-          fmt::println("word size: {}", DMA3CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
-          fmt::println("===================================");
-          break;
-        }
-        default: {
-          fmt::println("index out of range");
-          assert(0);
-        }
-      }
-    }
-  } dma_control;
+  } dma_control = {};
 
   struct {
     union {
@@ -446,8 +413,15 @@ struct Bus {
 
   } keypad_input = {};
 
-  // enum PRESCALER_SEL { F_1, F_64, F_256, F_1024 };
+  // struct {
+  //   union {
+  //     u16 v;
+  //     struct {
 
+  //     };
+  //   } SOUND1CNT_L, SOUND2CNT_L, SOUND3CNT_L, SOUND4CNT_L;
+
+  // } sound_registers = {};
   // struct {
   //   union TIMER_COUNTER {
   //     u16 v = 0;

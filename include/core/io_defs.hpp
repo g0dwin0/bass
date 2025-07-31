@@ -9,9 +9,9 @@
 enum class DST_CONTROL { INCREMENT = 0, DECREMENT, FIXED, INCREMENT_RELOAD };
 enum class SRC_CONTROL { INCREMENT = 0, DECREMENT, FIXED, PROHIBITED };
 enum class TRANSFER_TYPE { HALFWORD = 0, WORD };
-enum DMA_TIMING { IMMEDIATELY = 0, VBLANK, HBLANK, SPECIAL };
+enum class DMA_TIMING { IMMEDIATELY = 0, VBLANK, HBLANK, SPECIAL };
 
-inline std::unordered_map<u8, std::string> TIMING_MAP = {
+inline std::unordered_map<DMA_TIMING, std::string> TIMING_MAP = {
     {DMA_TIMING::IMMEDIATELY, "IMMEDIATELY"},
     {     DMA_TIMING::VBLANK,      "VBLANK"},
     {     DMA_TIMING::HBLANK,      "HBLANK"},
@@ -57,17 +57,18 @@ union DMASAD {
 };
 
 struct DMAContext {
-  DMADAD dma_dad;
-  DMASAD dma_sad;
-  DMACNT_L dmacnt_l;
-  DMACNT_H dmacnt_h;
+  DMADAD dma_dad    = {};
+  DMASAD dma_sad    = {};
+  DMACNT_L dmacnt_l = {};
+  DMACNT_H dmacnt_h = {};
+  u8 id             = 0;
 
   DMAContext() = delete;
   void print_dma_info() {
-    fmt::println("============ DMA0 INFO ============");
+    fmt::println("============ DMA{} INFO ============", id);
     fmt::println("src: {:#010x}", +dma_sad.src);
     fmt::println("dst: {:#010x}", +dma_dad.dst);
-    fmt::println("timing: {}", TIMING_MAP.at(dmacnt_h.start_timing));
+    fmt::println("timing: {}", TIMING_MAP.at(static_cast<DMA_TIMING>(dmacnt_h.start_timing)));
     fmt::println("word count: {:#010x}", dmacnt_l.word_count);
     fmt::println("word size: {}", dmacnt_h.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
     fmt::println("===================================");

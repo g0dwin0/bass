@@ -1,8 +1,14 @@
 #pragma once
 
 #include <spdlog/logger.h>
+
 #include <unordered_map>
 
+#include "common/test_structs.hpp"
+#include "enums.hpp"
+#include "spdlog/common.h"
+struct InstructionInfo;
+struct Bus;
 #include "bus.hpp"
 #include "common.hpp"
 #include "common/defs.hpp"
@@ -10,7 +16,7 @@
 #include "registers.hpp"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
-enum DATA_PROCESSING_OPS {
+enum ALU_OP {
   AND = 0x0,
   EOR = 0x1,
   SUB = 0x2,
@@ -29,22 +35,11 @@ enum DATA_PROCESSING_OPS {
   MVN = 0xF,
 };
 
-enum BOUNDARY { HALFWORD, WORD };
 struct ARM7TDMI {
   ARM7TDMI();
-  Registers regs;
+  Registers regs = {};
 
-  std::unordered_map<u16, instruction_info> lookup_table_arm = {
-
-  };
-
-  std::unordered_map<u16, instruction_info> lookup_table_thumb = {
-
-  };
-
-  
-
-  void initialize_lookup_table();
+  static constexpr u32 IRQ_VECTOR = 0x18;
 
   enum SHIFT_MODE : u8 {
     LSL,
@@ -52,36 +47,44 @@ struct ARM7TDMI {
     ASR,
     ROR,
   };
-  // enum SHIFT_TYPE { REGISTER_SHIFT, IMMEDIATE_SHIFT };
+
   Bus* bus = nullptr;
 
+  bool flushed_pipeline = false;
+
   struct Pipeline {
-    instruction_info fetch   = {};
-    instruction_info decode  = {};
-    instruction_info execute = {};
-  } pipeline;
+    InstructionInfo fetch   = {};
+    InstructionInfo decode  = {};
+    InstructionInfo execute = {};
+  } pipeline = {};
 
-  [[nodiscard]] instruction_info fetch(const u32 address);
-  [[nodiscard]] instruction_info decode(instruction_info& op);
+  std::shared_ptr<spdlog::logger> cpu_logger = spdlog::stdout_color_mt("ARM7TDMI");
 
-  [[nodiscard]] instruction_info arm_decode(instruction_info& op);
-  [[nodiscard]] instruction_info thumb_decode(instruction_info& op);
+  [[nodiscard]] InstructionInfo fetch(const u32 address);
+  [[nodiscard]] InstructionInfo decode(InstructionInfo& op);
+
+  [[nodiscard]] InstructionInfo arm_decode(InstructionInfo& op);
+  [[nodiscard]] InstructionInfo thumb_decode(InstructionInfo& op);
 
   void flush_pipeline();
 
   u16 step();
-  void print_pipeline();
-  inline void execute(instruction_info& instr);
 
-  inline bool check_condition(instruction_info& i);
-  [[nodiscard]] std::string get_addressing_mode_string(const instruction_info& instr);
+  void print_pipeline() const;
+  void execute(InstructionInfo& instr);
+  void handle_interrupts();
 
-  void print_registers();
+  [[nodiscard]] inline bool check_condition(const InstructionInfo& i) const;
+  [[nodiscard]] std::string get_addressing_mode(const InstructionInfo& instr) const;
 
-  [[nodiscard]] std::string_view get_shift_type_string(u8 shift_type);
+  void print_registers() const;
+
+  [[nodiscard]] std::string get_shift_string(u8 shift_type) const;
+
+  // TODO: too many params, pack into struct
   [[nodiscard]] u32 shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool never_rrx = false, bool affect_flags = true);
 
-  [[nodiscard]] bool interrupt_queued();
+  [[nodiscard]] bool interrupt_queued() const;
 
   inline void set_zero() { regs.CPSR.ZERO_FLAG = 1; };
   inline void reset_zero() { regs.CPSR.ZERO_FLAG = 0; };
@@ -95,6 +98,22 @@ struct ARM7TDMI {
   inline void set_overflow() { regs.CPSR.OVERFLOW_FLAG = 1; };
   inline void reset_overflow() { regs.CPSR.OVERFLOW_FLAG = 0; };
 
-  [[nodiscard]] u32 handle_shifts(instruction_info& instr, bool affect_flags = true);
-  [[nodiscard]] u32 align_address(u32 address, BOUNDARY b);
+  [[nodiscard]] u32 handle_shifts(InstructionInfo& instr, bool affect_flags = true);
+
+  [[nodiscard]] static constexpr u32 align(u32 value, ALIGN_TO align_to) {
+    if (align_to == WORD) {
+      return value & ~3;
+    } else {
+      return value & ~1;
+    }
+  }
+
+  // Aligns to value depending on the mode of the CPU
+  [[nodiscard]] constexpr u32 align_by_current_mode(u32 value) {
+    if (regs.CPSR.STATE_BIT == ARM_MODE) {
+      return value & ~3;
+    } else {
+      return value & ~1;
+    }
+  }
 };

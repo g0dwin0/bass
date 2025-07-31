@@ -4,16 +4,13 @@
 
 #include "common/color_conversion.hpp"
 #include "common/defs.hpp"
-#define VRAM_BASE 0x06000000
-#define PALETTE_RAM_BASE 0x05000000
-#define MAIN_VIEWPORT_PITCH 240
-#define _4BPP 0
-#define _8BPP 1
 
 u32 PPU::get_color_by_index(u8 x, u8 palette_num, bool color_depth_is_8bpp) {
   u16 r = color_depth_is_8bpp ? bus->read16(PALETTE_RAM_BASE + (x * 2) + palette_num) : bus->read16(PALETTE_RAM_BASE + (x * 2) + (0x20 * palette_num));
 
   return BGR555toRGB888((r & 0xFF), (r >> 8) & 0xFF);
+  // return BGR555_TO_RGB888_LUT[(r & 0xFF) + ((r >> 8) & 0xFF)];
+
 }
 std::tuple<u16, u16> PPU::get_bg_offset(u8 bg) {
   switch (bg) {
@@ -25,6 +22,7 @@ std::tuple<u16, u16> PPU::get_bg_offset(u8 bg) {
   }
 }
 void PPU::load_tiles(u8 bg, u8 color_depth) {
+  ppu_logger->debug("loading tiles");
   assert(color_depth < 2);
   u8 x = 0;
   Tile t;
@@ -89,14 +87,15 @@ void PPU::step(bool called_manually) {
   switch (bus->display_fields.DISPCNT.BG_MODE) {
     case BG_MODE::MODE_0: {
       if (called_manually) { break; }
-
-      std::array<size_t, 4> screen_sizes = {
+      
+      // TODO: do we really need this on the stack each single time?
+      std::array<u8, 4> screen_sizes = {
           bus->display_fields.BG0CNT.SCREEN_SIZE,
           bus->display_fields.BG1CNT.SCREEN_SIZE,
           bus->display_fields.BG2CNT.SCREEN_SIZE,
           bus->display_fields.BG3CNT.SCREEN_SIZE,
       };
-      std::array<size_t, 4> bg_bpp = {
+      std::array<u8, 4> bg_bpp = {
           bus->display_fields.BG0CNT.COLOR_MODE,
           bus->display_fields.BG1CNT.COLOR_MODE,
           bus->display_fields.BG2CNT.COLOR_MODE,
@@ -111,8 +110,7 @@ void PPU::step(bool called_manually) {
       //     backdrop[(y*512) + x] = get_color_by_index(0, 0);
       //   }
       // }
-
-      for (size_t bg = 0; bg < 4; bg++) {
+      for (u8 bg = 0; bg < 4; bg++) {
         if (!background_enabled(bg)) continue;
 
         // load tiles into tilesets from charblocks
