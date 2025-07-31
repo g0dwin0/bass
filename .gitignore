@@ -2,7 +2,6 @@ build/
 .vscode/
 .idea
 .cache/
-.clang-format
 roms/
 compile_commands.json
 *.txt
@@ -11,7 +10,6 @@ compile_commands.json
 TODO.md
 callgrind.*
 saves/
-run.sh
 arm-docs/
 .gdb_history
 tests/v1
