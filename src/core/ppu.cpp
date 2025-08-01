@@ -5,12 +5,13 @@
 #include "common/color_conversion.hpp"
 #include "common/defs.hpp"
 
+static constexpr u32 SCREEN_WIDTH = 512;
+
 u32 PPU::get_color_by_index(u8 x, u8 palette_num, bool color_depth_is_8bpp) {
   u16 r = color_depth_is_8bpp ? bus->read16(PALETTE_RAM_BASE + (x * 2) + palette_num) : bus->read16(PALETTE_RAM_BASE + (x * 2) + (0x20 * palette_num));
 
   return BGR555toRGB888((r & 0xFF), (r >> 8) & 0xFF);
   // return BGR555_TO_RGB888_LUT[(r & 0xFF) + ((r >> 8) & 0xFF)];
-
 }
 std::tuple<u16, u16> PPU::get_bg_offset(u8 bg) {
   switch (bg) {
@@ -87,7 +88,7 @@ void PPU::step(bool called_manually) {
   switch (bus->display_fields.DISPCNT.BG_MODE) {
     case BG_MODE::MODE_0: {
       if (called_manually) { break; }
-      
+
       // TODO: do we really need this on the stack each single time?
       std::array<u8, 4> screen_sizes = {
           bus->display_fields.BG0CNT.SCREEN_SIZE,
@@ -119,6 +120,7 @@ void PPU::step(bool called_manually) {
           load_tiles(bg, bg_bpp[bg]);  // TODO: only call this when dispstat changes
           state.cbb_changed[bg] = false;
         }
+
         // Load tile map from screenblocks
         switch (screen_sizes[bg]) {
           case 0: {
@@ -186,7 +188,6 @@ void PPU::step(bool called_manually) {
         }
 
         // write scanlines to the buffers
-
         u8 tile_y = LY / 8;
         u8 y      = LY % 8;
 
@@ -194,7 +195,6 @@ void PPU::step(bool called_manually) {
         for (size_t tile_x = 0; tile_x < 32; tile_x++) {
           const ScreenEntry& entry = tile_maps[bg][(tile_y * 64) + tile_x];
           Tile tile                = tile_sets[bg][entry.tile_index];
-          const u32 SCREEN_WIDTH   = 512;
 
           if (entry.VERTICAL_FLIP) {
             Tile tb;
@@ -213,52 +213,79 @@ void PPU::step(bool called_manually) {
             }
           }
 
-          // for (size_t y = 0; y < 8; y++) {
           for (size_t x = 0; x < 8; x++) {
-            // bool transparent = false;
-
             auto clr = get_color_by_index(tile[(y * 8) + x], entry.PAL_BANK, bg_bpp[bg]);
 
-            // if (tile[(y * 8) + x] == 0 && bg != 0) transparent = true;
-
             tile_map_texture_buffer_arr[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = clr;
-
-            // transparency_maps[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = transparent;
           }
         }
-        // }
-        // }
+
+        // REFACTOR: because we render scanline by scanline
+        //  we essentially just copy to the tile map, then we grab the lines from it, however we ALSO render each scanline in the tilemap line by line
+        // if we were to do it each frame... performance rip, so for now a little hack that just renders the bottom 28 missing lines if we hit scanline 227
+        // find a better way to do it later.
+        if (LY == 226) {
+          for (u16 _ly = 226; _ly < 0x100; _ly++) {
+            u8 tile_y = _ly / 8;
+            u8 y      = _ly % 8;
+
+
+            // for (size_t tile_y = 0; tile_y < 32; tile_y++) {
+            for (size_t tile_x = 0; tile_x < 32; tile_x++) {
+              const ScreenEntry& entry = tile_maps[bg][(tile_y * 64) + tile_x];
+              Tile tile                = tile_sets[bg][entry.tile_index];
+
+              if (entry.VERTICAL_FLIP) {
+                Tile tb;
+
+                for (size_t row = 0; row < 8; row++) {
+                  for (size_t pix_n = 0; pix_n < 8; pix_n++) {
+                    tb[(row * 8) + pix_n] = tile[((7 - row) * 8) + pix_n];
+                  }
+                }
+
+                tile = tb;
+              }
+              if (entry.HORIZONTAL_FLIP) {
+                for (size_t row = 0; row < 8; row++) {
+                  std::reverse(tile.begin() + (row * 8), (tile.begin() + 8 + (row * 8)));
+                }
+              }
+
+              for (size_t x = 0; x < 8; x++) {
+                auto clr = get_color_by_index(tile[(y * 8) + x], entry.PAL_BANK, bg_bpp[bg]);
+
+                tile_map_texture_buffer_arr[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = clr;
+              }
+            }
+          }
+
+        }
 
         if (LY > 160) continue;
 
         auto [x_offset, y_offset] = get_bg_offset(bg);
-        // for (size_t y = 0; y < 160; y++) {
         for (size_t x = 0; x < 240; x++) {
           u32 complete_x_offset = (x + x_offset) % 256;
           u32 complete_y_offset = ((LY + y_offset) % 256) * 512;
 
           assert((complete_x_offset + complete_y_offset) < 256 * 512);
 
-          if (transparency_maps[bg][(complete_x_offset + complete_y_offset)]) continue;
+          // if (transparency_maps[bg][(complete_x_offset + complete_y_offset)]) continue;
 
           db.write((LY * MAIN_VIEWPORT_PITCH) + x, tile_map_texture_buffer_arr[bg][(complete_x_offset + complete_y_offset)]);
-          // frame_buffer[(LY * MAIN_VIEWPORT_PITCH) + x] = tile_map_texture_buffer_arr[bg][(complete_x_offset + complete_y_offset)];
-          // if (LY == 160) { db.swap_and_display(); }
         }
       }
 
       break;
     }
     case BG_MODE::MODE_3: {
-      // fmt::println("draw called");
-      // const auto& LY = bus->display_fields.VCOUNT.LY;
-
+      
       for (size_t i = 0, j = 0; i < (240 * 160); i++, j += 2) {
         db.write(i, BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1)));
       }
 
-      // if (LY == 160) db.swap_and_display();
-
+      db.request_swap();
       break;
     };
     case BG_MODE::MODE_4: {
@@ -270,6 +297,8 @@ void PPU::step(bool called_manually) {
         db.write(((LY * 240) + i), get_color_by_index(bus->VRAM.at((LY * 240) + i), 0, true));
         // fmt::println("clr: {}", get_color_by_index(bus->VRAM.at((LY * 240) + i), 0, true));
       }
+
+      db.request_swap();
 
       break;
     }

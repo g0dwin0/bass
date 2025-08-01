@@ -1,5 +1,4 @@
 #pragma once
-
 #include "bus.hpp"
 #include "common/defs.hpp"
 #include "spdlog/logger.h"
@@ -33,12 +32,8 @@ struct PPU {
 
   Bus* bus = nullptr;
 
-  enum ACTIVE_BUFFER { BUF1, BUF2 };
-
-  // u32 scanline_cycle = 0;
-
-  u32* disp_buf          = new u32[240 * 160];
-  u32* write_buf         = new u32[240 * 160];
+  u32* disp_buf          = new u32[241 * 160];
+  u32* write_buf         = new u32[241 * 160];
   bool framebuffer_ready = true;
 
   bool fresh_buffer = false;
@@ -47,34 +42,32 @@ struct PPU {
     std::array<bool, 4> cbb_changed = {true, true, true, true};
   } state;
 
-  // ACTIVE_BUFFER current_buf = BUF1;
-  // u32* active_buffer        = frame_buffer;
-
   struct DoubleBuffer {
-    u32* disp_buf;
-    u32* write_buf;
+    u32* write_buf = nullptr;
+    u32* disp_buf  = nullptr;
 
     bool framebuffer_ready = false;
     std::mutex framebuffer_mutex;
     std::condition_variable framebuffer_cv;
 
    public:
-    // DoubleBuffer() = delete;
-    DoubleBuffer(u32* buf, u32* buf1) {
-      disp_buf  = buf;
-      write_buf = buf1;
-    }
+    DoubleBuffer(u32* _write_buf, u32* _disp_buf) : write_buf(_write_buf), disp_buf(_disp_buf) {}
 
     void write(size_t idx, u32 value) {
       write_buf[idx] = value;
-      
-      if (idx == (240 * 160) - 1) {
-        std::lock_guard<std::mutex> lock(framebuffer_mutex);
-        framebuffer_ready = true;
-        framebuffer_cv.notify_one();
+
+      if (idx == (241 * 160) - 1) {
+        request_swap();
       }
     }
 
+    void request_swap() {
+      std::lock_guard<std::mutex> lock(framebuffer_mutex);
+      framebuffer_ready = true;
+      framebuffer_cv.notify_one();
+    };
+
+    void swap_buffers() { std::swap(write_buf, disp_buf); };
   };
 
   u32* tile_set_texture = new u32[38400];
