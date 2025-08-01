@@ -10,7 +10,6 @@
 #include <spdlog/common.h>
 
 #include <atomic>
-#include <iostream>
 #include <mutex>
 
 #include "cpu.hpp"
@@ -126,7 +125,7 @@ void Frontend::show_irq_status() {
 }
 void Frontend::show_tiles() {
   ImGui::Begin("Tile Window");
-  
+
   ImGui::Text("Tile Set");
   ImGui::Image(state.tile_set_texture, ImVec2(256, 256));
   ImGui::Separator();
@@ -234,9 +233,7 @@ void Frontend::show_cpu_info() {
     spdlog::set_level(spdlog::level::off);
     bass->cpu.cpu_logger->set_level(spdlog::level::off);
   }
-  if (ImGui::Button("UNHALT")) {
-    
-  }
+  if (ImGui::Button("UNHALT")) {}
 
   ImGui::End();
 }
@@ -296,7 +293,7 @@ void Frontend::show_ppu_info() {
   ImGui::End();
 }
 
-void Frontend::ShowControlsMenu(bool* p_open) {
+void Frontend::show_controls_menu(bool* p_open) {
   ImGui::Begin("Controls", p_open);
   ImGui::Text("Remap your controls here.");
   ImGui::Separator();
@@ -397,37 +394,27 @@ void Frontend::render_frame() {
 
   PPU::DoubleBuffer& buffer = bass->ppu.db;
 
-  // {
-  //   std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
-  //   buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
-  // }
+  {
+    std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
+    buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
+  }
 
-  // {
-  //   std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
-  //   std::swap(buffer.disp_buf, buffer.write_buf);
-  // }
+  {
+    std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
+    std::swap(buffer.disp_buf, buffer.write_buf);
+  }
 
   SDL_UpdateTexture(state.background_textures[0], nullptr, bass->ppu.tile_map_texture_buffer_0, 512 * 4);
   SDL_UpdateTexture(state.background_textures[1], nullptr, bass->ppu.tile_map_texture_buffer_1, 512 * 4);
   SDL_UpdateTexture(state.background_textures[2], nullptr, bass->ppu.tile_map_texture_buffer_2, 512 * 4);
   SDL_UpdateTexture(state.background_textures[3], nullptr, bass->ppu.tile_map_texture_buffer_3, 512 * 4);
   // SDL_UpdateTexture(state.backdrop, nullptr, bass->ppu.backdrop, 512 * 4);
-  SDL_UpdateTexture(state.ppu_texture, nullptr, buffer.write_buf, 240 * 4);
+  SDL_UpdateTexture(state.ppu_texture, nullptr, bass->ppu.db.disp_buf, 240 * 4);
   SDL_RenderCopy(renderer, state.ppu_texture, &rect, NULL);
 
   ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
 
   SDL_RenderPresent(renderer);
-  frameCount++;
-  Uint32 currentTime = SDL_GetTicks();
-
-  if (currentTime - fpsStartTime >= 1000) {
-    fps          = frameCount / ((currentTime - fpsStartTime) / 1000.0f);
-    fpsStartTime = currentTime;  // Reset FPS timer
-    frameCount   = 0;
-
-    std::cout << "FPS: " << fps << std::endl;
-  }
 
   {
     std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
@@ -435,8 +422,6 @@ void Frontend::render_frame() {
   }
 }
 void Frontend::init_sdl() {
-  state.frame_buf_ptr = bass->ppu.db.disp_buf;
-
   SPDLOG_DEBUG("constructed frontend with instance pointer");
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0) { fmt::println("ERROR: failed initialize SDL"); }
