@@ -5,7 +5,7 @@
 #include "defs.hpp"
 #include "spdlog/fmt/bundled/core.h"
 
-enum ACCESS_TYPE { INSTRUCTION_READ, GENERAL_READ, WRITE };
+enum ACCESS_TYPE : u32 { INSTRUCTION_READ, GENERAL_READ, WRITE };
 
 const std::unordered_map<ACCESS_TYPE, std::string> TransactionType = {
     {INSTRUCTION_READ, "INSTRUCTION READ"},
