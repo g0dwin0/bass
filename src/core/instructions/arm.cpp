@@ -1124,7 +1124,7 @@ void ARM::Instructions::STM(ARM7TDMI& c, InstructionInfo& instr) {  // REFACTOR:
 
   // Handle forced writeback quirk
   if (forced_writeback_empty_rlist) {
-    fmt::println("{} - {}", instr.mnemonic, c.bus->cycles_elapsed);
+    // fmt::println("{} - {}", instr.mnemonic, c.bus->cycles_elapsed);
 
     fmt::println("handling forced writeback P:{} U:{}", instr.P, instr.U);
 
