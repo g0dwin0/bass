@@ -89,7 +89,7 @@ u32 ARM7TDMI::shift(SHIFT_MODE mode, u64 value, u64 amount, bool special, bool n
 
       u32 m = asr(value, amount);
 
-      cpu_logger->debug("performed ASR with value: {:#010x}, by ASR'd by amount: {} result: {:#010x}", value, amount, m);
+      // cpu_logger->debug("performed ASR with value: {:#010x}, by ASR'd by amount: {} result: {:#010x}", value, amount, m);
 
       if (affect_flags) { (value & (1 << (amount - 1))) != 0 ? set_carry() : reset_carry(); }
 
