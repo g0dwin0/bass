@@ -21,28 +21,28 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.func_ptr = ARM::Instructions::ADD;
         instr.Rm       = (instr.opcode & 0b111000000) >> 6;
         instr.Rn       = instr.Rs;  // RHS
-        instr.mnemonic = fmt::format("add[2] r{}, r{}, r{}", +instr.Rd, +instr.Rm, +instr.Rn);
+        // instr.mnemonic = fmt::format("add[2] r{}, r{}, r{}", +instr.Rd, +instr.Rm, +instr.Rn);
         break;
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::SUB;
         instr.Rm       = (instr.opcode & 0b111000000) >> 6;  // LHS
         instr.Rn       = instr.Rs;                           // RHS
-        instr.mnemonic = fmt::format("sub r{}, r{}, r{}", +instr.Rd, +instr.Rn, +instr.Rm);
+        // instr.mnemonic = fmt::format("sub r{}, r{}, r{}", +instr.Rd, +instr.Rn, +instr.Rm);
         break;
       }
       case 2: {
         instr.func_ptr = ARM::Instructions::ADD;
         instr.I        = true;
         instr.Rn       = instr.Rs;
-        instr.mnemonic = fmt::format("add r{}, r{}, #{}", +instr.Rd, +instr.Rs, instr.imm);
+        // instr.mnemonic = fmt::format("add r{}, r{}, #{}", +instr.Rd, +instr.Rs, instr.imm);
         break;
       }
       case 3: {
         instr.func_ptr = ARM::Instructions::SUB;
         instr.I        = true;
         instr.Rn       = instr.Rs;
-        instr.mnemonic = fmt::format("sub r{}, r{}, #{}", +instr.Rd, +instr.Rs, instr.imm);
+        // instr.mnemonic = fmt::format("sub r{}, r{}, #{}", +instr.Rd, +instr.Rs, instr.imm);
         break;
       }
       default: {
@@ -69,17 +69,17 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
 
     switch (op) {
       case 0: {
-        instr.mnemonic   = fmt::format("lsl{} r{}, r{}, #{:#x}", instr.S ? "s" : "", +instr.Rd, +instr.Rm, instr.shift_amount);
+        // instr.mnemonic   = fmt::format("lsl{} r{}, r{}, #{:#x}", instr.S ? "s" : "", +instr.Rd, +instr.Rm, instr.shift_amount);
         instr.shift_type = LSL;
         break;
       }
       case 1: {
-        instr.mnemonic   = fmt::format("lsr{} r{}, r{}, #{:#x}", instr.S ? "s" : "", +instr.Rd, +instr.Rm, instr.shift_amount);
+        // instr.mnemonic   = fmt::format("lsr{} r{}, r{}, #{:#x}", instr.S ? "s" : "", +instr.Rd, +instr.Rm, instr.shift_amount);
         instr.shift_type = LSR;
         break;
       }
       case 2: {
-        instr.mnemonic   = fmt::format("asr{} r{}, r{}, #{:#x}", instr.S ? "s" : "", +instr.Rd, +instr.Rm, instr.shift_amount);
+        // instr.mnemonic   = fmt::format("asr{} r{}, r{}, #{:#x}", instr.S ? "s" : "", +instr.Rd, +instr.Rm, instr.shift_amount);
         instr.shift_type = ASR;
         break;
       }
@@ -106,25 +106,25 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     switch (op) {
       case 0: {  // MOV
         instr.func_ptr = ARM::Instructions::MOV;
-        instr.mnemonic = fmt::format("mov r{}, #${:#x}", +instr.Rd, instr.offset);
+        // instr.mnemonic = fmt::format("mov r{}, #${:#x}", +instr.Rd, instr.offset);
         instr.S        = true;
         // instr.print_params();
         break;
       }
       case 1: {  // CMP
         instr.func_ptr = ARM::Instructions::CMP;
-        instr.mnemonic = fmt::format("cmp r{}, #${:#x}", +instr.Rd, instr.offset);
+        // instr.mnemonic = fmt::format("cmp r{}, #${:#x}", +instr.Rd, instr.offset);
         break;
       }
       case 2: {  // ADD
         instr.func_ptr = ARM::Instructions::ADD;
-        instr.mnemonic = fmt::format("add r{}, #${:#x}", +instr.Rd, instr.offset);
+        // instr.mnemonic = fmt::format("add r{}, #${:#x}", +instr.Rd, instr.offset);
         instr.S        = true;
         break;
       }
       case 3: {  // SUB
         instr.func_ptr = ARM::Instructions::SUB;
-        instr.mnemonic = fmt::format("sub r{}, #${:#x}", +instr.Rd, instr.offset);
+        // instr.mnemonic = fmt::format("sub r{}, #${:#x}", +instr.Rd, instr.offset);
         instr.S        = true;
         break;
       }
@@ -155,7 +155,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     switch (op) {
       case 0x0: {
         instr.func_ptr = ARM::Instructions::AND;
-        instr.mnemonic = fmt::format("and r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("and r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0x1: {
@@ -164,7 +164,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.Rm                      = instr.Rs;
         instr.I                       = false;
         instr.R = false;
-        instr.mnemonic                = fmt::format("eor r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic                = fmt::format("eor r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0x2: {
@@ -173,7 +173,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.shift_type              = LSL;
         instr.R = true;
         instr.Rm                      = instr.Rd;
-        instr.mnemonic                = fmt::format("lsl r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic                = fmt::format("lsl r{}, r{}", +instr.Rd, +instr.Rs);
         SPDLOG_DEBUG("Rn: {}");
 
         // assert(0);
@@ -184,7 +184,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.shift_type              = LSR;
         instr.R = true;
         instr.Rm                      = instr.Rd;
-        instr.mnemonic                = fmt::format("lsr r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic                = fmt::format("lsr r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0x4: {
@@ -192,14 +192,14 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.shift_type              = ASR;
         instr.R = true;
         instr.Rm                      = instr.Rd;
-        instr.mnemonic                = fmt::format("asr r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic                = fmt::format("asr r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0x5: {
         instr.func_ptr = ARM::Instructions::ADC;
         instr.Rn       = instr.Rd;
         instr.Rm       = instr.Rs;
-        instr.mnemonic = fmt::format("adc r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("adc r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0x6: {
@@ -208,7 +208,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.Rm                      = instr.Rs;
         instr.I                       = false;
         instr.R = false;
-        instr.mnemonic                = fmt::format("sbc r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic                = fmt::format("sbc r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0x7: {
@@ -216,13 +216,13 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.shift_type              = ROR;
         instr.R = true;
         instr.Rm                      = instr.Rd;
-        instr.mnemonic                = fmt::format("ror r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic                = fmt::format("ror r{}, r{}", +instr.Rd, +instr.Rs);
         // assert(0);
         break;
       }
       case 0x8: {
         instr.func_ptr = ARM::Instructions::TST;
-        instr.mnemonic = fmt::format("tst r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("tst r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0x9: {
@@ -232,41 +232,41 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.imm      = 0;
         instr.rotate   = 0;
         instr.Rn       = instr.Rm;
-        instr.mnemonic = fmt::format("neg r{}, r{}", instr.Rd, instr.Rs);
+        // instr.mnemonic = fmt::format("neg r{}, r{}", instr.Rd, instr.Rs);
         // assert(0);
         break;
       }
       case 0xA: {
         instr.func_ptr = ARM::Instructions::CMP;
-        instr.mnemonic = fmt::format("cmp r{}, r{}", instr.Rd, instr.Rs);
+        // instr.mnemonic = fmt::format("cmp r{}, r{}", instr.Rd, instr.Rs);
         break;
       }
       case 0xB: {
         instr.func_ptr = ARM::Instructions::CMN;
-        instr.mnemonic = fmt::format("cmn r{}, r{}", instr.Rd, instr.Rs);
+        // instr.mnemonic = fmt::format("cmn r{}, r{}", instr.Rd, instr.Rs);
         break;
       }
       case 0xC: {
         instr.func_ptr = ARM::Instructions::ORR;
         instr.Rn       = instr.Rd;
         instr.Rm       = instr.Rs;
-        instr.mnemonic = fmt::format("orr r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("orr r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0xD: {
         instr.func_ptr = ARM::Instructions::MUL;
         instr.Rm       = instr.Rd;
-        instr.mnemonic = fmt::format("mul r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("mul r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0xE: {
         instr.func_ptr = ARM::Instructions::BIC;
-        instr.mnemonic = fmt::format("bic r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("bic r{}, r{}", +instr.Rd, +instr.Rs);
         break;
       }
       case 0xF: {
         instr.func_ptr = ARM::Instructions::MVN;
-        instr.mnemonic = fmt::format("mvn r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("mvn r{}, r{}", +instr.Rd, +instr.Rs);
 
         break;
       }
@@ -300,7 +300,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       case 0: {
         instr.Rn       = instr.Rd;
         instr.func_ptr = ARM::Instructions::ADD;
-        instr.mnemonic = fmt::format("add r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("add r{}, r{}", +instr.Rd, +instr.Rs);
         // fmt::println("MSBd: {} MSBs: {}", MSBd, MSBs);
 
         // fmt::println("{}", instr.mnemonic);
@@ -310,14 +310,14 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       case 1: {
         instr.func_ptr = ARM::Instructions::CMP;
         instr.Rn       = instr.Rd;
-        instr.mnemonic = fmt::format("cmp r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("cmp r{}, r{}", +instr.Rd, +instr.Rs);
         // fmt::println("{}", instr.mnemonic);
         break;
       }
       case 2: {
         instr.func_ptr = ARM::Instructions::MOV;
         // instr.Rn
-        instr.mnemonic = fmt::format("mov r{}, r{}", +instr.Rd, +instr.Rs);
+        // instr.mnemonic = fmt::format("mov r{}, r{}", +instr.Rd, +instr.Rs);
         // fmt::println("{}", instr.mnemonic);
         break;
       }
@@ -326,7 +326,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
 
         instr.func_ptr = ARM::Instructions::BX;
         instr.Rn       = instr.Rs;
-        instr.mnemonic = fmt::format("bx r{} [{:#010x}]", instr.Rn, regs.get_reg(instr.Rs));
+        // instr.mnemonic = fmt::format("bx r{} [{:#010x}]", instr.Rn, regs.get_reg(instr.Rs));
         // fmt::println("BX");
         break;
       }
@@ -344,7 +344,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     instr.pc_relative = true;
     instr.func_ptr    = ARM::Instructions::LDR;
 
-    instr.mnemonic = fmt::format("ldr r{}, [PC, #${:#08x}]", +instr.Rd, ((regs.r[15] + 4) & ~2) + instr.offset);
+    // instr.mnemonic = fmt::format("ldr r{}, [PC, #${:#08x}]", +instr.Rd, ((regs.r[15] + 4) & ~2) + instr.offset);
 
     return instr;
     // assert(0);
@@ -368,24 +368,24 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     switch (opcode) {
       case 0: {
         instr.func_ptr = ARM::Instructions::STRH;
-        instr.mnemonic = fmt::format("strh r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
+        // instr.mnemonic = fmt::format("strh r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
         break;
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::LDRSB;
         instr.B        = true;
-        instr.mnemonic = fmt::format("ldsb r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rm);
+        // instr.mnemonic = fmt::format("ldsb r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rm);
         break;
       }
       case 2: {
         instr.func_ptr = ARM::Instructions::LDRH;
-        instr.mnemonic = fmt::format("ldrh r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
+        // instr.mnemonic = fmt::format("ldrh r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
         break;
       }
       case 3: {
         instr.func_ptr = ARM::Instructions::LDRSH;
         instr.B        = true;
-        instr.mnemonic = fmt::format("ldrsh r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
+        // instr.mnemonic = fmt::format("ldrsh r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
         break;
       }
       default: {
@@ -416,24 +416,24 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     switch (opcode) {
       case 0: {
         instr.func_ptr = ARM::Instructions::STR;
-        instr.mnemonic = fmt::format("str r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
+        // instr.mnemonic = fmt::format("str r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
         break;
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::STR;
         instr.B        = true;
-        instr.mnemonic = fmt::format("strb r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
+        // instr.mnemonic = fmt::format("strb r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
         break;
       }
       case 2: {
         instr.func_ptr = ARM::Instructions::LDR;
-        instr.mnemonic = fmt::format("ldr r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
+        // instr.mnemonic = fmt::format("ldr r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
         break;
       }
       case 3: {
         instr.func_ptr = ARM::Instructions::LDR;
         instr.B        = true;
-        instr.mnemonic = fmt::format("ldrb r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
+        // instr.mnemonic = fmt::format("ldrb r{}, [r{}, r{}]", +instr.Rd, +instr.Rn, +instr.Rs);
         break;
       }
       default: {
@@ -460,28 +460,28 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.I = 0;
         instr.offset *= 4;
         instr.func_ptr = ARM::Instructions::STR;
-        instr.mnemonic = fmt::format("str r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("str r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       case 1: {
         instr.I = 0;
         instr.offset *= 4;
         instr.func_ptr = ARM::Instructions::LDR;
-        instr.mnemonic = fmt::format("ldr r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("ldr r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       case 2: {
         instr.I        = 0;
         instr.B        = true;
         instr.func_ptr = ARM::Instructions::STR;
-        instr.mnemonic = fmt::format("strb r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("strb r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       case 3: {
         instr.I        = 0;
         instr.B        = true;
         instr.func_ptr = ARM::Instructions::LDR;
-        instr.mnemonic = fmt::format("ldrb r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("ldrb r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       default: {
@@ -506,13 +506,13 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       case 0: {
         instr.I        = 1;
         instr.func_ptr = ARM::Instructions::STRH;
-        instr.mnemonic = fmt::format("strh r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("strh r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       case 1: {
         instr.I        = 1;
         instr.func_ptr = ARM::Instructions::LDRH;
-        instr.mnemonic = fmt::format("ldrh r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("ldrh r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       default: {
@@ -535,13 +535,13 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         // fmt::println("LDR/STR SP-relative")
         instr.I        = 0;
         instr.func_ptr = ARM::Instructions::STR;
-        instr.mnemonic = fmt::format("str r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("str r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       case 1: {
         instr.I        = 0;
         instr.func_ptr = ARM::Instructions::LDR;
-        instr.mnemonic = fmt::format("ldr r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
+        // instr.mnemonic = fmt::format("ldr r{}, [r{}, #{:#x}]", +instr.Rd, +instr.Rn, instr.offset);
         break;
       }
       default: {
@@ -571,14 +571,14 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.func_ptr = ARM::Instructions::ADD;
         instr.Rn       = 15;
         instr.pc_relative = true;
-        instr.mnemonic = fmt::format("add r{}, PC, #${:#x}", +instr.Rd, instr.imm);
+        // instr.mnemonic = fmt::format("add r{}, PC, #${:#x}", +instr.Rd, instr.imm);
         // assert(0);
         break;
       }
       case 1: {
         instr.func_ptr = ARM::Instructions::ADD;
         instr.Rn       = 13;
-        instr.mnemonic = fmt::format("add r{}, SP, #${:#x}", +instr.Rd, instr.imm);
+        // instr.mnemonic = fmt::format("add r{}, SP, #${:#x}", +instr.Rd, instr.imm);
 
         break;
       }
@@ -599,10 +599,10 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     instr.op2 = instr.imm;
 
     if (opcode == 0) {
-      instr.mnemonic = fmt::format("ADD SP, #{:#x}", instr.imm);
+      // instr.mnemonic = fmt::format("ADD SP, #{:#x}", instr.imm);
     } else {
       instr.func_ptr = ARM::Instructions::SUB;
-      instr.mnemonic = fmt::format("SUB SP, #-{:#x}", instr.imm);
+      // instr.mnemonic = fmt::format("SUB SP, #-{:#x}", instr.imm);
     }
 
     return instr;
@@ -630,7 +630,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.U = 0;
         if (pc_lr_bit) { reg_list.push_back(14); }
         instr.func_ptr = ARM::Instructions::STM;
-        instr.mnemonic = fmt::format("PUSH r{}", fmt::join(reg_list, ",r"));
+        // instr.mnemonic = fmt::format("PUSH r{}", fmt::join(reg_list, ",r"));
         break;
       }
       case 1: {  // POP
@@ -638,7 +638,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         instr.U = 1;
         if (pc_lr_bit) { instr.PC_BIT = 1; }
         instr.func_ptr = ARM::Instructions::LDM;
-        instr.mnemonic = fmt::format("POP <r{}>, r{}", fmt::join(reg_list, ",r"), +instr.Rn);
+        // instr.mnemonic = fmt::format("POP <r{}>, r{}", fmt::join(reg_list, ",r"), +instr.Rn);
         break;
       }
       default: assert(0);
@@ -668,12 +668,12 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
       instr.P        = 0;
       instr.U        = 1;
       instr.func_ptr = ARM::Instructions::LDM;
-      instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
+      // instr.mnemonic = fmt::format("ldm{} r{}{}, r{}", get_addressing_mode(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
     } else {
       instr.P        = 0;
       instr.U        = 1;
       instr.func_ptr = ARM::Instructions::STM;
-      instr.mnemonic = fmt::format("stm{} r{}{}, r{}", get_addressing_mode(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
+      // instr.mnemonic = fmt::format("stm{} r{}{}, r{}", get_addressing_mode(instr), +instr.Rn, instr.W ? "!" : "", fmt::join(reg_list, ",r"));
     }
 
     // assert(0);
@@ -683,7 +683,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
   if ((instr.opcode & 0xff00) == 0xdf00) {  // SWI
     // SPDLOG_DEBUG("SWI - {:#08x}", instr.opcode & 0xff);
 
-    instr.mnemonic = fmt::format("swi #{:#x}", instr.opcode & 0xff);
+    // instr.mnemonic = fmt::format("swi #{:#x}", instr.opcode & 0xff);
     instr.func_ptr = ARM::Instructions::SWI;
 
     // fmt::println("{}", instr.mnemonic);
@@ -732,7 +732,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     // printf("%d\n", instr.L);
     // printf("%d\n", instr.L);
 
-    instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + instr.offset + 2);
+    // instr.mnemonic = fmt::format("b{}{} #{:#x}", instr.L ? "l" : "", condition_map.at(instr.condition), regs.r[15] + instr.offset + 2);
     return instr;
   }
 
@@ -749,7 +749,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     instr.offset = x;
 
     instr.func_ptr = ARM::Instructions::B;
-    instr.mnemonic = fmt::format("b #{:#x}", regs.r[15] + instr.offset + 2);
+    // instr.mnemonic = fmt::format("b #{:#x}", regs.r[15] + instr.offset + 2);
 
     return instr;
   }
@@ -760,7 +760,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     u32 lo    = (instr.opcode & 0b11111111111);
     instr.op2 = lo;
 
-    instr.mnemonic = fmt::format("BLL #${:010x}", lo << 12);
+    // instr.mnemonic = fmt::format("BLL #${:010x}", lo << 12);
     instr.func_ptr = ARM::Instructions::BLL;
     // SPDLOG_DEBUG(instr.mnemonic);
     // assert(0);
@@ -773,7 +773,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
     u32 hi    = (instr.opcode & 0b11111111111);
     instr.op2 = hi;
 
-    instr.mnemonic = fmt::format("BLH #${:08x}", hi);
+    // instr.mnemonic = fmt::format("BLH #${:08x}", hi);
     instr.func_ptr = ARM::Instructions::BLH;
 
     return instr;

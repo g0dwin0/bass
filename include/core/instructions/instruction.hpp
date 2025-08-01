@@ -41,7 +41,7 @@ struct InstructionInfo {
 
   Condition condition = Condition::AL;
 
-  std::string mnemonic = "";
+  // std::string mnemonic = "";
 
   bool empty       = false;
   bool pc_relative = false;
