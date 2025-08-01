@@ -100,7 +100,7 @@ struct ARM7TDMI {
 
   [[nodiscard]] u32 handle_shifts(InstructionInfo& instr, bool affect_flags = true);
 
-  [[nodiscard]] static constexpr u32 align(u32 value, ALIGN_TO align_to) {
+  [[nodiscard]] inline static constexpr u32 align(u32 value, ALIGN_TO align_to) {
     if (align_to == WORD) {
       return value & ~3;
     } else {
