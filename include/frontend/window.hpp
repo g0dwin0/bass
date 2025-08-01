@@ -1,7 +1,6 @@
 #pragma once
 
 #include <SDL2/SDL.h>
-
 #include <unordered_map>
 
 #include "bass.hpp"
@@ -16,8 +15,6 @@ struct State {
   SDL_Texture* tile_map_texture = nullptr;
 
   std::array<SDL_Texture*, 4> background_textures{};
-
-  u32* frame_buf_ptr = nullptr;
 
   const u8* keyboard_state  = SDL_GetKeyboardState(nullptr);
   std::atomic<bool> running = true;
@@ -88,7 +85,7 @@ struct Frontend {
   void show_memory_viewer();
   void show_cpu_info();
   void show_ppu_info();
-  void ShowControlsMenu(bool*);
+  void show_controls_menu(bool*);
   void show_irq_status();
   void show_tiles();
 
