@@ -1,4 +1,4 @@
-CPPFLAGS = -g -pg -Ilib/imgui -Ilib/imgui/backends -Ilib/ -Ilib/cli11 $(sdl2-config --cflags --libs) -Wall -Wextra -Werror -Iinclude/core -Iinclude/frontend -Iinclude/ -std=c++23 -Wno-deprecated-enum-enum-conversion
+CPPFLAGS = -g -Ilib/imgui -Ilib/imgui/backends -Ilib/ -Ilib/cli11 $(sdl2-config --cflags --libs) -Wall -Wextra -Werror -Iinclude/core -Iinclude/frontend -Iinclude/ -std=c++23 -Wno-deprecated-enum-enum-conversion
 OBJ_DIR = build/obj
 OBJ_IMGUI_PATH = $(OBJ_DIR)/imgui
 OBJS_IMGUI = $(OBJ_IMGUI_PATH)/imgui_demo.o $(OBJ_IMGUI_PATH)/imgui_draw.o $(OBJ_IMGUI_PATH)/imgui_impl_sdlrenderer2.o $(OBJ_IMGUI_PATH)/imgui_impl_sdl2.o $(OBJ_IMGUI_PATH)/imgui_tables.o $(OBJ_IMGUI_PATH)/imgui_widgets.o $(OBJ_IMGUI_PATH)/imgui.o
