@@ -48,7 +48,7 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       v = EWRAM.at(address % 0x40000);
       break;
     }
-      // 0b1111111111101111
+
     case 0x03000000 ... 0x03FFFFFF: {
       // v = shift_16(IWRAM, address - 0x03000000);
       v = IWRAM.at(address % 0x8000);
@@ -361,7 +361,7 @@ void Bus::write8(u32 address, u8 value) {
       // break;
     }
   }
-  // mem_logger->info("[W8] {} => {:#x}", get_label(address), value);
+    // mem_logger->info("[W8] {} => {:#x}", get_label(address), value);
 
 #endif
 }
@@ -432,7 +432,7 @@ void Bus::write16(u32 address, u16 value) {
       // break;
     }
   }
-  // mem_logger->info("[W16] {} => {:#x}", get_label(address), value);
+    // mem_logger->info("[W16] {} => {:#x}", get_label(address), value);
 
 #endif
 }
@@ -505,7 +505,7 @@ void Bus::write32(u32 address, u32 value) {
       // break;
     }
   }
-  // mem_logger->info("[W32] {} => {:#010x}", get_label(address), value);
+    // mem_logger->info("[W32] {} => {:#010x}", get_label(address), value);
 
 #endif
 }
@@ -549,48 +549,6 @@ u8 Bus::io_read(u32 address) {
       // SPDLOG_DEBUG("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
       break;
     }
-
-    // case 0x40000066:
-    // case 0x40000067: return 0;
-
-    // case 0x4000006A:
-    // case 0x4000006B: return 0;
-
-    // case 0x4000006E:
-    // case 0x4000006F: return 0;
-
-    // case WAVE_RAM_0 ... WAVE_RAM_0 + 0x10: {  // BANK 0
-    //   break;
-    // }
-    // case WAVE_RAM_1 ... WAVE_RAM_1 + 0x10: {
-    //   break;
-    // }
-    // BANK 1
-
-    // case BG0HOFS: break;
-    // case BG0VOFS: break;
-    // case BG1HOFS: break;
-    // case BG1VOFS: break;
-    // case BG2HOFS: break;
-    // case BG2VOFS: break;
-    // case BG3HOFS: break;
-    // case BG3VOFS: break;
-    // case BG2PA: break;
-    // case BG2PB: break;
-    // case BG2PC: break;
-    // case BG2PD: break;
-    // case BG2X: break;
-    // case BG2Y: break;
-    // case BG3PA: break;
-    // case BG3PB: break;
-    // case BG3PC: break;
-    // case BG3PD: break;
-    // case BG3X: break;
-    // case BG3Y: break;
-    // case WIN0H: fmt::println("READING FROM WIN0H UNIMPL"); break;
-    // case WIN1H: fmt::println("READING FROM WIN1H UNIMPL"); break;
-    // case WIN0V: fmt::println("READING FROM WIN0V UNIMPL"); break;
-    // case WIN1V: fmt::println("READING FROM WIN1V UNIMPL"); break;
     case WININ:
     case WININ + 1: {
       retval = read_byte(display_fields.WININ.v, address % 0x2);
@@ -615,41 +573,89 @@ u8 Bus::io_read(u32 address) {
       break;
     }
 
-    // case SOUND1CNT_L: {
-    //   retval = read_byte(display_fields.BLDALPHA.v, address % 0x2);
-    //   break;
-    // }
+    case SOUND1CNT_L: {
+      retval = read_byte(sound_registers.SOUND1CNT_L.v, address % 0x2);
+      break;
+    }
 
-    // case SOUND1CNT_H: {
-    //   retval = read_byte(display_fields.BLDALPHA.v, address % 0x2);
+    case SOUND1CNT_H: {
+      retval = read_byte(sound_registers.SOUND1CNT_H.v, 0) & 0b11000000;
+      break;
+    }
+    case SOUND1CNT_H + 1: {
+      retval = read_byte(sound_registers.SOUND1CNT_H.v, 1);
+      break;
+    }
+
+    case SOUND1CNT_X + 1: {
+      retval = read_byte(sound_registers.SOUND1CNT_X.v, 1) & 0b01000000;
+      break;
+    }
+
+    case SOUND2CNT_L: {
+      retval = read_byte(sound_registers.SOUND2CNT_L.v, 0) & 0xc0;
+      break;
+    }
+    case SOUND2CNT_L + 1: {
+      retval = read_byte(sound_registers.SOUND2CNT_L.v, 1);
+      break;
+    }
+
+    // case SOUND2CNT_H: {
+    //   retval = read_byte(sound_registers.SOUND2CNT_H.v, 0);
     //   break;
     // }
-    // case SOUND1CNT_X: {
-    //   retval = read_byte(display_fields.BLDALPHA.v, address % 0x2);
-    //   break;
-    // }
-    // case SOUND2CNT_L:
-    // case SOUND2CNT_L + 1: {
-    //   retval = read_byte(system_control.SOUND2.v, address % 0x2);
-    //   break;
-    // }
-    // case SOUND2CNT_H:
-    // case SOUND2CNT_H + 1: {
-    //   retval = read_byte(display_fields.BLDALPHA.v, address % 0x2);
-    //   break;
-    // }
-    // case SOUND3CNT_L:
-    // case SOUND3CNT_L + 1: {
-    //   retval = read_byte(display_fields.BLDALPHA.v, address % 0x2);
-    //   break;
-    // }
-    case SOUND3CNT_H: fmt::println("READING FROM SOUND3CNT_H UNIMPL"); break;
-    case SOUND3CNT_X: fmt::println("READING FROM SOUND3CNT_X UNIMPL"); break;
-    case SOUND4CNT_L: fmt::println("READING FROM SOUND4CNT_L UNIMPL"); break;
-    case SOUND4CNT_H: fmt::println("READING FROM SOUND4CNT_H UNIMPL"); break;
-    case SOUNDCNT_L: fmt::println("READING FROM SOUNDCNT_L UNIMPL"); break;
-    case SOUNDCNT_H: fmt::println("READING FROM SOUNDCNT_H UNIMPL"); break;
-    case SOUNDCNT_X: fmt::println("READING FROM SOUNDCNT_X UNIMPL"); break;
+    case SOUND2CNT_H + 1: {
+      retval = read_byte(sound_registers.SOUND2CNT_H.v, 1) & 0x40;
+      break;
+    }
+
+    case SOUND3CNT_L: {
+      retval = read_byte(sound_registers.SOUND3CNT_L.v, 0) & 0b11100000;
+      break;
+    }
+
+    case SOUND3CNT_H + 1: {
+      retval = read_byte(sound_registers.SOUND3CNT_H.v, 1) & 0b11100000;
+      break;
+    }
+
+    case SOUND3CNT_X + 1: {
+      retval = read_byte(sound_registers.SOUND3CNT_X.v, 1) & 0b01000000;
+      break;
+    }
+
+    case SOUND4CNT_L + 1: {
+      retval = read_byte(sound_registers.SOUND4CNT_L.v, 1);
+      break;
+    }
+
+    case SOUND4CNT_H: {
+      retval = read_byte(sound_registers.SOUND4CNT_H.v, 0);
+      break;
+    }
+    case SOUND4CNT_H + 1: {
+      retval = read_byte(sound_registers.SOUND4CNT_H.v, 1) & 0b01000000;
+      break;
+    }
+
+    case SOUNDCNT_L:
+    case SOUNDCNT_L + 1: {
+      retval = read_byte(sound_registers.SOUNDCNT_L.v, address % 2);
+      break;
+    }
+
+    case SOUNDCNT_H:
+    case SOUNDCNT_H + 1: {
+      retval = read_byte(sound_registers.SOUNDCNT_H.v, address % 2);
+      break;
+    }
+
+    case SOUNDCNT_X: {
+      retval = read_byte(sound_registers.SOUNDCNT_X.v, 0);
+      break;
+    }
+
     case SOUNDBIAS: {
       retval = system_control.sound_bias;
       break;
@@ -748,16 +754,15 @@ void Bus::io_write(u32 address, u8 value) {
   // auto r = (REG)address;
   // fmt::println("write: {:#010x}", address);
   switch (address) {
-    {
-      case DISPCNT ... DISPCNT + 1: {
-        set_byte(display_fields.DISPCNT.v, address % 2, value);
-        bus_logger->debug("NEW DISPCNT: {:#010x}", display_fields.DISPCNT.v);
-        break;
-      }
-      case GREEN_SWAP ... GREEN_SWAP + 1:
-        set_byte(display_fields.GREEN_SWAP.v, address % 2, value);
-        bus_logger->debug("NEW GREENSWAP: {:#010x}", display_fields.GREEN_SWAP.v);
-        break;
+    case DISPCNT ... DISPCNT + 1: {
+      set_byte(display_fields.DISPCNT.v, address % 2, value);
+      bus_logger->debug("NEW DISPCNT: {:#010x}", display_fields.DISPCNT.v);
+      break;
+    }
+    case GREEN_SWAP ... GREEN_SWAP + 1: {
+      set_byte(display_fields.GREEN_SWAP.v, address % 2, value);
+      bus_logger->debug("NEW GREENSWAP: {:#010x}", display_fields.GREEN_SWAP.v);
+      break;
     }
     case DISPSTAT ... DISPSTAT + 1: {
       if (address == DISPSTAT) {
@@ -887,37 +892,108 @@ void Bus::io_write(u32 address, u8 value) {
       set_byte(display_fields.WINOUT.v, address % 0x2, value & 0x3f);
       break;
     }
-    
-    
+
     case MOSAIC: bus_logger->debug("WRITING TO MOSAIC UNIMPL"); break;
     case BLDCNT: {
       set_byte(display_fields.BLDCNT.v, 0, value);
       break;
     }
-    case BLDCNT+1: {
+    case BLDCNT + 1: {
       set_byte(display_fields.BLDCNT.v, 1, value & 0x3f);
       break;
     }
     case BLDALPHA:
-    case BLDALPHA+1: {
+    case BLDALPHA + 1: {
       set_byte(display_fields.BLDALPHA.v, address % 0x2, value & 0x1f);
       break;
     }
 
     case BLDY: bus_logger->debug("WRITING TO BLDY UNIMPL"); break;
-    case SOUND1CNT_L: bus_logger->debug("WRITING TO SOUND1CNT_L UNIMPL"); break;
-    case SOUND1CNT_H: bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL"); break;
-    case SOUND1CNT_X: bus_logger->debug("WRITING TO SOUND1CNT_X UNIMPL"); break;
-    case SOUND2CNT_L: bus_logger->debug("WRITING TO SOUND2CNT_L UNIMPL"); break;
-    case SOUND2CNT_H: bus_logger->debug("WRITING TO SOUND2CNT_H UNIMPL"); break;
-    case SOUND3CNT_L: bus_logger->debug("WRITING TO SOUND3CNT_L UNIMPL"); break;
-    case SOUND3CNT_H: bus_logger->debug("WRITING TO SOUND3CNT_H UNIMPL"); break;
-    case SOUND3CNT_X: bus_logger->debug("WRITING TO SOUND3CNT_X UNIMPL"); break;
-    case SOUND4CNT_L: bus_logger->debug("WRITING TO SOUND4CNT_L UNIMPL"); break;
-    case SOUND4CNT_H: bus_logger->debug("WRITING TO SOUND4CNT_H UNIMPL"); break;
-    case SOUNDCNT_L: bus_logger->debug("WRITING TO SOUNDCNT_L UNIMPL"); break;
-    case SOUNDCNT_H: bus_logger->debug("WRITING TO SOUNDCNT_H UNIMPL"); break;
-    case SOUNDCNT_X: bus_logger->debug("WRITING TO SOUNDCNT_X UNIMPL"); break;
+    case SOUND1CNT_L: {
+      set_byte(sound_registers.SOUND1CNT_L.v, 0, value & 0x7f);
+      break;
+    }
+    case SOUND1CNT_H:
+    case SOUND1CNT_H + 1: {
+      set_byte(sound_registers.SOUND1CNT_H.v, address % 2, value);
+      // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
+      break;
+    }
+
+    case SOUND1CNT_X: {
+      set_byte(sound_registers.SOUND1CNT_X.v, 0, value);
+      break;
+    };
+    case SOUND1CNT_X + 1: {
+      set_byte(sound_registers.SOUND1CNT_X.v, 1, value & 0xf8);
+      break;
+    }
+
+    case SOUND2CNT_L:
+    case SOUND2CNT_L + 1: {
+      set_byte(sound_registers.SOUND2CNT_L.v, address % 2, value);
+      break;
+    }
+
+    case SOUND2CNT_H:
+    case SOUND2CNT_H + 1: {
+      set_byte(sound_registers.SOUND2CNT_H.v, address % 2, value);
+      // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
+      break;
+    }
+
+    case SOUND3CNT_L: {
+      set_byte(sound_registers.SOUND3CNT_L.v, 0, value);
+      break;
+    }
+
+    case SOUND3CNT_H:
+    case SOUND3CNT_H + 1: {
+      set_byte(sound_registers.SOUND3CNT_H.v, address % 2, value);
+      // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
+      break;
+    }
+
+    case SOUND3CNT_X:
+    case SOUND3CNT_X + 1: {
+      set_byte(sound_registers.SOUND3CNT_X.v, address % 2, value);
+      break;
+    };
+
+    case SOUND4CNT_L:
+    case SOUND4CNT_L + 1: {
+      set_byte(sound_registers.SOUND4CNT_L.v, address % 2, value);
+      break;
+    }
+
+    case SOUND4CNT_H:
+    case SOUND4CNT_H + 1: {
+      set_byte(sound_registers.SOUND4CNT_H.v, address % 2, value);
+      break;
+    }
+    case SOUNDCNT_L: {
+      set_byte(sound_registers.SOUNDCNT_L.v, address % 2, value & 0b01110111);
+      break;
+    }
+    case SOUNDCNT_L + 1: {
+      set_byte(sound_registers.SOUNDCNT_L.v, address % 2, value);
+      break;
+    }
+
+    case SOUNDCNT_H: {
+      set_byte(sound_registers.SOUNDCNT_H.v, address % 2, value & 0b00001111);
+      break;
+    }
+    case SOUNDCNT_H + 1: {
+      set_byte(sound_registers.SOUNDCNT_H.v, address % 2, value & 0b01110111);
+      break;
+    }
+
+    case SOUNDCNT_X: {
+      set_byte(sound_registers.SOUNDCNT_X.v, 0, value & (1<<7));
+      break;
+    }
+    
     case SOUNDBIAS: {
       system_control.sound_bias = value;
       break;
@@ -961,8 +1037,10 @@ void Bus::io_write(u32 address, u8 value) {
         } else {
           transfer32(dma_control.DMA3SAD.src, dma_control.DMA3DAD.dst, dma_control.DMA3CNT_L.word_count);
         }
+
         // assert(0);
         // dma_control.print_dma_info(3);
+        if (!dma_control.DMA3CNT_H.dma_repeat) dma_control.DMA3CNT_H.dma_enable = false;
         if (dma_control.DMA3CNT_H.irq_at_end) { request_interrupt(InterruptType::DMA3); }
       }
       break;
