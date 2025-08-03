@@ -16,4 +16,3 @@ static constexpr auto U8_MAX = std::numeric_limits<u8>::max();
 static constexpr auto U16_MAX = std::numeric_limits<u16>::max();
 static constexpr auto U32_MAX = std::numeric_limits<u32>::max();
 static constexpr auto U64_MAX = std::numeric_limits<u64>::max();
-

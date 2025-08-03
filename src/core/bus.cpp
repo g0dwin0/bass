@@ -90,7 +90,7 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     default: {
-      fmt::println("[R8] unused/oob memory read: {:#X}", address);
+      // fmt::println("[R8] unused/oob memory read: {:#X}", address);
       return 0xFF;
     }
   }
@@ -355,8 +355,12 @@ void Bus::write8(u32 address, u8 value) {
       break;
     }
 
+    case 0x0E000000 ... 0x0E00FFFF: {
+      break;
+    }
+
     default: {
-      spdlog::warn("[W8] unused/oob memory write: {:#X}", address);
+      // spdlog::warn("[W8] unused/oob memory write: {:#X}", address);
       return;
       // break;
     }
@@ -367,14 +371,14 @@ void Bus::write8(u32 address, u8 value) {
 }
 
 void Bus::write16(u32 address, u16 value) {
-  address = cpu->align(address, HALFWORD);
+  address = ARM7TDMI::align(address, HALFWORD);
 #ifdef SST_TEST_MODE
   bus_logger->debug("write [16] at {:#010x} -> {:#010x}", address, value);
   fmt::println("write [16] at {:#010x} -> {:#010x}", address, value);
   // #ifdef SST_TEST_MODE
   for (auto& transaction : transactions) {
     if (transaction.size != 2 || transaction.kind != WRITE) continue;
-    u32 aligned_tx_addr = cpu->align(transaction.addr, HALFWORD);
+    u32 aligned_tx_addr = ARM7TDMI::align(transaction.addr, HALFWORD);
     if (address == aligned_tx_addr && value == transaction.data) {
       fmt::println("valid write");
       transaction.accessed = true;
@@ -427,7 +431,7 @@ void Bus::write16(u32 address, u16 value) {
     }
 
     default: {
-      fmt::println("unused/oob memory write: {:#X}", address);
+      // fmt::println("unused/oob memory write: {:#X}", address);
       return;
       // break;
     }
@@ -499,8 +503,12 @@ void Bus::write32(u32 address, u32 value) {
       break;
     }
 
+    case 0x0E000000 ... 0x0E00FFFF: {
+      break;
+    }
+
     default: {
-      fmt::println("[W32] unused/oob memory write: {:#010x}", address);
+      // fmt::println("[W32] unused/oob memory write: {:#010x}", address);
       return;
       // break;
     }
@@ -667,28 +675,28 @@ u8 Bus::io_read(u32 address) {
     case DMA0DAD: break;
     case DMA0CNT_L: break;
     case DMA0CNT_H ... DMA0CNT_H + 1: {
-      retval = read_byte(dma_control.DMA0CNT_H.v, address % 0x2);
+      retval = ch0->get_values_cnt_h(address % 0x2);
       break;
     }
     case DMA1SAD: break;
     case DMA1DAD: break;
     case DMA1CNT_L: bus_logger->debug("READING FROM DMA1CNT_L UNIMPL"); break;
     case DMA1CNT_H ... DMA1CNT_H + 1: {
-      retval = read_byte(dma_control.DMA1CNT_H.v, address % 0x2);
+      retval = ch1->get_values_cnt_h(address % 0x2);
       break;
     }
     case DMA2SAD: break;
     case DMA2DAD: break;
     case DMA2CNT_L: bus_logger->debug("READING FROM DMA2CNT_L UNIMPL"); break;
     case DMA2CNT_H ... DMA2CNT_H + 1: {
-      retval = read_byte(dma_control.DMA2CNT_H.v, address % 0x2);
+      retval = ch2->get_values_cnt_h(address % 0x2);
       break;
     }
     case DMA3SAD: bus_logger->debug("READING FROM DMA3SAD UNIMPL"); break;
     case DMA3DAD: bus_logger->debug("READING FROM DMA3DAD UNIMPL"); break;
     case DMA3CNT_L: bus_logger->debug("READING FROM DMA3CNT_L UNIMPL"); break;
     case DMA3CNT_H ... DMA3CNT_H + 1: {
-      retval = read_byte(dma_control.DMA3CNT_H.v, address % 0x2);
+      retval = ch3->get_values_cnt_h(address % 0x2);
       break;
     }
     case TM0CNT_L: bus_logger->debug("READING FROM TM0CNT_L UNIMPL"); break;
@@ -723,7 +731,7 @@ u8 Bus::io_read(u32 address) {
       retval = read_byte(interrupt_control.IF.v, address % 2);
       break;
     }
-    case WAITCNT: fmt::println("READING FROM UNIMPL WAITCNT"); break;
+    case WAITCNT:  break;
     case IME ... IME + 3: {
       retval = read_byte(interrupt_control.IME.v, address % 4);
       break;
@@ -990,10 +998,10 @@ void Bus::io_write(u32 address, u8 value) {
     }
 
     case SOUNDCNT_X: {
-      set_byte(sound_registers.SOUNDCNT_X.v, 0, value & (1<<7));
+      set_byte(sound_registers.SOUNDCNT_X.v, 0, value & (1 << 7));
       break;
     }
-    
+
     case SOUNDBIAS: {
       system_control.sound_bias = value;
       break;
@@ -1001,48 +1009,80 @@ void Bus::io_write(u32 address, u8 value) {
     case WAVE_RAM: bus_logger->debug("WRITING TO WAVE_RAM UNIMPL"); break;
     case FIFO_A: bus_logger->debug("WRITING TO FIFO_A UNIMPL"); break;
     case FIFO_B: bus_logger->debug("WRITING TO FIFO_B UNIMPL"); break;
-    case DMA0SAD: bus_logger->debug("WRITING TO DMA0SAD UNIMPL"); break;
-    case DMA0DAD: bus_logger->debug("WRITING TO DMA0DAD UNIMPL"); break;
-    case DMA0CNT_L: bus_logger->debug("WRITING TO DMA0CNT_L UNIMPL"); break;
-    case DMA0CNT_H: bus_logger->debug("WRITING TO DMA0CNT_H UNIMPL"); break;
-    case DMA1SAD: bus_logger->debug("WRITING TO DMA1SAD UNIMPL"); break;
-    case DMA1DAD: bus_logger->debug("WRITING TO DMA1DAD UNIMPL"); break;
-    case DMA1CNT_L: bus_logger->debug("WRITING TO DMA1CNT_L UNIMPL"); break;
-    case DMA1CNT_H: bus_logger->debug("WRITING TO DMA1CNT_H UNIMPL"); break;
-    case DMA2SAD: bus_logger->debug("WRITING TO DMA2SAD UNIMPL"); break;
-    case DMA2DAD: bus_logger->debug("WRITING TO DMA2DAD UNIMPL"); break;
-    case DMA2CNT_L: bus_logger->debug("WRITING TO DMA2CNT_L UNIMPL"); break;
-    case DMA2CNT_H: bus_logger->debug("WRITING TO DMA2CNT_H UNIMPL"); break;
+
+    case DMA0SAD ... DMA0SAD + 3: {
+      assert(ch0 != nullptr);
+      set_byte(ch0->src, address % 0x4, value);
+      break;
+    }
+     case DMA0DAD ... DMA0DAD + 3: {
+      set_byte(ch0->dst, address % 0x4, value);
+      break;
+    }
+
+    case DMA0CNT_L ... DMA0CNT_L + 1: {
+      set_byte(ch0->dmacnt_l.v, address % 0x2, value);
+      break;
+    }
+    case DMA0CNT_H ... DMA0CNT_H + 1: {
+      ch0->set_values_cnt_h(address % 0x2, value);
+      break;
+    }
+
+    case DMA1SAD ... DMA1SAD + 3: {
+      assert(ch1 != nullptr);
+      set_byte(ch1->src, address % 0x4, value);
+      break;
+    }
+    case DMA1DAD ... DMA1DAD + 3: {
+      set_byte(ch1->dst, address % 0x4, value);
+      break;
+    }
+
+    case DMA1CNT_L ... DMA1CNT_L + 1: {
+      set_byte(ch1->dmacnt_l.v, address % 0x2, value);
+      break;
+    }
+    case DMA1CNT_H ... DMA1CNT_H + 1: {
+      ch1->set_values_cnt_h(address % 0x2, value);
+      break;
+    }
+    
+    case DMA2SAD ... DMA2SAD + 3: {
+      assert(ch2 != nullptr);
+      set_byte(ch2->src, address % 0x4, value);
+      break;
+    }
+    case DMA2DAD ... DMA2DAD + 3: {
+      set_byte(ch2->dst, address % 0x4, value);
+      break;
+    }
+
+    case DMA2CNT_L ... DMA2CNT_L + 1: {
+      set_byte(ch2->dmacnt_l.v, address % 0x2, value);
+      break;
+    }
+    case DMA2CNT_H ... DMA2CNT_H + 1: {
+      ch2->set_values_cnt_h(address % 0x2, value);
+      break;
+    }
+
     case DMA3SAD ... DMA3SAD + 3: {
-      set_byte(dma_control.DMA3SAD.v, address % 0x4, value);
+      assert(ch3 != nullptr);
+      set_byte(ch3->src, address % 0x4, value);
       break;
     }
     case DMA3DAD ... DMA3DAD + 3: {
-      set_byte(dma_control.DMA3DAD.v, address % 0x4, value);
+      set_byte(ch3->dst, address % 0x4, value);
       break;
     }
+    
     case DMA3CNT_L ... DMA3CNT_L + 1: {
-      set_byte(dma_control.DMA3CNT_L.v, address % 0x2, value);
+      set_byte(ch3->dmacnt_l.v, address % 0x2, value);
       break;
     }
     case DMA3CNT_H ... DMA3CNT_H + 1: {
-      set_byte(dma_control.DMA3CNT_H.v, address % 0x2, value);
-
-      if (dma_control.DMA3CNT_H.dma_enable) {
-        fmt::println("dma3 fired");
-        // assert(dma_control.DMA3CNT_H.start_timing == 0);
-
-        if (dma_control.DMA3CNT_H.transfer_type == TRANSFER_TYPE::HALFWORD) {
-          transfer16(dma_control.DMA3SAD.src, dma_control.DMA3DAD.dst, dma_control.DMA3CNT_L.word_count);
-        } else {
-          transfer32(dma_control.DMA3SAD.src, dma_control.DMA3DAD.dst, dma_control.DMA3CNT_L.word_count);
-        }
-
-        // assert(0);
-        // dma_control.print_dma_info(3);
-        if (!dma_control.DMA3CNT_H.dma_repeat) dma_control.DMA3CNT_H.dma_enable = false;
-        if (dma_control.DMA3CNT_H.irq_at_end) { request_interrupt(InterruptType::DMA3); }
-      }
+      ch3->set_values_cnt_h(address % 0x2, value);
       break;
     }
     case TM0CNT_L: bus_logger->debug("WRITING TO TM0CNT_L UNIMPL"); break;

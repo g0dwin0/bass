@@ -2,7 +2,7 @@ CPPFLAGS = -g -Ilib/imgui -Ilib/imgui/backends -Ilib/ -Ilib/cli11 $(sdl2-config 
 OBJ_DIR = build/obj
 OBJ_IMGUI_PATH = $(OBJ_DIR)/imgui
 OBJS_IMGUI = $(OBJ_IMGUI_PATH)/imgui_demo.o $(OBJ_IMGUI_PATH)/imgui_draw.o $(OBJ_IMGUI_PATH)/imgui_impl_sdlrenderer2.o $(OBJ_IMGUI_PATH)/imgui_impl_sdl2.o $(OBJ_IMGUI_PATH)/imgui_tables.o $(OBJ_IMGUI_PATH)/imgui_widgets.o $(OBJ_IMGUI_PATH)/imgui.o
-OBJS = $(OBJ_DIR)/main.o $(OBJ_DIR)/frontend.o $(OBJ_DIR)/pak.o $(OBJ_DIR)/bass.o $(OBJ_DIR)/cpu.o $(OBJ_DIR)/arm.o $(OBJ_DIR)/bus.o $(OBJ_DIR)/ppu.o $(OBJ_DIR)/registers.o $(OBJ_DIR)/shifter.o $(OBJ_DIR)/arm_decode.o $(OBJ_DIR)/thumb_decode.o 
+OBJS = $(OBJ_DIR)/main.o $(OBJ_DIR)/frontend.o $(OBJ_DIR)/pak.o $(OBJ_DIR)/bass.o $(OBJ_DIR)/cpu.o $(OBJ_DIR)/arm.o $(OBJ_DIR)/bus.o $(OBJ_DIR)/ppu.o $(OBJ_DIR)/registers.o $(OBJ_DIR)/shifter.o $(OBJ_DIR)/arm_decode.o $(OBJ_DIR)/thumb_decode.o $(OBJ_DIR)/dma.o
 CC=g++-13
 # OBJS += $(OBJ_DIR)/sst.o 
 # CPPFLAGS += -DSST_TEST_MODE
@@ -43,7 +43,7 @@ $(OBJ_DIR)/registers.o: include/core/registers.hpp src/core/registers.cpp
 $(OBJ_DIR)/arm.o: src/core/instructions/arm.cpp include/core/instructions/arm.hpp src/core/registers.cpp 
 	$(CC) $(CPPFLAGS) -c src/core/instructions/arm.cpp -o $(OBJ_DIR)/arm.o
 
-$(OBJ_DIR)/bus.o: src/core/bus.cpp include/core/bus.hpp
+$(OBJ_DIR)/bus.o: src/core/bus.cpp include/core/bus.hpp src/core/dma.cpp include/core/dma.hpp 
 	$(CC) $(CPPFLAGS) -c src/core/bus.cpp -o $(OBJ_DIR)/bus.o 
 
 $(OBJ_DIR)/pak.o: src/core/pak.cpp include/core/pak.hpp
@@ -55,6 +55,8 @@ $(OBJ_DIR)/ppu.o: src/core/ppu.cpp include/core/ppu.hpp
 $(OBJ_DIR)/frontend.o: src/frontend/window.cpp include/frontend/window.hpp include/common.hpp
 	$(CC) $(CPPFLAGS) -c src/frontend/window.cpp -o $(OBJ_DIR)/frontend.o
 
+$(OBJ_DIR)/dma.o: src/core/dma.cpp include/core/dma.hpp
+	$(CC) $(CPPFLAGS) -c src/core/dma.cpp -o $(OBJ_DIR)/dma.o
 
 clean:
 	rm $(OBJS)
