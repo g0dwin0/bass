@@ -6,16 +6,18 @@
 #include "common.hpp"
 #include "common/defs.hpp"
 #include "common/test_structs.hpp"
+
 #include "labels.hpp"
 struct ARM7TDMI;
 #include "cpu.hpp"
 #include "enums.hpp"
-#include "io_defs.hpp"
 #include "pak.hpp"
-
 struct Bus;
 struct PPU;
 #include "ppu.hpp"
+
+struct DMAContext;
+#include "dma.hpp"
 
 struct Bus {
   enum class ACCESS_TYPE { SEQUENTIAL, NON_SEQUENTIAL };
@@ -42,15 +44,12 @@ struct Bus {
   std::shared_ptr<spdlog::logger> mem_logger = spdlog::stdout_color_mt("MEM");
   std::shared_ptr<spdlog::logger> dma_logger = spdlog::stdout_color_mt("DMA");
 
-  // internal cycle counter
   u64 cycles_elapsed = 0;
 
-  // components
   ARM7TDMI* cpu = nullptr;
   Pak* pak      = nullptr;
   PPU* ppu      = nullptr;
-
-  // loggers
+  DMAContext *ch0, *ch1, *ch2, *ch3 = nullptr;
 
   void request_interrupt(InterruptType type);
 
@@ -62,27 +61,9 @@ struct Bus {
   void write16(u32 address, u16 value);
   void write32(u32 address, u32 value);
 
-  inline void transfer16(const u32 src, const u32 dst, u32 word_count) {
-    if (word_count == 0) word_count = 0x10000;
-    for (size_t idx = 0; idx < word_count; idx++) {  // TODO: handle word count 0 edge case
-      // fmt::println("copying to {:#010x}", dst + (idx * 2));
-      write16(dst + (idx * 2), read16(src + (idx * 2)));
-    }
-    dma_logger->info("dma copied successfully");
-  }
-
-  inline void transfer32(const u32 src, const u32 dst, u32 word_count) {
-    if (word_count == 0) word_count = 0x10000;
-    for (size_t idx = 0; idx < word_count; idx++) {
-      write32(dst + (idx * 4), read32(src + (idx * 4)));
-    }
-    dma_logger->info("dma copied successfully");
-  }
-
   [[nodiscard]] u8 io_read(u32 address);
   void io_write(u32 address, u8 value);
 
-  void align_by_current_mode();
 
   struct {
     union {
@@ -384,13 +365,6 @@ struct Bus {
   } system_control = {};
 
   struct {
-    DMASAD DMA0SAD, DMA1SAD, DMA2SAD, DMA3SAD;
-    DMADAD DMA0DAD, DMA1DAD, DMA2DAD, DMA3DAD;
-    DMACNT_H DMA0CNT_H, DMA1CNT_H, DMA2CNT_H, DMA3CNT_H;
-    DMACNT_L DMA0CNT_L, DMA1CNT_L, DMA2CNT_L, DMA3CNT_L;
-
-    // DMAContext ch1, ch2, ch3, ch4;
-
   } dma_control = {};
 
   struct {
@@ -575,22 +549,21 @@ struct Bus {
     } SOUNDCNT_X;
 
   } sound_registers = {};
-  // struct {
-  //   union TIMER_COUNTER {
-  //     u16 v = 0;
-  //   } TM0CNT_L, TM1CNT_L, TM2CNT_L, TM3CNT_L;
 
-  //   union TIMER_CONTROL {
-  //     u16 v = 0;
-  //     struct {
-  //       PRESCALER_SEL prescaler_selection : 2;
-  //       bool countup_timing               : 1;
-  //       u8                                : 3;
-  //       bool timer_irq                    : 1;
-  //       bool timer_start                  : 1;
-  //       u8                                : 8;
-  //     };
-  //   } TM0CNT_H, TM1CNT_H, TM2CNT_H, TM3CNT_H;
+  struct {
+    u16 TM0CNT_L, TM1CNT_L, TM2CNT_L, TM3CNT_L = 0;
 
-  // } timer_fields = {};
+    union {
+      u16 v = 0;
+      struct {
+        PRESCALER_SEL prescaler_selection : 2;
+        bool countup_timing               : 1;
+        u8                                : 3;
+        bool timer_irq                    : 1;
+        bool timer_start                  : 1;
+        u8                                : 8;
+      };
+    } TM0CNT_H, TM1CNT_H, TM2CNT_H, TM3CNT_H;
+
+  } timer_fields = {};
 };

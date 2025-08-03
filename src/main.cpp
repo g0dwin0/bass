@@ -1,9 +1,7 @@
-#include <type_traits>
 #include "bass.hpp"
 #include "bus.hpp"
 #include "cli11/CLI11.hpp"
 #include "common.hpp"
-#include "spdlog/common.h"
 #include "window.hpp"
 
 
@@ -17,8 +15,8 @@ int handle_args(int& argc, char** argv, std::string& filename) {
 
 int main(int argc, char** argv) {
   std::string filename = {};
-  handle_args(argc, argv, filename);
-  
+  handle_args(argc, argv, filename); 
+
   // setup system thread
   Bass bass = {};
   Frontend f{&bass};
