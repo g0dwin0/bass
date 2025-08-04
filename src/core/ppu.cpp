@@ -6,12 +6,13 @@
 #include "common/defs.hpp"
 
 static constexpr u32 SCREEN_WIDTH = 512;
+static constexpr u32 BITMAP_MODE_PAGE_OFFSET = 0xA000;
 
 u32 PPU::get_color_by_index(u8 x, u8 palette_num, bool color_depth_is_8bpp) {
   u16 r = color_depth_is_8bpp ? bus->read16(PALETTE_RAM_BASE + (x * 2) + palette_num) : bus->read16(PALETTE_RAM_BASE + (x * 2) + (0x20 * palette_num));
 
   return BGR555toRGB888((r & 0xFF), (r >> 8) & 0xFF);
-  // return BGR555_TO_RGB888_LUT[(r & 0xFF) + ((r >> 8) & 0xFF)];
+  // return BGR555_TO_RGB888_LUT[r];
 }
 std::tuple<u16, u16> PPU::get_bg_offset(u8 bg) {
   switch (bg) {
@@ -49,7 +50,7 @@ void PPU::load_tiles(u8 bg, u8 color_depth) {
   }
 }
 u32 PPU::absolute_sbb(u8 bg, u8 map_x) {
-  assert(bg < 4);
+  // assert(bg < 4);
 
   switch (bg) {
     case 0: return VRAM_BASE + ((bus->display_fields.BG0CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
@@ -60,8 +61,6 @@ u32 PPU::absolute_sbb(u8 bg, u8 map_x) {
   }
 }
 u32 PPU::relative_cbb(u8 bg) {
-  // fmt::println("bg: {}", bg);
-  assert(bg < 4);
   switch (bg) {
     case 0: return (bus->display_fields.BG0CNT.CHAR_BASE_BLOCK * 0X4000);
     case 1: return (bus->display_fields.BG1CNT.CHAR_BASE_BLOCK * 0X4000);
@@ -72,8 +71,6 @@ u32 PPU::relative_cbb(u8 bg) {
 }
 
 bool PPU::background_enabled(u8 bg_id) {
-  assert(bg_id < 4);
-
   switch (bg_id) {
     case 0: return (bus->display_fields.DISPCNT.SCREEN_DISPLAY_BG0);
     case 1: return (bus->display_fields.DISPCNT.SCREEN_DISPLAY_BG1);
@@ -87,7 +84,9 @@ void PPU::step(bool called_manually) {
   //       At VBLANK, the framebuffer should be copied by whatever frontend and drawn onto the screen.
   switch (bus->display_fields.DISPCNT.BG_MODE) {
     case BG_MODE::MODE_0: {
-      if (called_manually) { break; }
+      if (called_manually) {
+        break;
+      }
 
       // TODO: do we really need this on the stack each single time?
       std::array<u8, 4> screen_sizes = {
@@ -229,7 +228,6 @@ void PPU::step(bool called_manually) {
             u8 tile_y = _ly / 8;
             u8 y      = _ly % 8;
 
-
             // for (size_t tile_y = 0; tile_y < 32; tile_y++) {
             for (size_t tile_x = 0; tile_x < 32; tile_x++) {
               const ScreenEntry& entry = tile_maps[bg][(tile_y * 64) + tile_x];
@@ -259,11 +257,10 @@ void PPU::step(bool called_manually) {
               }
             }
           }
-
         }
 
         if (LY > 160) continue;
-
+        //  In case that some or all BGs are set to same priority then BG0 is having the highest, and BG3 the lowest priority.
         auto [x_offset, y_offset] = get_bg_offset(bg);
         for (size_t x = 0; x < 240; x++) {
           u32 complete_x_offset = (x + x_offset) % 256;
@@ -280,7 +277,6 @@ void PPU::step(bool called_manually) {
       break;
     }
     case BG_MODE::MODE_3: {
-      
       for (size_t i = 0, j = 0; i < (240 * 160); i++, j += 2) {
         db.write(i, BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1)));
       }
@@ -289,13 +285,13 @@ void PPU::step(bool called_manually) {
       break;
     };
     case BG_MODE::MODE_4: {
-      const auto& LY = bus->display_fields.VCOUNT.LY;
+      const auto& LY   = bus->display_fields.VCOUNT.LY;
+      const auto& page = bus->display_fields.DISPCNT.DISPLAY_FRAME_SELECT;
 
       if (LY > 160) return;
 
       for (size_t i = 0; i < 240; i++) {
-        db.write(((LY * 240) + i), get_color_by_index(bus->VRAM.at((LY * 240) + i), 0, true));
-        // fmt::println("clr: {}", get_color_by_index(bus->VRAM.at((LY * 240) + i), 0, true));
+        db.write(((LY * 240) + i), get_color_by_index(bus->VRAM.at(((LY * 240) + i) + (BITMAP_MODE_PAGE_OFFSET * page)), 0, true));
       }
 
       db.request_swap();
