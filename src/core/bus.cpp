@@ -30,7 +30,9 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       return transaction.data;
     }
 
-    if (address == transaction.base_addr) { return transaction.opcode; }
+    if (address == transaction.base_addr) {
+      return transaction.opcode;
+    }
   }
 
   return address;
@@ -71,6 +73,10 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       break;
     }
 
+    case 0x07000000 ... 0x07FFFFFF: {
+      return *(uint8_t*)(&OAM.data()[(address % 0x400)]);
+    }
+
     case 0x08000000 ... 0x09FFFFFF: {
       // game pak read (ws0)
       v = pak->data.at(address - 0x08000000);
@@ -89,19 +95,24 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       break;
     }
 
+    case 0x0E000000 ... 0x0FFFFFFF: {
+      v = SRAM.at(address % 0x10000);
+      break;
+    }
+
     default: {
       // fmt::println("[R8] unused/oob memory read: {:#X}", address);
       return 0xFF;
     }
   }
 
-  // fmt::println("[R8] {:#010x} [{}] => {:#04x}", address, get_label(address), v);
+  // mem_logger->info("[R8] {:#010x} [{}] => {:#04x}", address, get_label(address), v);
   return v;
 
 #endif
 };
 u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
-  address = cpu->align(address, HALFWORD);
+  address = ARM7TDMI::align(address, HALFWORD);
 
 #ifdef SST_TEST_MODE
   fmt::println("requested [16] read at {:#010x}", address);
@@ -114,7 +125,9 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       return transaction.data;
     }
 
-    if (address == transaction.base_addr) { return transaction.opcode; }
+    if (address == transaction.base_addr) {
+      return transaction.opcode;
+    }
   }
 
   return address;
@@ -126,21 +139,16 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
       v = *(uint16_t*)(&BIOS.data()[address]);
-      // v = shift_16(BIOS, address);
       break;
     }
 
-    case 0x02000000 ... 0x0203FFFF: {
+    case 0x02000000 ... 0x02FFFFFF: {
       v = *(uint16_t*)(&EWRAM.data()[address % 0x40000]);
-      // v = shift_16(EWRAM, address - 0x02000000);
       break;
     }
 
     case 0x03000000 ... 0x03FFFFFF: {
       v = *(uint16_t*)(&IWRAM.data()[address % 0x8000]);
-      // v = shift_16(IWRAM, address - 0x03000000);
-      // if (address == 0x03FFFFFC) fmt::println("[R16] {:#010x} => {:#04x}", address, v);
-
       break;
     }
 
@@ -149,9 +157,6 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
         // fmt::println("[R16] io read: {:#010x} - [{}]", address + i, get_label(address + i));
         v |= (io_read(address + i) << (8 * i));
       }
-      // fmt::println("[R16] retval: {:#010x}", v);
-
-      // fmt::println("16 bit IO read");
       break;
     }
     case 0x05000000 ... 0x050003FF: {
@@ -163,9 +168,12 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       return *(uint16_t*)(&VRAM.data()[(address - 0x06000000)]);
     }
 
+    case 0x07000000 ... 0x07FFFFFF: {
+      return *(uint16_t*)(&OAM.data()[(address % 0x400)]);
+    }
+
     case 0x08000000 ... 0x09FFFFFF: {
       // game pak read (ws0)
-      // v = shift_16(pak->data, address - 0x08000000);
       v = *(uint16_t*)(&pak->data[address - 0x08000000]);
       break;
     }
@@ -183,17 +191,18 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     default: {
-      // fmt::println("[R16] unused/oob memory read: {:#X}", address);
       // TODO: implement open bus behaviour
+
       return 0xFFFF;
     }
   }
   // bus_logger->info("[R16] {:#010X} => {:#010x}", address, v);
+
   return v;
 #endif
 };
 u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
-  address = cpu->align(address, WORD);
+  address = ARM7TDMI::align(address, WORD);
 
 #ifdef SST_TEST_MODE
   fmt::println("requested [32] read at {:#010x}", address);
@@ -208,7 +217,9 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       return transaction.data;
     }
 
-    if (address == transaction.base_addr) { return transaction.opcode; }
+    if (address == transaction.base_addr) {
+      return transaction.opcode;
+    }
   }
   return address;
 
@@ -221,43 +232,29 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
       v = *(uint32_t*)(&BIOS.data()[address]);
-      // v = shift_32(BIOS, address);
       break;
     }
 
     case 0x02000000 ... 0x02FFFFFF: {
       v = *(uint32_t*)(&EWRAM.data()[address % 0x40000]);
-      // v = shift_32(EWRAM, address % 0x40000);
       break;
     }
 
     case 0x03000000 ... 0x03FFFFFF: {
       v = *(uint32_t*)(&IWRAM.data()[address % 0x8000]);
-      // v = shift_32(IWRAM, address % 0x8000);
-      // if (address == 0x03FFFFFC) fmt::println("[R32] {:#010x} => {:#04x}", address, v);
-
       break;
     }
 
     case 0x04000000 ... 0x040003FE: {
-      // fmt::println("trying to read io address [32]: {:#010x}", address);
-      // fmt::println("fun value: {}", fun_value);
-      // assert(0);
-      // u32 retval = 0;
       for (size_t i = 0; i < 4; i++) {
         // fmt::println("[R32] io read: {:#010x} - [{}]", address + i, get_label(address + i));
         v |= (io_read(address + i) << (8 * i));
       }
-      // fmt::println("[R32] retval: {:#010x}", v);
-      // fmt::println("[IO READ (32)] [{}] - {:#010x}", get_label(address), retval);
-      // return retva;
-      // v = handle_io_read(address);
       break;
     }
 
     case 0x05000000 ... 0x05FFFFFF: {
       // BG/OBJ Palette RAM
-      // v = shift_32(PALETTE_RAM, address % 0x400);
       v = *(uint32_t*)(&PALETTE_RAM.data()[address % 0x400]);
       break;
     }
@@ -269,16 +266,13 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case 0x07000000 ... 0x07FFFFFF: {
-      // v = shift_32(OAM, address % 0x400);
       v = *(uint32_t*)(&OAM.data()[address % 0x400]);
       break;
     }
 
     case 0x08000000 ... 0x09FFFFFF: {
       // game pak read (ws0)
-      // *(pak->data()
       v = *(uint32_t*)(&pak->data[address - 0x08000000]);
-      // v = shift_32(pak->data, address - 0x08000000);
       break;
     }
 
@@ -296,10 +290,10 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
     default: {
       // spdlog::warn("[R32] unused/oob memory read: {:#X}", address);
-      return 0xFFFFFFFF;  // TODO: implement open bus behavior
+      // TODO: implement open bus behavior
+      return 0xFFFFFFFF;
     }
   }
-
   // mem_logger->info("[R32] {} => {:#010x}", get_label(address), v);
   return v;
 #endif
@@ -310,15 +304,16 @@ void Bus::write8(u32 address, u8 value) {
   fmt::println("write [8] at {:#010x} -> {:#010x}", address, value);
   for (auto& transaction : transactions) {
     if (transaction.size != 1 || transaction.kind != WRITE) continue;
-    if (address == transaction.addr && value == transaction.data) { transaction.accessed = true; }
+    if (address == transaction.addr && value == transaction.data) {
+      transaction.accessed = true;
+    }
   }
   return;
 #else
 
   switch (address) {
-    case 0x02000000 ... 0x0203FFFF: {
-      EWRAM.at(address - 0x02000000) = value;
-      // set32(EWRAM, address - 0x02000000, value);
+    case 0x02000000 ... 0x02FFFFFF: {
+      EWRAM.at(address % 0x40000) = value;
       break;
     }
 
@@ -347,15 +342,16 @@ void Bus::write8(u32 address, u8 value) {
       return;
     }
 
-    case 0x07000000 ... 0X070003FF: {
-      // OAM
-      return;
-      OAM.at(address - 0x07000000) = value;
-      // set32(OAM, address - 0x07000000, value);
-      break;
-    }
+      // case 0x07000000 ... 0X070003FF: {
+      //   // OAM
+      //   return;
+      //   OAM.at(address - 0x07000000) = value;
+      //   // set32(OAM, address - 0x07000000, value);
+      //   break;
+      // }
 
-    case 0x0E000000 ... 0x0E00FFFF: {
+    case 0x0E000000 ... 0x0FFFFFFF: {
+      *(uint8_t*)(&SRAM.data()[(address % 0x10000)]) = value;
       break;
     }
 
@@ -365,7 +361,7 @@ void Bus::write8(u32 address, u8 value) {
       // break;
     }
   }
-    // mem_logger->info("[W8] {} => {:#x}", get_label(address), value);
+  mem_logger->info("[W8] {} => {:#x}", get_label(address), value);
 
 #endif
 }
@@ -423,10 +419,10 @@ void Bus::write16(u32 address, u16 value) {
       break;
     }
 
-    case 0x07000000 ... 0X070003FF: {
+    case 0x07000000 ... 0x07FFFFFF: {
       // OAM
-      // set16(OAM, address - 0x07000000, value);
-      *(uint16_t*)(&OAM.data()[address - 0x07000000]) = value;
+      ppu->state.oam_changed                     = true;
+      *(uint16_t*)(&OAM.data()[address % 0x400]) = value;
       break;
     }
 
@@ -497,13 +493,10 @@ void Bus::write32(u32 address, u32 value) {
       break;
     }
 
-    case 0x07000000 ... 0X070003FF: {
+    case 0x07000000 ... 0X07FFFFFF: {
       // OAM
       *(uint32_t*)(&OAM.data()[(address % 0x400)]) = value;
-      break;
-    }
-
-    case 0x0E000000 ... 0x0E00FFFF: {
+      ppu->state.oam_changed                       = true;
       break;
     }
 
@@ -731,7 +724,7 @@ u8 Bus::io_read(u32 address) {
       retval = read_byte(interrupt_control.IF.v, address % 2);
       break;
     }
-    case WAITCNT:  break;
+    case WAITCNT: break;
     case IME ... IME + 3: {
       retval = read_byte(interrupt_control.IME.v, address % 4);
       break;
@@ -752,7 +745,7 @@ u8 Bus::io_read(u32 address) {
     default: {
       // fmt::println("misaligned/partial read {:#08x} - [{}]", address, get_label(address));
       // assert(0);
-      break;
+      return 0;
     }
   }
   // fmt::println("[IO READ] {} => {:#010x}", get_label(address), retval);
@@ -1015,7 +1008,7 @@ void Bus::io_write(u32 address, u8 value) {
       set_byte(ch0->src, address % 0x4, value);
       break;
     }
-     case DMA0DAD ... DMA0DAD + 3: {
+    case DMA0DAD ... DMA0DAD + 3: {
       set_byte(ch0->dst, address % 0x4, value);
       break;
     }
@@ -1047,7 +1040,7 @@ void Bus::io_write(u32 address, u8 value) {
       ch1->set_values_cnt_h(address % 0x2, value);
       break;
     }
-    
+
     case DMA2SAD ... DMA2SAD + 3: {
       assert(ch2 != nullptr);
       set_byte(ch2->src, address % 0x4, value);
@@ -1076,7 +1069,7 @@ void Bus::io_write(u32 address, u8 value) {
       set_byte(ch3->dst, address % 0x4, value);
       break;
     }
-    
+
     case DMA3CNT_L ... DMA3CNT_L + 1: {
       set_byte(ch3->dmacnt_l.v, address % 0x2, value);
       break;
