@@ -63,6 +63,11 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       break;
     }
 
+    case 0x05000000 ... 0x05FFFFFF: {
+      // BG/OBJ Palette RAM
+      return *(uint8_t*)(&PALETTE_RAM.data()[address % 0x400]);
+    }
+
     case 0x06000000 ... 0x06017FFF: {
       // if (address >= 0x06018000 && display_fields.DISPCNT.BG_MODE >= 3) return 0;
       // u32 addr = address;
@@ -102,7 +107,8 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
     default: {
       // fmt::println("[R8] unused/oob memory read: {:#X}", address);
-      return 0xFF;
+      // return 0xFF;
+      return cpu->pipeline.fetch.opcode;
     }
   }
 
@@ -112,6 +118,7 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 #endif
 };
 u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
+  // u8 misaligned_by = address & ~1;
   address = ARM7TDMI::align(address, HALFWORD);
 
 #ifdef SST_TEST_MODE
@@ -159,7 +166,7 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       }
       break;
     }
-    case 0x05000000 ... 0x050003FF: {
+    case 0x05000000 ... 0x05FFFFFF: {
       // BG/OBJ Palette RAM
       return *(uint16_t*)(&PALETTE_RAM.data()[address % 0x400]);
     }
@@ -190,10 +197,16 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       break;
     }
 
+    case 0x0E000000 ... 0x0FFFFFFF: {
+      v = SRAM.at(address % 0x10000) * 0x0101;
+      break;
+    }
+
     default: {
       // TODO: implement open bus behaviour
 
-      return 0xFFFF;
+      // return 0xFFFF;
+      return cpu->pipeline.fetch.opcode;
     }
   }
   // bus_logger->info("[R16] {:#010X} => {:#010x}", address, v);
@@ -288,10 +301,13 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       break;
     }
 
+    case 0x0E000000 ... 0x0FFFFFFF: {
+      v = SRAM.at(address % 0x10000) * 0x01010101;
+      break;
+    }
+
     default: {
-      // spdlog::warn("[R32] unused/oob memory read: {:#X}", address);
-      // TODO: implement open bus behavior
-      return 0xFFFFFFFF;
+      return cpu->pipeline.fetch.opcode;
     }
   }
   // mem_logger->info("[R32] {} => {:#010x}", get_label(address), v);
@@ -328,27 +344,16 @@ void Bus::write8(u32 address, u8 value) {
       break;
     }
 
-    case 0x05000000 ... 0x050003FF: {
-      // BG/OBJ Palette RAM
-      return;
-      PALETTE_RAM.at(address - 0x05000000) = value;
-      // set32(PALETTE_RAM, address - 0x05000000, value);
-      break;
-    }
+    // case 0x05000000 ... 0x050003FF: {
+    //   // BG/OBJ Palette RAM
+    //   return;
+    // }
 
     case 0x06000000 ... 0x06017FFF: {
       // VRAM
       // assert(0);
       return;
     }
-
-      // case 0x07000000 ... 0X070003FF: {
-      //   // OAM
-      //   return;
-      //   OAM.at(address - 0x07000000) = value;
-      //   // set32(OAM, address - 0x07000000, value);
-      //   break;
-      // }
 
     case 0x0E000000 ... 0x0FFFFFFF: {
       *(uint8_t*)(&SRAM.data()[(address % 0x10000)]) = value;
@@ -357,6 +362,7 @@ void Bus::write8(u32 address, u8 value) {
 
     default: {
       // spdlog::warn("[W8] unused/oob memory write: {:#X}", address);
+
       return;
       // break;
     }
@@ -406,11 +412,10 @@ void Bus::write16(u32 address, u16 value) {
       break;
     }
 
-    case 0x05000000 ... 0x050003FF: {
+    case 0x05000000 ... 0x05FFFFFF: {
       // BG/OBJ Palette RAM
-      // set16(PALETTE_RAM, address - 0x05000000, value);
-      *(uint16_t*)(&PALETTE_RAM.data()[address - 0x05000000]) = value;
-      break; /*  */
+      *(uint16_t*)(&PALETTE_RAM.data()[address % 0x400]) = value;
+      break;
     }
 
     case 0x06000000 ... 0x06017FFF: {
@@ -421,8 +426,8 @@ void Bus::write16(u32 address, u16 value) {
 
     case 0x07000000 ... 0x07FFFFFF: {
       // OAM
-      ppu->state.oam_changed                     = true;
       *(uint16_t*)(&OAM.data()[address % 0x400]) = value;
+      ppu->state.oam_changed                     = true;
       break;
     }
 
