@@ -149,8 +149,6 @@ struct PPU {
   bool background_enabled(u8 bg_id);
   std::string get_obj_size_string(const OAM_Entry&);
   Tile get_obj_tile_by_tile_index(u16, COLOR_MODE);
-  Tile get_obj_tile_by_tile_index_one_dimensional_idx(u16, COLOR_MODE);
-
   // Returns object height measured by the amount of TILES
   u8 get_obj_height(const OAM_Entry&);
 
