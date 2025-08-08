@@ -35,13 +35,17 @@ void PPU::repopulate_objs() {
 
     assert(entry.is_8bpp != true);
 
+    u32 current_charname = 0;
+
     for (size_t tile_y = 0; tile_y < obj_height; tile_y++) {
       for (size_t tile_x = 0; tile_x < obj_width; tile_x++) {
         if (bus->display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == Bus::_1D) {
-          current_tile = get_obj_tile_by_tile_index_one_dimensional_idx((entry.char_name + tile_x + (tile_y * 8)) % 1024, entry.is_8bpp ? BPP8 : BPP4);
+          current_charname = (entry.char_name + tile_x + (tile_y * 8)) % 1024;
         } else {
-          current_tile = get_obj_tile_by_tile_index((entry.char_name + tile_x + (tile_y * 32)) % 1024, entry.is_8bpp ? BPP8 : BPP4);
+          current_charname = (entry.char_name + tile_x + (tile_y * 32)) % 1024;
         }
+
+        current_tile = get_obj_tile_by_tile_index(current_charname, entry.is_8bpp ? BPP8 : BPP4);
         // fmt::println("TILE X: {} -- TILE Y: {} -- ENTRY ID: {}", tile_x, tile_y, (entry.char_name + tile_x + (tile_y * 8)) % 1024);
 
         for (size_t y = 0; y < 8; y++) {
@@ -566,29 +570,4 @@ void PPU::step(bool called_manually) {
       break;
     }
   }
-}
-
-Tile PPU::get_obj_tile_by_tile_index_one_dimensional_idx(u16 tile_id, COLOR_MODE color_mode) {
-  // u32 address = OBJ_DATA_BASE_ADDR + (tile_index*)
-  // ppu_logger->info("fetching tile index: {}", tile_id);
-
-  u8 x = 0;
-  Tile tile;
-  if (color_mode == BPP4) {
-    for (size_t byte = 0; byte < 32; byte++) {
-      if (x == 8) x = 0;
-      // fmt::println("reading from: {:#010x}", VRAM_BASE + (OBJ_DATA_OFFSET + (tile_id *0x20) + byte));
-
-      tile[((byte / 4) * 8) + x]       = bus->VRAM.at(OBJ_DATA_OFFSET + (tile_id * 0x20) + byte) & 0x0F;         // X = 0
-      tile[((byte / 4) * 8) + (x + 1)] = (bus->VRAM.at(OBJ_DATA_OFFSET + (tile_id * 0x20) + byte) & 0xF0) >> 4;  // X = 1
-      x += 2;
-    }
-  } else {
-    assert(0 && "hey, this is broken :-)");
-    for (size_t byte = 0; byte < 64; byte++) {  // BROKEN
-      tile[((byte / 8) * 8)] = bus->VRAM.at(OBJ_DATA_OFFSET + (tile_id * 0x40) + byte);
-    }
-  }
-
-  return tile;
 }
