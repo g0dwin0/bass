@@ -93,10 +93,10 @@ InstructionInfo ARM7TDMI::decode(InstructionInfo& instr) {
 InstructionInfo ARM7TDMI::fetch(u32 address) {
   InstructionInfo instr = {};
   instr.opcode          = regs.CPSR.STATE_BIT == THUMB_MODE ? bus->read16(address) : bus->read32(address);
-  // instr.loc    = address;
+  
+  if(address <= 0x3FFF) bus->bios_open_bus = instr.opcode;
 
   instr.empty = false;
-  // fmt::println("{:#x}",address);
   return instr;
 }
 
@@ -114,7 +114,7 @@ inline void ARM7TDMI::handle_interrupts() {
     regs.CPSR.irq_disable = true;
 
     regs.get_reg(14) = cpu_mode == ARM_MODE ? regs.r[15] - 4 : regs.r[15];
-    // regs.SPSR_svc    = cpsr;
+    
     regs.SPSR_irq    = cpsr;
     
     regs.r[15]       = IRQ_VECTOR;
