@@ -104,6 +104,13 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case 0x0E000000 ... 0x0FFFFFFF: {
+      if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000000) return 0x62;
+      if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000001) return 0x13;
+
+      if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000000) return 0x32;
+      if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000001) return 0x1B;
+      // TODO: ^^^^^^^^ Flash stub -- remove when flash implementation is done ^^^^^^^^
+
       v = SRAM.at(address % 0x10000);
       break;
     }
