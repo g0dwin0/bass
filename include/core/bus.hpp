@@ -6,7 +6,6 @@
 #include "common.hpp"
 #include "common/defs.hpp"
 #include "common/test_structs.hpp"
-
 #include "labels.hpp"
 struct ARM7TDMI;
 #include "cpu.hpp"
@@ -34,7 +33,10 @@ struct Bus {
   std::vector<u8> SRAM;
   std::vector<Transaction> transactions;
 
+  u32 bios_open_bus = 0;
+
   Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) {
+    std::fill(SRAM.begin(), SRAM.end(), 0xFF);
     BIOS = read_file("roms/gba_bios.bin");
     bus_logger->set_level(spdlog::level::off);
     mem_logger->set_level(spdlog::level::off);
@@ -64,6 +66,7 @@ struct Bus {
   [[nodiscard]] u8 io_read(u32 address);
   void io_write(u32 address, u8 value);
 
+  enum MAPPING_MODE : u8 { _1D = 1, _2D = 0 };
 
   struct {
     union {
@@ -73,7 +76,7 @@ struct Bus {
         u8                         : 1;
         u8 DISPLAY_FRAME_SELECT    : 1;
         u8 HBLANK_INTERVAL_FREE    : 1;
-        u8 OBJ_CHAR_VRAM_MAPPING   : 1;
+        u8 OBJ_CHAR_VRAM_MAPPING   : 1;  // 0 = 2D, 1 = 1D
         u8 FORCED_BLANK            : 1;
         u8 SCREEN_DISPLAY_BG0      : 1;
         u8 SCREEN_DISPLAY_BG1      : 1;
@@ -363,9 +366,6 @@ struct Bus {
     u8 POSTFLG = 0;
 
   } system_control = {};
-
-  struct {
-  } dma_control = {};
 
   struct {
     union {

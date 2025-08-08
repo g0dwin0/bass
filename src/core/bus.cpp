@@ -6,6 +6,7 @@
 #include "common/test_structs.hpp"
 #include "enums.hpp"
 #include "labels.hpp"
+#include "pak.hpp"
 #include "registers.hpp"
 
 void Bus::request_interrupt(InterruptType t) { interrupt_control.IF.v |= (1 << (u8)t); }
@@ -41,8 +42,12 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
-      // BIOS read
-      v = BIOS.at(address);
+      if (cpu->regs.r[15] > 0x00003FFF) {
+        v = bios_open_bus;
+      } else {
+        // BIOS read
+        v = BIOS.at(address);
+      }
       break;
     }
 
@@ -52,9 +57,7 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case 0x03000000 ... 0x03FFFFFF: {
-      // v = shift_16(IWRAM, address - 0x03000000);
       v = IWRAM.at(address % 0x8000);
-      // if (address == 0x03FFFFFC) fmt::println("[R8] {:#010x} => {:#04x}", address, v);
       break;
     }
 
@@ -145,7 +148,11 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      v = *(uint16_t*)(&BIOS.data()[address]);
+      if (cpu->regs.r[15] > 0x00003FFF) {
+        v = bios_open_bus;
+      } else {
+        v = *(uint16_t*)(&BIOS.data()[address]);
+      }
       break;
     }
 
@@ -198,7 +205,7 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case 0x0E000000 ... 0x0FFFFFFF: {
-      v = SRAM.at(address % 0x10000) * 0x0101;
+      v = (SRAM.at(address % 0x10000) * 0x0101) ;
       break;
     }
 
@@ -215,6 +222,7 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 #endif
 };
 u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
+  // u8 misaligned_by = (address % ~3);
   address = ARM7TDMI::align(address, WORD);
 
 #ifdef SST_TEST_MODE
@@ -244,7 +252,11 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
   switch (address) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
-      v = *(uint32_t*)(&BIOS.data()[address]);
+      if (cpu->regs.r[15] > 0x00003FFF) {
+        v = bios_open_bus;
+      } else {
+        v = *(uint32_t*)(&BIOS.data()[address]);
+      }
       break;
     }
 
@@ -344,14 +356,19 @@ void Bus::write8(u32 address, u8 value) {
       break;
     }
 
-    // case 0x05000000 ... 0x050003FF: {
-    //   // BG/OBJ Palette RAM
-    //   return;
-    // }
+    case 0x05000000 ... 0x05FFFFFF: {
+      // BG/OBJ Palette RAM
+      PALETTE_RAM.at((address & ~1) % 0x400)       = value;
+      PALETTE_RAM.at(((address & ~1) + 1) % 0x400) = value;
+
+      return;
+    }
 
     case 0x06000000 ... 0x06017FFF: {
       // VRAM
       // assert(0);
+      // PALETTE_RAM.at((address & ~1) % 0x400)       = value;
+      // PALETTE_RAM.at(((address & ~1) + 1) % 0x400) = value;
       return;
     }
 
@@ -761,7 +778,13 @@ void Bus::io_write(u32 address, u8 value) {
   // fmt::println("write: {:#010x}", address);
   switch (address) {
     case DISPCNT ... DISPCNT + 1: {
+      auto old_mapping_mode = display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING;
       set_byte(display_fields.DISPCNT.v, address % 2, value);
+      auto new_mapping_mode = display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING;
+
+      ppu->state.mapping_mode_changed = old_mapping_mode != new_mapping_mode;
+      if(ppu->state.mapping_mode_changed) fmt::println("mode changed");
+
       bus_logger->debug("NEW DISPCNT: {:#010x}", display_fields.DISPCNT.v);
       break;
     }
