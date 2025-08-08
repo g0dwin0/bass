@@ -3,7 +3,7 @@
 #include <unordered_map>
 
 #include "common.hpp"
-
+// https://problemkaputt.de/gbatek.htm#gbaiomap -- should be all (incl. unknown ones from mGBA suite tests)
 enum REG : u32 {
   DISPCNT    = 0x4000000,  //   LCD Control
   GREEN_SWAP = 0x4000002,  //   Undocumented - Green Swap
