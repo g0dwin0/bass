@@ -6,10 +6,10 @@
 #include "dma.hpp"
 struct Bass {
     
-  ARM7TDMI cpu;
-  PPU ppu;
-  Bus bus;
-  Pak pak;
+  ARM7TDMI cpu = {};
+  PPU ppu = {};
+  Bus bus = {};
+  Pak pak = {};
 
   std::array<DMAContext*, 4> dma_channels;
   
