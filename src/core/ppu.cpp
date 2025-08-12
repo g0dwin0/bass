@@ -33,7 +33,7 @@ void PPU::repopulate_objs() {
     auto obj_width  = get_obj_width(entry);
     auto obj_height = get_obj_height(entry);
 
-    assert(entry.is_8bpp != true);
+    // assert(entry.is_8bpp != true);
 
     u32 current_charname = 0;
 
@@ -46,7 +46,6 @@ void PPU::repopulate_objs() {
         }
 
         current_tile = get_obj_tile_by_tile_index(current_charname, entry.is_8bpp ? BPP8 : BPP4);
-        // fmt::println("TILE X: {} -- TILE Y: {} -- ENTRY ID: {}", tile_x, tile_y, (entry.char_name + tile_x + (tile_y * 8)) % 1024);
 
         for (size_t y = 0; y < 8; y++) {
           for (size_t x = 0; x < 8; x++) {
@@ -216,7 +215,7 @@ Tile PPU::get_obj_tile_by_tile_index(u16 tile_id, COLOR_MODE color_mode) {
       x += 2;
     }
   } else {
-      assert(0 && "hey, this is broken :-)");
+    // assert(0 && "hey, this is broken :-)");
     for (size_t byte = 0; byte < 64; byte++) {
       tile[((byte / 8) * 8)] = bus->VRAM[OBJ_DATA_OFFSET + (tile_id * 0x40) + byte];
     }
@@ -295,24 +294,25 @@ void PPU::step(bool called_manually) {
           case 0: {
             // [0]
             u8 map_x = 0;
+            // let's calculate tile y beforehand...
+            u8 tile_y = LY / 8;
 
             // TODO: probably shouldn't re-populate screenblock entry map every single scanline -- expensive
-            for (size_t tile_y = 0; tile_y < 32; tile_y++) {
-              for (size_t tile_x = 0; tile_x < 32; tile_x++) {
-                u32 dest = (tile_y * 64) + tile_x;
-                //  + (map_x * 32);
-                assert(map_x == 0);
+            // for (size_t tile_y = 0; tile_y < 32; tile_y++) {
+            for (size_t tile_x = 0; tile_x < 32; tile_x++) {
+              u32 dest = (tile_y * 64) + tile_x;
 
-                tile_maps[bg][dest] = ScreenBlockEntry{
-                    // avoid read16, use VRAM directly
-                    .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
-                };
+              tile_maps[bg][dest] = ScreenBlockEntry{
+                  .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
+                  // .v = bus->VRAM.at((absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)) - VRAM_BASE),  // should be able to directly access vram, bus adds alot of overhead
 
-                // fmt::println("addr: {:#010x}", absolute_sbb(map_x) + ((tile_x + (tile_y * 32)) * 2));
+              };
 
-                // ScreenEntry{.v = bus->read16(VRAM_BASE + (se_index(tile_x, tile_y, 0x800)))};
-              }
-            };
+              // fmt::println("addr: {:#010x}", absolute_sbb(map_x) + ((tile_x + (tile_y * 32)) * 2));
+
+              // ScreenEntry{.v = bus->read16(VRAM_BASE + (se_index(tile_x, tile_y, 0x800)))};
+            }
+            // };
             // assert(0);
             break;
           }
@@ -339,7 +339,7 @@ void PPU::step(bool called_manually) {
             assert(0);
             break;
           }
-          case 3: {
+          case 3: {  // REFACTOR: reloading the entire tilemap every scanline is unnecessarily expensive
             // [0][1]
             // [2][3]
             for (size_t map_x = 0; map_x < 4; map_x++) {
@@ -388,6 +388,9 @@ void PPU::step(bool called_manually) {
           for (size_t x = 0; x < 8; x++) {
             auto clr = get_color_by_index(tile[(y * 8) + x], entry.PAL_BANK, bg_bpp[bg]);
 
+            // Palette Index = 0 -- if so save entry in the transparency map. Used during composition
+            transparency_maps[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = (tile[(y * 8) + x] == 0) ? true : false;
+
             tile_map_texture_buffer_arr[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = clr;
           }
         }
@@ -426,6 +429,9 @@ void PPU::step(bool called_manually) {
               for (size_t x = 0; x < 8; x++) {
                 auto clr = get_color_by_index(tile[(y * 8) + x], screen_entry.PAL_BANK, bg_bpp[bg]);
 
+                // Palette Index = 0 -- if so save entry in the transparency map. Used during composition
+                transparency_maps[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = (tile[(y * 8) + x] == 0);
+
                 tile_map_texture_buffer_arr[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = clr;
               }
             }
@@ -434,122 +440,124 @@ void PPU::step(bool called_manually) {
 
         if (LY > 159) continue;
         //  In case that some or all BGs are set to same priority then BG0 is having the highest, and BG3 the lowest priority.
-        auto [x_offset, y_offset] = get_bg_offset(bg);
+      }
+
+      if (LY > 159) return;
+      // ====================================   bg composition ====================================
+      std::vector<Item> active_bgs = {};
+
+      // determine priority
+      for (u8 bg = 0; bg < 4; bg++) {
+        if (!background_enabled(bg)) continue;
+        active_bgs.push_back({bg, get_bg_prio(bg)});
+      }
+
+      std::sort(active_bgs.begin(), active_bgs.end(), [](const Item& a, const Item& b) {
+        // if (a.bg_prio != b.bg_prio) return a.bg_prio < b.bg_prio;  // primary
+        return a.bg_id < b.bg_id;  // tiebreaker 2
+      });
+
+      for (const auto& bg : active_bgs) {
+
+        auto [x_offset, y_offset] = get_bg_offset(bg.bg_id);
         for (size_t x = 0; x < 240; x++) {
           u32 complete_x_offset = (x + x_offset) % 256;
           u32 complete_y_offset = ((LY + y_offset) % 256) * 512;
 
           assert((complete_x_offset + complete_y_offset) < 256 * 512);
 
-          // if (transparency_maps[bg][(complete_x_offset + complete_y_offset)]) continue;
-// fmt::println("LY: {}", LY);
-// fmt::println("MVP: {}", MAIN_VIEWPORT_PITCH);
-// fmt::println("x: {}", x);
-
-
-          db.write((LY * MAIN_VIEWPORT_PITCH) + x, tile_map_texture_buffer_arr[bg][(complete_x_offset + complete_y_offset)]);
+          db.write((LY * MAIN_VIEWPORT_PITCH) + x, tile_map_texture_buffer_arr[bg.bg_id][(complete_x_offset + complete_y_offset)]);
         }
       }
 
-      // process sprites
-      if (state.oam_changed) {  // reload oam
-        std::memcpy(entries.data(), bus->OAM.data(), 0x400);
-        state.oam_changed = false;
-        repopulate_objs();  // TODO: a write to change 1 entry will lead to us re-populating the entire table -- re-populate by index
-      }
+      /*
+            // process sprites
+            if (state.oam_changed) {  // reload oam
+              std::memcpy(entries.data(), bus->OAM.data(), 0x400);
+              state.oam_changed = false;
+              repopulate_objs();  // TODO: a write to change 1 entry will lead to us re-populating the entire table -- re-populate by index
+            }
 
-      if (state.mapping_mode_changed) {
-        repopulate_objs();
-        state.mapping_mode_changed = false;
-      }
+            if (state.mapping_mode_changed) {
+              repopulate_objs();
+              state.mapping_mode_changed = false;
+            }
 
-      if (LY > 159) return;
-      // const auto& mapping_mode = bus->display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING;
-      for (size_t entry_idx = 127; entry_idx > 0; entry_idx--) {
-        const auto& oam_entry = entries.at(entry_idx);
-        // if (entry.y != LY) continue;  // obj is not on the current line
-        if (oam_entry.y > LY) continue;                                          // not on scanline where we're supposed to draw the sprite
-        if ((oam_entry.y + (get_obj_height(oam_entry) * 7) - 1) < LY) continue;  // we've passed the scanline
-        if (oam_entry.obj_disable_double_sz_flag) continue;                      // obj is disabled
-        if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED) continue;                // obj has a probihibted mode
-        if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;              // obj is probihibted shape
+            // const auto& mapping_mode = bus->display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING;
+            for (size_t entry_idx = 0; entry_idx < 128; entry_idx++) {
+              const auto& oam_entry = entries.at(entry_idx);
+              // if (entry.y != LY) continue;  // obj is not on the current line
+              if (oam_entry.y > LY) continue;                                      // not on scanline where we're supposed to draw the sprite
+              if ((oam_entry.y + (get_obj_height(oam_entry) * 8)) < LY) continue;  // we've passed the last scanline
+              if (oam_entry.obj_disable_double_sz_flag) continue;                  // obj is disabled
+              if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED) continue;            // obj has a probihibted mode
+              if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;          // obj is probihibted shape
 
-        // ppu_logger->info("drawing OBJ with charname of: {}", entry.char_name);
-        // ppu_logger->info("OBJ X: {}", entry.x);
-        // ppu_logger->info("OBJ Y: {}", entry.y);
-        // ppu_logger->info("OBJ shape: {}", entry.obj_shape == OBJ_SHAPE::SQUARE ? "square" : "not a square");
-        // ppu_logger->info("OBJ H-Flip: {}", entry.horizontal_flip == FLIP::MIRRORED);
-        // ppu_logger->info("OBJ V-Flip: {}", entry.vertical_flip == FLIP::MIRRORED);
-        // ppu_logger->info("OBJ is 8bpp: {}", entry.is_8bpp == 1);
-        // ppu_logger->info("OBJ palette bank: {}", entry.pal_number);
-        // ppu_logger->info("OBJ size: {}", get_obj_size_string(entry));
-        // ppu_logger->info("current mapping mode: {}", mapping_mode ? "1D" : "2D");
-        if (LY == 0) continue;
-        if (oam_entry.y == 0) continue;
+              // ppu_logger->info("drawing OBJ with charname of: {}", entry.char_name);
+              // ppu_logger->info("OBJ X: {}", entry.x);
+              // ppu_logger->info("OBJ Y: {}", entry.y);
+              // ppu_logger->info("OBJ shape: {}", entry.obj_shape == OBJ_SHAPE::SQUARE ? "square" : "not a square");
+              // ppu_logger->info("OBJ H-Flip: {}", entry.horizontal_flip == FLIP::MIRRORED);
+              // ppu_logger->info("OBJ V-Flip: {}", entry.vertical_flip == FLIP::MIRRORED);
+              // ppu_logger->info("OBJ is 8bpp: {}", entry.is_8bpp == 1);
+              // ppu_logger->info("OBJ palette bank: {}", entry.pal_number);
+              // ppu_logger->info("OBJ size: {}", get_obj_size_string(entry));
+              // ppu_logger->info("current mapping mode: {}", mapping_mode ? "1D" : "2D");
+              if (LY == 0) continue;
+              if (oam_entry.y == 0) continue;
 
-        auto char_name = oam_entry.char_name;
-        // fmt::println("LY: {}", LY);
-        // fmt::println("Entry.Y: {}", entry.y);
+              auto char_name = oam_entry.char_name;
+              // fmt::println("LY: {}", LY);
+              // fmt::println("Entry.Y: {}", entry.y);
 
-        u8 tile_y = (LY - oam_entry.y) / 8;
+              u8 tile_y = (LY - oam_entry.y) / 8;
 
-        (void)char_name;
-        (void)tile_y;
+              (void)char_name;
+              (void)tile_y;
 
-        u8 y_relative_to_top_of_obj = (LY - oam_entry.y);
-        // Tile current_tile;
+              u8 y_relative_to_top_of_obj = (LY - oam_entry.y);
+              // Tile current_tile;
 
-        auto obj_width  = get_obj_width(oam_entry);
-        auto obj_height = get_obj_height(oam_entry);
+              auto obj_width  = get_obj_width(oam_entry);
+              auto obj_height = get_obj_height(oam_entry);
 
-        (void)obj_height;
+              (void)obj_height;
 
-        for (size_t tile_x = 0; tile_x < obj_width; tile_x++) {
-          for (u8 pixel_x = 0; pixel_x < 8; pixel_x++) {
-            const auto& palette_index_of_pixel = objs[entry_idx].data.at(((y_relative_to_top_of_obj) * 64) + (tile_x * 8) + pixel_x);
+              for (size_t tile_x = 0; tile_x < obj_width; tile_x++) {
+                for (u8 pixel_x = 0; pixel_x < 8; pixel_x++) {
+                  const auto& palette_index_of_pixel = objs[entry_idx].data.at(((y_relative_to_top_of_obj) * 64) + (tile_x * 8) + pixel_x);
 
-            if (palette_index_of_pixel == 0) continue;  // transparent -- skip, color will be that of the whatever is behind it.
+                  if (palette_index_of_pixel == 0) continue;  // transparent -- skip, color will be that of the whatever is behind it.
 
-            auto clr = get_obj_color_by_index(palette_index_of_pixel, oam_entry.pal_number, oam_entry.is_8bpp);
-            /*
+                  auto clr = get_obj_color_by_index(palette_index_of_pixel, oam_entry.pal_number, oam_entry.is_8bpp);
 
-            [00][01][02][03][04][05][06][07]
-            [08][09][10][11][12][13][14][15]
-            [00][01][02][03][04][05][06][07]
-            [00][01][02][03][04][05][06][07]
-            [00][01][02][03][04][05][06][07]
-            [00][01][02][03][04][05][06][07]
+                  // entry.x
+                  u32 line_height                                                        = (oam_entry.y + y_relative_to_top_of_obj) * 256;
+                  obj_texture_buffer[line_height + oam_entry.x + (tile_x * 8) + pixel_x] = clr;
+
+                  if ((LY * MAIN_VIEWPORT_PITCH) + oam_entry.x + (tile_x * 8) + pixel_x >= 240 * 160) continue;
+
+                  db.write((LY * MAIN_VIEWPORT_PITCH) + oam_entry.x + (tile_x * 8) + pixel_x, clr);
+                }
+              }
+              // fmt::print("\n");
+            }
 
             */
-            // entry.x
-            u32 line_height                                                        = (oam_entry.y + y_relative_to_top_of_obj) * 256;
-            obj_texture_buffer[line_height + oam_entry.x + (tile_x * 8) + pixel_x] = clr;
-            // fmt::println("LY = {}", LY);
-            // fmt::println("MVP = {}", MAIN_VIEWPORT_PITCH);
-            // fmt::println("oam_entry.x = {}", oam_entry.x);
-            // fmt::println("tile_x = {}", tile_x);
-            // fmt::println("pixel_x: {}",  pixel_x);
-            
-            if((LY * MAIN_VIEWPORT_PITCH) + oam_entry.x + (tile_x * 8) + pixel_x >= 240*160) continue;
-            db.write((LY * MAIN_VIEWPORT_PITCH) + oam_entry.x + (tile_x * 8) + pixel_x, clr);
-            // [line_height + entry.x + (tile_x * 8) + pixel_x] = clr;
-          }
-        }
-        // fmt::print("\n");
-      }
-
       break;
     }
 
     case BG_MODE::MODE_3: {
+      fmt::println("MODE_3");
       for (size_t i = 0, j = 0; i < (240 * 160); i++, j += 2) {
         db.write(i, BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1)));
       }
 
-      db.request_swap();
+      db.swap_buffers();
       break;
     };
     case BG_MODE::MODE_4: {
+      fmt::println("MODE_4");
       const auto& LY   = bus->display_fields.VCOUNT.LY;
       const auto& page = bus->display_fields.DISPCNT.DISPLAY_FRAME_SELECT;
 
@@ -559,7 +567,7 @@ void PPU::step(bool called_manually) {
         db.write(((LY * 240) + i), get_color_by_index(bus->VRAM.at(((LY * 240) + i) + (BITMAP_MODE_PAGE_OFFSET * page)), 0, true));
       }
 
-      db.request_swap();
+      db.swap_buffers();
 
       break;
     }
@@ -569,5 +577,15 @@ void PPU::step(bool called_manually) {
       assert(0);
       break;
     }
+  }
+}
+
+u8 PPU::get_bg_prio(u8 bg) {
+  switch (bg) {
+    case 0: return bus->display_fields.BG0CNT.BG_PRIORITY;
+    case 1: return bus->display_fields.BG1CNT.BG_PRIORITY;
+    case 2: return bus->display_fields.BG2CNT.BG_PRIORITY;
+    case 3: return bus->display_fields.BG3CNT.BG_PRIORITY;
+    default: assert(0);
   }
 }
