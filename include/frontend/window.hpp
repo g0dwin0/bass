@@ -13,6 +13,8 @@ struct State {
   SDL_Texture* backdrop         = nullptr;
   SDL_Texture* tile_set_texture = nullptr;
   SDL_Texture* tile_map_texture = nullptr;
+  SDL_Texture* obj_texture = nullptr;
+  
 
   std::array<SDL_Texture*, 4> background_textures{};
 
@@ -88,6 +90,7 @@ struct Frontend {
   void show_controls_menu(bool*);
   void show_irq_status();
   void show_tiles();
+  void show_obj();
 
   explicit Frontend(Bass*);
 
@@ -106,3 +109,4 @@ const inline std::unordered_map<KEY, std::string> buttons = {
     {    UP,     "UP"},
     {  DOWN,   "DOWN"},
 };
+
