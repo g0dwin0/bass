@@ -13,6 +13,11 @@ enum COLOR_MODE : u8 { BPP4 = 0, BPP8 = 1 };
 static constexpr u32 OBJ_DATA_BASE_ADDR = 0x06010000;
 static constexpr u32 OBJ_DATA_OFFSET    = 0x00010000;
 
+struct Item {
+  u8 bg_id;    // primary key
+  u8 bg_prio;  // first tiebreaker
+};
+
 // An entry in a map, representing the background.
 // Imagine a 32x32 map, where each entry has the properties described below. This is makes up the LAYOUT of the background
 // Not to be confused with the **tile set**, which contains the tiles, which are USED in the Screen Entry.
@@ -158,4 +163,6 @@ struct PPU {
   bool is_valid_obj(const OAM_Entry&);
 
   void repopulate_objs();
+
+  u8 get_bg_prio(u8);
 };
