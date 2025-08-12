@@ -322,7 +322,7 @@ InstructionInfo ARM7TDMI::thumb_decode(InstructionInfo& instr) {
         break;
       }
       case 3: {
-        if (MSBd != 0) { fmt::println("uhh?"); }
+        // if (MSBd != 0) { fmt::println("uhh?"); }
 
         instr.func_ptr = ARM::Instructions::BX;
         instr.Rn       = instr.Rs;

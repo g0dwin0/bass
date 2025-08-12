@@ -33,15 +33,22 @@ void Bass::set_ppu_interrupts() {
 
   if ((bus.cycles_elapsed % 197120 && bus.cycles_elapsed != 0) == 0) {  // Check for VBLANK
     bus.display_fields.DISPSTAT.set_vblank();
-    // bus.ppu->db.swap_bufs();
-    if (bus.display_fields.DISPSTAT.VBLANK_IRQ_ENABLE) { bus.request_interrupt(InterruptType::LCD_VBLANK); }
+    bus.ppu->db.swap_buffers();
+
+    stopwatch.end();
+    // fmt::println("Frametime: {}ms", (stopwatch.duration.count()));
+
+    if (bus.display_fields.DISPSTAT.VBLANK_IRQ_ENABLE) {
+      bus.request_interrupt(INTERRUPT_TYPE::LCD_VBLANK);
+    }
   }
 
   if ((bus.cycles_elapsed % 960 && bus.cycles_elapsed != 0) == 0) {
     bus.display_fields.DISPSTAT.set_hblank();
-    // fmt::println("hblank set");
 
-    if (bus.display_fields.DISPSTAT.HBLANK_IRQ_ENABLE) { bus.request_interrupt(InterruptType::LCD_HBLANK); }
+    if (bus.display_fields.DISPSTAT.HBLANK_IRQ_ENABLE) {
+      bus.request_interrupt(INTERRUPT_TYPE::LCD_HBLANK);
+    }
   }
 
   if ((bus.cycles_elapsed % 1232) == 0 && bus.cycles_elapsed != 0) {  // Check if we're on a new scanline
@@ -57,7 +64,10 @@ void Bass::set_ppu_interrupts() {
     if (bus.display_fields.VCOUNT.LY == bus.display_fields.DISPSTAT.LYC) {
       bus.display_fields.DISPSTAT.VCOUNT_MATCH_FLAG = 1;
 
-      if (bus.display_fields.DISPSTAT.V_COUNTER_IRQ_ENABLE) { bus.request_interrupt(InterruptType::LCD_VCOUNT_MATCH); }
+      if (bus.display_fields.DISPSTAT.V_COUNTER_IRQ_ENABLE) {
+        bus.request_interrupt(INTERRUPT_TYPE::LCD_VCOUNT_MATCH);
+      }
+      
     } else {
       bus.display_fields.DISPSTAT.VCOUNT_MATCH_FLAG = 0;
     }

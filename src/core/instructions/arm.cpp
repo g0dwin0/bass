@@ -145,7 +145,7 @@ void ARM::Instructions::SUB(ARM7TDMI& c, InstructionInfo& instr) {
 
   c.regs.get_reg(instr.Rd) = result;
 
-  if (instr.Rd == 15) {  // TODO: align
+  if (instr.Rd == 15) {
     c.regs.get_reg(instr.Rd) = c.align_by_current_mode(c.regs.get_reg(instr.Rd));
     c.flush_pipeline();
   }
@@ -383,9 +383,11 @@ void ARM::Instructions::STR(ARM7TDMI& c, InstructionInfo& instr) {
   if (instr.P == 0) {  // P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
 
     if (instr.B) {  // B - Byte/Word bit (0=transfer 32bit/word, 1=transfer 8bit/byte)
-      c.bus->write8(address, value);
+      c.bus->write8(address, value); // I ended up moving the force-alignment code into my Bus class and not doing it for SRAM accesses
     } else {
-      c.bus->write32(c.align(address, WORD), value);
+      // c.bus->write32(c.align(address, WORD), value);
+      c.bus->write32(address, value);
+      
     }
 
     if (instr.U) {  // U - Up/Down Bit (0=down; subtract offset from base, 1=up; add to base)
@@ -405,7 +407,7 @@ void ARM::Instructions::STR(ARM7TDMI& c, InstructionInfo& instr) {
     if (instr.B) {  // B - Byte/Word bit (0=transfer 32bit/word, 1=transfer 8bit/byte)
       c.bus->write8(address, value);
     } else {
-      c.bus->write32(c.align(address, WORD), value);
+      c.bus->write32(address, value);
     }
   }
 
@@ -560,7 +562,7 @@ void ARM::Instructions::RSC(ARM7TDMI& c, InstructionInfo& instr) {
 
   c.regs.get_reg(instr.Rd) = result;
 
-  if (instr.Rd == 15) {  // TODO: align this
+  if (instr.Rd == 15) {
     c.regs.get_reg(instr.Rd) = c.align_by_current_mode(c.regs.get_reg(instr.Rd));
     c.flush_pipeline();
   }
@@ -1587,7 +1589,7 @@ void ARM::Instructions::LDM(ARM7TDMI& c, InstructionInfo& _instr) {
     }
 
     if (!pipeline_has_been_flushed) {
-      fmt::println("pipeline not flushed, flushing.");
+      // fmt::println("pipeline not flushed, flushing.");
       c.regs.r[15] = c.align_by_current_mode(c.regs.r[15]);
       c.flush_pipeline();
     }

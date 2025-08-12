@@ -1,12 +1,11 @@
 #pragma once
-#include "cpu.hpp"
-#include "io_defs.hpp"
 
+#include "common/defs.hpp"
 enum ALIGN_TO { HALFWORD, WORD };
 
 enum PRESCALER_SEL { F_1, F_64, F_256, F_1024 };
 
-enum class InterruptType : u8 {
+enum class INTERRUPT_TYPE : u8 {
   LCD_VBLANK       = 0,
   LCD_HBLANK       = 1,
   LCD_VCOUNT_MATCH = 2,
