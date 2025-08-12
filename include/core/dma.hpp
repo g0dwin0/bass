@@ -1,9 +1,10 @@
 #pragma once
 
 #include "bus.hpp"
+#include "common/defs.hpp"
 
-enum class DST_CONTROL : u8 { INCREMENT = 0, DECREMENT, FIXED, INCREMENT_RELOAD };
 enum class SRC_CONTROL : u8 { INCREMENT = 0, DECREMENT, FIXED, PROHIBITED };
+enum class DST_CONTROL : u8 { INCREMENT = 0, DECREMENT, FIXED, INCREMENT_RELOAD };
 enum class TRANSFER_TYPE : u8 { HALFWORD = 0, WORD };
 enum class DMA_START_TIMING : u8 { IMMEDIATELY = 0, VBLANK, HBLANK, SPECIAL };
 
@@ -12,6 +13,20 @@ const std::unordered_map<DMA_START_TIMING, std::string> TIMING_MAP = {
     {     DMA_START_TIMING::VBLANK,      "VBLANK"},
     {     DMA_START_TIMING::HBLANK,      "HBLANK"},
     {    DMA_START_TIMING::SPECIAL,     "SPECIAL"},
+};
+
+const std::unordered_map<SRC_CONTROL, std::string> SRC_CTRL_MAP = {
+    { SRC_CONTROL::INCREMENT,  "INCREMENT"},
+    { SRC_CONTROL::DECREMENT,  "DECREMENT"},
+    {     SRC_CONTROL::FIXED,      "FIXED"},
+    {SRC_CONTROL::PROHIBITED, "PROHIBITED"},
+};
+
+const std::unordered_map<DST_CONTROL, std::string> DST_CTRL_MAP = {
+    {       DST_CONTROL::INCREMENT,        "INCREMENT"},
+    {       DST_CONTROL::DECREMENT,        "DECREMENT"},
+    {           DST_CONTROL::FIXED,            "FIXED"},
+    {DST_CONTROL::INCREMENT_RELOAD, "INCREMENT RELOAD"},
 };
 
 union DMACNT_L {
@@ -33,11 +48,11 @@ struct DMACNT_H {  // packed manually because of alignment issues -> dmacnt_h_va
   bool dma_enable               : 1;
 };
 
-static u8 dma_ctx_id = 0;
-
+static u8 dma_ctx_id;
 struct DMAContext {
-  u8 id    = 0;
-  Bus* bus = nullptr;
+  u8 id            = 0;
+  Bus* bus         = nullptr;
+  u32 dma_open_bus = 0;
 
   u32 src = 0;  // DMASAD - forward facing
   u32 dst = 0;  // DMADAD - forward facing
@@ -52,6 +67,7 @@ struct DMAContext {
     assert(bus != nullptr);
     assert(dma_ctx_id <= 4);
     fmt::println("created dma channel {}", id);
+    dma_open_bus = 0;
   };
 
   std::shared_ptr<spdlog::logger> dma_logger = spdlog::stdout_color_mt(fmt::format("DMA{}", id));
@@ -65,4 +81,12 @@ struct DMAContext {
 
   void transfer16(const u32 src, const u32 dst, u32 word_count);
   void transfer32(const u32 src, const u32 dst, u32 word_count);
+
+  // DMA 0 has a 27 bit SAD, but 1 2 3 has a 28 bit SAD.
+  const std::array<u32, 4> DMA_SRC_MASK = {0x7FFFFFF, 0xFFFFFFF, 0xFFFFFFF, 0xFFFFFFF};
+
+  // DMA 0 1 2 has a 27 bit DAD but DMA 3 has a 28 bit DAD
+  const std::array<u32, 4> DMA_DST_MASK = {0x7FFFFFF, 0x7FFFFFF, 0x7FFFFFF, 0xFFFFFFF};
+
+  const std::array<u32, 4> WORD_COUNT_MASK = {0x3FFF, 0x3FFF, 0x3FFF, 0xFFFF};
 };
