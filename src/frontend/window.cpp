@@ -1,6 +1,7 @@
 #include "frontend/window.hpp"
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_audio.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
@@ -26,37 +27,76 @@ void Frontend::handle_events() {
     switch (event.type) {
       case SDL_QUIT: {
         SPDLOG_INFO("SDL QUIT CALLED");
-
         state.running = false;
         break;
       }
 
       case SDL_KEYDOWN: {
-        if (state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) { bass->bus.keypad_input.KEYINPUT.RIGHT = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) { bass->bus.keypad_input.KEYINPUT.LEFT = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) { bass->bus.keypad_input.KEYINPUT.UP = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) { bass->bus.keypad_input.KEYINPUT.DOWN = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) { bass->bus.keypad_input.KEYINPUT.A = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) { bass->bus.keypad_input.KEYINPUT.B = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) { bass->bus.keypad_input.KEYINPUT.L = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) { bass->bus.keypad_input.KEYINPUT.R = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) { bass->bus.keypad_input.KEYINPUT.SELECT = 0; }
-        if (state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) { bass->bus.keypad_input.KEYINPUT.START = 0; }
+        if (state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.RIGHT = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.LEFT = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.UP = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.DOWN = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.A = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.B = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.L = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.R = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.SELECT = 0;
+        }
+        if (state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.START = 0;
+        }
 
         break;
       }
 
       case SDL_KEYUP: {
-        if (!state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) { bass->bus.keypad_input.KEYINPUT.RIGHT = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) { bass->bus.keypad_input.KEYINPUT.LEFT = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) { bass->bus.keypad_input.KEYINPUT.UP = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) { bass->bus.keypad_input.KEYINPUT.DOWN = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) { bass->bus.keypad_input.KEYINPUT.A = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) { bass->bus.keypad_input.KEYINPUT.B = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) { bass->bus.keypad_input.KEYINPUT.L = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) { bass->bus.keypad_input.KEYINPUT.R = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) { bass->bus.keypad_input.KEYINPUT.SELECT = 1; }
-        if (!state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) { bass->bus.keypad_input.KEYINPUT.START = 1; }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.RIGHT = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.LEFT = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.UP = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.DOWN = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.A = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.B = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.L = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.R = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.SELECT = 1;
+        }
+        if (!state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) {
+          bass->bus.keypad_input.KEYINPUT.START = 1;
+        }
 
         break;
       }
@@ -94,7 +134,9 @@ void Frontend::show_memory_viewer() {
 
   static int SelectedItem = 0;
 
-  if (ImGui::Combo("Regions", &SelectedItem, regions, IM_ARRAYSIZE(regions))) { SPDLOG_DEBUG("switched to: {}", regions[SelectedItem]); }
+  if (ImGui::Combo("Regions", &SelectedItem, regions, IM_ARRAYSIZE(regions))) {
+    SPDLOG_DEBUG("switched to: {}", regions[SelectedItem]);
+  }
   editor_instance.OptShowAscii = false;
   // editor_instance.ReadOnly = true;
 
@@ -134,6 +176,16 @@ void Frontend::show_tiles() {
   ImGui::End();
 }
 
+void Frontend::show_obj() {
+  ImGui::Begin("Sprite/OBJ Window");
+
+  ImGui::Text("Sprite Texture -- relative to BG");
+  ImGui::Image(state.obj_texture, ImVec2(256, 256));
+  ImGui::Separator();
+
+  ImGui::End();
+}
+
 void Frontend::show_backgrounds() {
   ImGui::Begin("Backgrounds", &state.backgrounds_window_open, 0);
   const char* backgrounds[] = {"BG0", "BG1", "BG2", "BG3", "viewport", "backdrop"};
@@ -144,9 +196,13 @@ void Frontend::show_backgrounds() {
     if (!bass->ppu.background_enabled(bg_id)) continue;
     ImGui::Text("BG %d", bg_id);
   }
-  if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_ARRAYSIZE(backgrounds))) { fmt::println("switched to: {}", backgrounds[SelectedItem]); }
+  if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_ARRAYSIZE(backgrounds))) {
+    fmt::println("switched to: {}", backgrounds[SelectedItem]);
+  }
 
-  if (SelectedItem < 4) { ImGui::Image(state.background_textures[SelectedItem], {512, 512}); }
+  if (SelectedItem < 4) {
+    ImGui::Image(state.background_textures[SelectedItem], {512, 512});
+  }
 
   switch (SelectedItem) {
     case 0 ... 3: {
@@ -215,7 +271,9 @@ void Frontend::show_cpu_info() {
   ImGui::Text("IRQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.irq_disable);
   ImGui::Text("KEYINPUT: 0x%02x\n", bass->bus.keypad_input.KEYINPUT.v);
   ImGui::InputInt("step amount", &state.step_amount, 0, 0, 0);
-  if (ImGui::Button("STEP")) { bass->cpu.step(); }
+  if (ImGui::Button("STEP")) {
+    bass->cpu.step();
+  }
   if (ImGui::Button("STEP AMOUNT")) {
     for (int i = 0; i < state.step_amount; i++) {
       bass->cpu.step();
@@ -233,13 +291,26 @@ void Frontend::show_cpu_info() {
     spdlog::set_level(spdlog::level::off);
     bass->cpu.cpu_logger->set_level(spdlog::level::off);
   }
-  if (ImGui::Button("UNHALT")) {}
+  if (ImGui::Button("FORCE NEW TILE LOAD")) {
+    // bass->ppu.repopulate_objs();
+         
+          bass->ppu.load_tiles(0, bass->bus.display_fields.BG0CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+          bass->ppu.load_tiles(1, bass->bus.display_fields.BG1CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+          bass->ppu.load_tiles(2, bass->bus.display_fields.BG2CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+          bass->ppu.load_tiles(3, bass->bus.display_fields.BG3CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+          
+       
+
+  }
 
   ImGui::End();
 }
 
 void Frontend::show_ppu_info() {
   ImGui::Begin("PPU INFO", &state.cpu_info_open, 0);
+
+  ImGui::Text("FPS: %.2f", (1 / bass->stopwatch.duration.count()) * 1000.0f);
+
 
   ImGui::Text("BG0 PRIORITY: %d", bass->bus.display_fields.BG0CNT.BG_PRIORITY);
   ImGui::Text("BG0 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG0CNT.CHAR_BASE_BLOCK);
@@ -281,9 +352,18 @@ void Frontend::show_ppu_info() {
   ImGui::Separator();
 
   ImGui::Text("BG MODE: %#010x", bass->bus.display_fields.DISPCNT.BG_MODE);
-  if (ImGui::Button("Set VBLANK")) { bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 1; }
-  if (ImGui::Button("Reset VBLANK")) { bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 0; }
-  if (ImGui::Button("Draw")) { bass->ppu.step(); }
+  ImGui::Text("OBJ VRAM MAPPING: %s", bass->bus.display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == 0 ? "2D" : "1D");
+  ImGui::Text("OBJ Window: %#010x", bass->bus.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
+  
+  if (ImGui::Button("Set VBLANK")) {
+    bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 1;
+  }
+  if (ImGui::Button("Reset VBLANK")) {
+    bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 0;
+  }
+  if (ImGui::Button("Draw")) {
+    bass->ppu.step();
+  }
   if (ImGui::Button("Draw Tileset")) {
     bass->ppu.step(true);
     // SDL_UpdateTexture(state.tile_set_texture, nullptr, bass->ppu.tile_set_texture, 240 * 4);
@@ -292,6 +372,9 @@ void Frontend::show_ppu_info() {
   ImGui::Separator();
   ImGui::End();
 }
+
+
+
 
 void Frontend::show_controls_menu(bool* p_open) {
   ImGui::Begin("Controls", p_open);
@@ -312,11 +395,12 @@ void Frontend::show_controls_menu(bool* p_open) {
       // This indicates the scancode (the key on your keyboard) of the corresponding actual key (key on the GBA)
       auto& [scancode, being_remapped] = current_key.second;
 
-      // If button is set to be remapped, remap with next key input
       if (being_remapped) {
         being_remapped = false;
         for (auto& [diff_key, keymap_state] : settings.keybinds.control_map) {
-          if (diff_key != actual_key && keymap_state.current_key == current_scancode) { invalid_keybind = true; }
+          if (diff_key != actual_key && keymap_state.current_key == current_scancode) {
+            invalid_keybind = true;
+          }
         }
         if (!invalid_keybind) {
           scancode       = current_scancode;
@@ -339,7 +423,7 @@ void Frontend::show_controls_menu(bool* p_open) {
     ImGui::Text("%s: ", buttons.at(key).c_str());
     ImGui::SameLine();
     if (ImGui::Button(being_remapped ? "Waiting for input..." : SDL_GetScancodeName(scancode))) {
-      being_remapped = true;  // Being remapped
+      being_remapped = true;
     }
     ImGui::PopID();
   }
@@ -384,6 +468,8 @@ void Frontend::render_frame() {
   show_irq_status();
   show_tiles();
   show_backgrounds();
+  show_obj();
+  
   // #endif
   // Rendering
   ImGui::Render();
@@ -392,22 +478,24 @@ void Frontend::render_frame() {
   SDL_SetRenderTarget(renderer, NULL);
   SDL_RenderClear(renderer);
 
-  PPU::DoubleBuffer& buffer = bass->ppu.db;
+  // PPU::DoubleBuffer& buffer = bass->ppu.db;
 
-  {
-    std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
-    buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
-  }
+  // {
+  //   std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
+  //   buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
+  // }
 
-  {
-    std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
-    std::swap(buffer.disp_buf, buffer.write_buf);
-  }
+  // {
+  //   std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
+  //   std::swap(buffer.disp_buf, buffer.write_buf);
+  // }
 
   SDL_UpdateTexture(state.background_textures[0], nullptr, bass->ppu.tile_map_texture_buffer_0, 512 * 4);
   SDL_UpdateTexture(state.background_textures[1], nullptr, bass->ppu.tile_map_texture_buffer_1, 512 * 4);
   SDL_UpdateTexture(state.background_textures[2], nullptr, bass->ppu.tile_map_texture_buffer_2, 512 * 4);
   SDL_UpdateTexture(state.background_textures[3], nullptr, bass->ppu.tile_map_texture_buffer_3, 512 * 4);
+  SDL_UpdateTexture(state.obj_texture, nullptr, bass->ppu.obj_texture_buffer, 256 * 4);
+
   // SDL_UpdateTexture(state.backdrop, nullptr, bass->ppu.backdrop, 512 * 4);
   SDL_UpdateTexture(state.ppu_texture, nullptr, bass->ppu.db.disp_buf, 240 * 4);
   SDL_RenderCopy(renderer, state.ppu_texture, &rect, NULL);
@@ -416,15 +504,17 @@ void Frontend::render_frame() {
 
   SDL_RenderPresent(renderer);
 
-  {
-    std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
-    buffer.framebuffer_ready = false;
-  }
+  // {
+  //   std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
+  //   buffer.framebuffer_ready = false;
+  // }
 }
 void Frontend::init_sdl() {
   SPDLOG_DEBUG("constructed frontend with instance pointer");
 
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0) { fmt::println("ERROR: failed initialize SDL"); }
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0) {
+    fmt::println("ERROR: failed initialize SDL");
+  }
 
   auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
@@ -463,6 +553,7 @@ void Frontend::init_sdl() {
   this->state.tile_set_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
   this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
   this->state.backdrop         = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+  this->state.obj_texture   = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 256, 256);
 
   for (size_t bg_id = 0; bg_id < 4; bg_id++) {
     this->state.background_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
@@ -470,3 +561,4 @@ void Frontend::init_sdl() {
 };
 
 Frontend::Frontend(Bass* c) : bass(c) { init_sdl(); }
+
