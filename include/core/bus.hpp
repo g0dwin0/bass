@@ -53,7 +53,7 @@ struct Bus {
   PPU* ppu      = nullptr;
   DMAContext *ch0, *ch1, *ch2, *ch3 = nullptr;
 
-  void request_interrupt(InterruptType type);
+  void request_interrupt(INTERRUPT_TYPE type);
 
   [[nodiscard]] u8 read8(u32 address, ACCESS_TYPE access_type = ACCESS_TYPE::NON_SEQUENTIAL);
   [[nodiscard]] u16 read16(u32 address, ACCESS_TYPE access_type = ACCESS_TYPE::NON_SEQUENTIAL);

@@ -9,7 +9,7 @@
 #include "pak.hpp"
 #include "registers.hpp"
 
-void Bus::request_interrupt(InterruptType t) { interrupt_control.IF.v |= (1 << (u8)t); }
+void Bus::request_interrupt(INTERRUPT_TYPE t) { interrupt_control.IF.v |= (1 << (u8)t); }
 
 u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 #ifdef SST_TEST_MODE
@@ -128,8 +128,8 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 #endif
 };
 u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
-  // u8 misaligned_by = address & ~1;
-  address = ARM7TDMI::align(address, HALFWORD);
+  u8 misaligned_by = address & 1;
+  address          = ARM7TDMI::align(address, HALFWORD);
 
 #ifdef SST_TEST_MODE
   fmt::println("requested [16] read at {:#010x}", address);
@@ -156,7 +156,11 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case 0x00000000 ... 0x00003FFF: {
       // BIOS read
       if (cpu->regs.r[15] > 0x00003FFF) {
-        v = bios_open_bus;
+        (void)misaligned_by;
+
+        fmt::println("open bus bios value = : {:#010x}", bios_open_bus);
+        v = std::rotr(bios_open_bus, misaligned_by * 8);
+
       } else {
         v = *(uint16_t*)(&BIOS.data()[address]);
       }
@@ -212,12 +216,13 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case 0x0E000000 ... 0x0FFFFFFF: {
-      v = (SRAM.at(address % 0x10000) * 0x0101) ;
+      v = (SRAM.at(address % 0x10000) * 0x0101);
       break;
     }
 
     default: {
       // TODO: implement open bus behaviour
+      // u16 retval = 0;
 
       // return 0xFFFF;
       return cpu->pipeline.fetch.opcode;
@@ -374,8 +379,8 @@ void Bus::write8(u32 address, u8 value) {
     case 0x06000000 ... 0x06017FFF: {
       // VRAM
       // assert(0);
-      // PALETTE_RAM.at((address & ~1) % 0x400)       = value;
-      // PALETTE_RAM.at(((address & ~1) + 1) % 0x400) = value;
+      VRAM.at((address & ~1) % 0x400)       = value;
+      VRAM.at(((address & ~1) + 1) % 0x400) = value;
       return;
     }
 
@@ -455,6 +460,11 @@ void Bus::write16(u32 address, u16 value) {
       break;
     }
 
+    case 0x0E000000 ... 0x0FFFFFFF: {
+      SRAM.at(address % 0x10000) = std::rotr(value, address * 8) & 0xFF;
+      break;
+    }
+
     default: {
       // fmt::println("unused/oob memory write: {:#X}", address);
       return;
@@ -467,6 +477,7 @@ void Bus::write16(u32 address, u16 value) {
 }
 
 void Bus::write32(u32 address, u32 value) {
+  // u8 misaligned_by = (address & 3);
   address = cpu->align(address, WORD);
 
 #ifdef SST_TEST_MODE
@@ -526,6 +537,11 @@ void Bus::write32(u32 address, u32 value) {
       // OAM
       *(uint32_t*)(&OAM.data()[(address % 0x400)]) = value;
       ppu->state.oam_changed                       = true;
+      break;
+    }
+
+    case 0x0E000000 ... 0x0FFFFFFF: {
+      SRAM.at(address % 0x10000) = std::rotr(value, address * 8) & 0xFF;
       break;
     }
 
@@ -790,7 +806,7 @@ void Bus::io_write(u32 address, u8 value) {
       auto new_mapping_mode = display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING;
 
       ppu->state.mapping_mode_changed = old_mapping_mode != new_mapping_mode;
-      if(ppu->state.mapping_mode_changed) fmt::println("mode changed");
+      if (ppu->state.mapping_mode_changed) fmt::println("mode changed");
 
       bus_logger->debug("NEW DISPCNT: {:#010x}", display_fields.DISPCNT.v);
       break;
@@ -813,54 +829,65 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
     case VCOUNT: bus_logger->debug("WRITING TO VCOUNT UNIMPL"); break;
-    case BG0CNT: {
+    case BG0CNT:
+    case BG0CNT + 1: {
       u8 old_character_base_block = display_fields.BG0CNT.CHAR_BASE_BLOCK;
+      u8 old_sbb                  = display_fields.BG0CNT.SCREEN_BASE_BLOCK;
 
-      set_byte(display_fields.BG0CNT.v, 0, value);
+      set_byte(display_fields.BG0CNT.v, address % 2, value);
 
       u8 new_character_base_block = display_fields.BG0CNT.CHAR_BASE_BLOCK;
+      u8 new_sbb                  = display_fields.BG0CNT.SCREEN_BASE_BLOCK;
 
       if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[0] = true;
+      if (old_sbb != new_sbb) ppu->state.cbb_changed[0] = true;
 
       bus_logger->debug("NEW BG0CNT: {:#010x}", display_fields.BG0CNT.v);
       break;
     }
 
-    case BG0CNT + 1: {
-      set_byte(display_fields.BG0CNT.v, 1, value & 0xdf);
-      break;
-    }
-    case BG1CNT: {
+    case BG1CNT:
+    case BG1CNT + 1: {
       u8 old_character_base_block = display_fields.BG1CNT.CHAR_BASE_BLOCK;
+      u8 old_sbb                  = display_fields.BG1CNT.SCREEN_BASE_BLOCK;
 
-      set_byte(display_fields.BG1CNT.v, 0, value);
+      set_byte(display_fields.BG1CNT.v, address % 2, value);
 
       u8 new_character_base_block = display_fields.BG1CNT.CHAR_BASE_BLOCK;
+      u8 new_sbb                  = display_fields.BG1CNT.SCREEN_BASE_BLOCK;
 
       if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[1] = true;
+      if (old_sbb != new_sbb) ppu->state.cbb_changed[1] = true;
+
       bus_logger->debug("NEW BG1CNT: {:#010x}", display_fields.BG1CNT.v);
       break;
     }
-    case BG1CNT + 1: {
-      set_byte(display_fields.BG1CNT.v, 1, value & 0xdf);
-      break;
-    };
 
     case BG2CNT ... BG2CNT + 1: {
-      u8 cbb = display_fields.BG2CNT.CHAR_BASE_BLOCK;
+      u8 old_character_base_block = display_fields.BG2CNT.CHAR_BASE_BLOCK;
+      u8 old_sbb                  = display_fields.BG2CNT.SCREEN_BASE_BLOCK;
+
       set_byte(display_fields.BG2CNT.v, address % 0x2, value);
       bus_logger->debug("NEW BG2CNT: {:#010x}", display_fields.BG2CNT.v);
-      u8 n_cbb = display_fields.BG2CNT.CHAR_BASE_BLOCK;
 
-      if (cbb != n_cbb) ppu->state.cbb_changed[2] = true;
+      u8 new_character_base_block = display_fields.BG2CNT.CHAR_BASE_BLOCK;
+      u8 new_sbb                  = display_fields.BG2CNT.SCREEN_BASE_BLOCK;
+
+      if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[2] = true;
+      if (old_sbb != new_sbb) ppu->state.cbb_changed[2] = true;
       break;
     }
     case BG3CNT ... BG3CNT + 1: {
-      u8 cbb = display_fields.BG3CNT.CHAR_BASE_BLOCK;
-      set_byte(display_fields.BG3CNT.v, address % 0x2, value);
-      u8 n_cbb = display_fields.BG3CNT.CHAR_BASE_BLOCK;
+      u8 old_character_base_block = display_fields.BG3CNT.CHAR_BASE_BLOCK;
+      u8 old_sbb                  = display_fields.BG3CNT.SCREEN_BASE_BLOCK;
 
-      if (cbb != n_cbb) ppu->state.cbb_changed[3] = true;
+      set_byte(display_fields.BG3CNT.v, address % 0x2, value);
+
+      u8 new_character_base_block = display_fields.BG3CNT.CHAR_BASE_BLOCK;
+      u8 new_sbb                  = display_fields.BG3CNT.SCREEN_BASE_BLOCK;
+
+      if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[3] = true;
+      if (old_sbb != new_sbb) ppu->state.cbb_changed[3] = true;
       bus_logger->debug("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
       break;
     }
