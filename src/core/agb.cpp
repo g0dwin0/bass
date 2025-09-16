@@ -1,10 +1,10 @@
-#include "bass.hpp"
+#include "agb.hpp"
 
 #include "bus.hpp"
 #include "common/defs.hpp"
 #include "enums.hpp"
 
-Bass::Bass() {
+AGB::AGB() {
   bus.pak = &pak;
   bus.cpu = &cpu;
   cpu.bus = &bus;
@@ -14,6 +14,7 @@ Bass::Bass() {
   for (u8 i = 0; i < 4; i++) {
     dma_channels[i] = new DMAContext(&bus);
   }
+  
 
   bus.ch0 = dma_channels[0];
   bus.ch1 = dma_channels[1];
@@ -21,21 +22,21 @@ Bass::Bass() {
   bus.ch3 = dma_channels[3];
 }
 
-Bass::~Bass() {
+AGB::~AGB() {
   for (u8 i = 0; i < 4; i++) {
     delete dma_channels[i];
   }
   fmt::println("destroyed dma channels");
 }
 
-void Bass::set_ppu_interrupts() {
+void AGB::set_ppu_interrupts() {
   // GFX Interrupt Logic
 
-  if ((bus.cycles_elapsed % 197120 && bus.cycles_elapsed != 0) == 0) {  // Check for VBLANK
+  if (((bus.cycles_elapsed % 197120) == 0 && bus.cycles_elapsed != 0)) {  // Check for VBLANK
     bus.display_fields.DISPSTAT.set_vblank();
     bus.ppu->db.swap_buffers();
 
-    stopwatch.end();
+    // stopwatch.end();
     // fmt::println("Frametime: {}ms", (stopwatch.duration.count()));
 
     if (bus.display_fields.DISPSTAT.VBLANK_IRQ_ENABLE) {
@@ -43,7 +44,7 @@ void Bass::set_ppu_interrupts() {
     }
   }
 
-  if ((bus.cycles_elapsed % 960 && bus.cycles_elapsed != 0) == 0) {
+  if ((bus.cycles_elapsed % 1006) == 0 && bus.cycles_elapsed != 0) {
     bus.display_fields.DISPSTAT.set_hblank();
 
     if (bus.display_fields.DISPSTAT.HBLANK_IRQ_ENABLE) {
@@ -51,14 +52,16 @@ void Bass::set_ppu_interrupts() {
     }
   }
 
-  if ((bus.cycles_elapsed % 1232) == 0 && bus.cycles_elapsed != 0) {  // Check if we're on a new scanline
+  if ((bus.cycles_elapsed % 1232) == 0 && bus.cycles_elapsed != 0) {  // check if we're on a new scanline
     bus.display_fields.DISPSTAT.reset_hblank();
     ppu.step();
     if (bus.display_fields.VCOUNT.LY == 227) {
       bus.display_fields.VCOUNT.LY = 0;
-      bus.display_fields.DISPSTAT.reset_vblank();
     } else {
       bus.display_fields.VCOUNT.LY++;
+      if (bus.display_fields.VCOUNT.LY == 227) {
+        bus.display_fields.DISPSTAT.reset_vblank();
+      }
     }
 
     if (bus.display_fields.VCOUNT.LY == bus.display_fields.DISPSTAT.LYC) {
@@ -67,21 +70,21 @@ void Bass::set_ppu_interrupts() {
       if (bus.display_fields.DISPSTAT.V_COUNTER_IRQ_ENABLE) {
         bus.request_interrupt(INTERRUPT_TYPE::LCD_VCOUNT_MATCH);
       }
-      
+
     } else {
       bus.display_fields.DISPSTAT.VCOUNT_MATCH_FLAG = 0;
     }
   }
 }
 
-void Bass::check_for_dma() {
+void AGB::check_for_dma() {
   for (DMAContext* ch : dma_channels) {
     // assert(ch != nullptr);
     if (ch->enabled() && start_timing_cond_met(ch)) ch->process();
   }
 };
 
-bool Bass::start_timing_cond_met(DMAContext* ch) {
+bool AGB::start_timing_cond_met(DMAContext* ch) {
   switch (ch->dmacnt_h.start_timing) {
     case DMA_START_TIMING::IMMEDIATELY: return true;
     case DMA_START_TIMING::VBLANK: return bus.display_fields.DISPSTAT.VBLANK_FLAG;
@@ -92,7 +95,7 @@ bool Bass::start_timing_cond_met(DMAContext* ch) {
   assert(0);
 }
 
-void Bass::system_loop() {
+void AGB::system_loop() {
   while (active) {
     cpu.step();
     set_ppu_interrupts();
