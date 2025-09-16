@@ -1,5 +1,6 @@
 #pragma once
 
+struct Bus;
 #include "bus.hpp"
 #include "common/defs.hpp"
 
@@ -40,15 +41,16 @@ struct DMACNT_H {  // packed manually because of alignment issues -> dmacnt_h_va
   u8                            : 4;
   DST_CONTROL dst_control       : 2;
   SRC_CONTROL src_control       : 2;
-  u8 dma_repeat                 : 1;
+  bool dma_repeat                 : 1;
   TRANSFER_TYPE transfer_type   : 1;
-  u8 game_pak_drq               : 1;
+  bool game_pak_drq               : 1;
   DMA_START_TIMING start_timing : 2;
-  u8 irq_at_end                 : 1;
+  bool irq_at_end                 : 1;
   bool dma_enable               : 1;
 };
 
 static u8 dma_ctx_id;
+
 struct DMAContext {
   u8 id            = 0;
   Bus* bus         = nullptr;
@@ -67,7 +69,6 @@ struct DMAContext {
     assert(bus != nullptr);
     assert(dma_ctx_id <= 4);
     fmt::println("created dma channel {}", id);
-    dma_open_bus = 0;
   };
 
   std::shared_ptr<spdlog::logger> dma_logger = spdlog::stdout_color_mt(fmt::format("DMA{}", id));
@@ -83,10 +84,10 @@ struct DMAContext {
   void transfer32(const u32 src, const u32 dst, u32 word_count);
 
   // DMA 0 has a 27 bit SAD, but 1 2 3 has a 28 bit SAD.
-  const std::array<u32, 4> DMA_SRC_MASK = {0x7FFFFFF, 0xFFFFFFF, 0xFFFFFFF, 0xFFFFFFF};
+  static constexpr std::array<u32, 4> DMA_SRC_MASK = {0x07FFFFFF, 0x0FFFFFFF, 0x0FFFFFFF, 0x0FFFFFFF};
 
   // DMA 0 1 2 has a 27 bit DAD but DMA 3 has a 28 bit DAD
-  const std::array<u32, 4> DMA_DST_MASK = {0x7FFFFFF, 0x7FFFFFF, 0x7FFFFFF, 0xFFFFFFF};
+  static constexpr const std::array<u32, 4> DMA_DST_MASK = {0x07FFFFFF, 0x07FFFFFF, 0x07FFFFFF, 0x0FFFFFFF};
 
-  const std::array<u32, 4> WORD_COUNT_MASK = {0x3FFF, 0x3FFF, 0x3FFF, 0xFFFF};
+  static constexpr const std::array<u32, 4> WORD_COUNT_MASK = {0x3FFF, 0x3FFF, 0x3FFF, 0xFFFF};
 };
