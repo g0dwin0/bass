@@ -2,12 +2,12 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
-#include <thread>
 #include <vector>
 
-#include "../include/core/cpu.hpp"
+#include "../include/common/stopwatch.hpp"
+#include "../include/core/agb.hpp"
 #include "../lib/json/json.hpp"
-#include "bass.hpp"
+#include "common/align.hpp"
 #include "common/test_structs.hpp"
 #include "instructions/arm.hpp"
 #include "instructions/instruction.hpp"
@@ -24,18 +24,21 @@ bool is_multiplication_test(const std::string& s) {
   for (const auto& name : multiplication_tests) {
     if (s == name) return true;
   }
+
   return false;
 }
 
 std::vector<std::string> list_files(const std::string& path) {
   std::vector<std::string> files;
   for (const auto& entry : std::filesystem::directory_iterator(path)) {
-    if (entry.is_regular_file()) { files.push_back(entry.path().filename().string()); }
+    if (entry.is_regular_file()) {
+      files.push_back(entry.path().filename().string());
+    }
   }
   return files;
 }
 
-void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test) {
+void compare_states(AGB* b_ptr, Registers expected, bool is_multiplication_test) {
   Registers actual = b_ptr->cpu.regs;
 
   for (const auto& transaction : b_ptr->bus.transactions) {
@@ -50,8 +53,8 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
 
   for (u8 i = 0; i < 16; i++) {
     if (i == 15) {
-      expected.r[i] = b_ptr->cpu.align(expected.r[i], b_ptr->cpu.regs.CPSR.STATE_BIT == THUMB_MODE ? HALFWORD : WORD);
-      actual.r[i]   = b_ptr->cpu.align(actual.r[i], b_ptr->cpu.regs.CPSR.STATE_BIT == THUMB_MODE ? HALFWORD : WORD);
+      expected.r[i] = align(expected.r[i], b_ptr->cpu.regs.CPSR.STATE_BIT == THUMB_MODE ? HALFWORD : WORD);
+      actual.r[i]   = align(actual.r[i], b_ptr->cpu.regs.CPSR.STATE_BIT == THUMB_MODE ? HALFWORD : WORD);
     }
 
     if (actual.r[i] != expected.r[i]) {
@@ -62,7 +65,7 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
       for (const auto& test_file : completed) {
         fmt::println("{}", test_file);
       }
-      
+
       exit(1);
       assert(-1);
     }
@@ -129,8 +132,8 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
   }
 
   if (actual.CPSR.value != expected.CPSR.value) {
-    if (actual.CPSR.CARRY_FLAG != expected.CPSR.CARRY_FLAG && is_multiplication_test) return;
-    if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
+    if ((actual.CPSR.CARRY_FLAG != expected.CPSR.CARRY_FLAG) && is_multiplication_test) return;
+    // if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
 
     fmt::println("cpsr mismatch");
     fmt::println("expected: {:#010X}", expected.CPSR.value);
@@ -149,7 +152,7 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
 
   if (actual.SPSR_abt != expected.SPSR_abt) {
     // if (actual.CPSR.CARRY_FLAG != expected.CPSR.CARRY_FLAG && is_multiplication_test) return;
-    if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
+    // if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
 
     fmt::println("SPSR ABT mismatch");
     fmt::println("expected: {:#010X}", expected.SPSR_abt);
@@ -168,7 +171,7 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
 
   if (actual.SPSR_irq != expected.SPSR_irq) {
     // if (actual.CPSR.CARRY_FLAG != expected.CPSR.CARRY_FLAG && is_multiplication_test) return;
-    if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
+    // if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
 
     fmt::println("SPSR IRQ mismatch");
     fmt::println("expected: {:#010X}", expected.SPSR_irq);
@@ -187,7 +190,7 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
 
   if (actual.SPSR_svc != expected.SPSR_svc) {
     // if (actual.CPSR.CARRY_FLAG != expected.CPSR.CARRY_FLAG && is_multiplication_test) return;
-    if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
+    // if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
 
     fmt::println("SPSR SVC mismatch");
     fmt::println("expected: {:#010X}", expected.SPSR_svc);
@@ -206,7 +209,7 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
 
   if (actual.SPSR_und != expected.SPSR_und) {
     // if (actual.CPSR.CARRY_FLAG != expected.CPSR.CARRY_FLAG && is_multiplication_test) return;
-    if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
+    // if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
 
     fmt::println("SPSR UND mismatch");
     fmt::println("expected: {:#010X}", expected.SPSR_und);
@@ -225,7 +228,7 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
 
   if (actual.SPSR_fiq != expected.SPSR_fiq) {
     // if (actual.CPSR.CARRY_FLAG != expected.CPSR.CARRY_FLAG && is_multiplication_test) return;
-    if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
+    // if (b_ptr->cpu.pipeline.execute.mnemonic.starts_with("mul")) return;
 
     fmt::println("SPSR FIQ mismatch");
     fmt::println("expected: {:#010X}", expected.SPSR_fiq);
@@ -242,10 +245,6 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
     assert(-1);
   }
 
-  
-  
-
-
   for (const auto& transaction : b_ptr->bus.transactions) {
     if (transaction.kind == WRITE && !transaction.accessed) {
       fmt::println("failed write on transaction:");
@@ -254,7 +253,20 @@ void compare_states(Bass* b_ptr, Registers expected, bool is_multiplication_test
       for (const auto& test_file : completed) {
         fmt::println("{}", test_file);
       }
-      
+
+      exit(-1);
+      assert(-1);
+    }
+  }
+  for (const auto& transaction : b_ptr->bus.transactions) {
+    if (transaction.kind == GENERAL_READ && !transaction.accessed) {
+      fmt::println("failed general read on transaction:");
+      transaction.print();
+
+      for (const auto& test_file : completed) {
+        fmt::println("{}", test_file);
+      }
+
       exit(-1);
       assert(-1);
     }
@@ -265,41 +277,41 @@ Registers get_result_state(auto& initial_json) {
 
   for (u8 r = 0; r < 16; r++) {
     regs.r[r] = initial_json["final"]["R"][r];
-    fmt::println("FINAL R{}: {:#010X}", r, regs.r[r], regs.r[r]);
+    // fmt::println("FINAL R{}: {:#010X}", r, regs.r[r], regs.r[r]);
   }
   // DIVIDER();
   // Load FIQ banked regs (8 -> 14)
   for (u8 i = 0, r = 8; r < 15; r++, i++) {
     regs.fiq_r[r] = initial_json["final"]["R_fiq"][i];
-    fmt::println("FINAL R_fiq{}: {:#010X}", r, regs.fiq_r[r]);
+    // fmt::println("FINAL R_fiq{}: {:#010X}", r, regs.fiq_r[r]);
   }
 
   // DIVIDER();
   // Load SVC banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     regs.svc_r[r] = initial_json["final"]["R_svc"][i];
-    fmt::println("FINAL R_svc{}: {:#010X}", r, regs.svc_r[r]);
+    // fmt::println("FINAL R_svc{}: {:#010X}", r, regs.svc_r[r]);
   }
 
   // DIVIDER();
   // Load ABORT banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     regs.abt_r[r] = initial_json["final"]["R_abt"][i];
-    fmt::println("FINAL R_abt{}: {:#010X}", r, regs.abt_r[r]);
+    // fmt::println("FINAL R_abt{}: {:#010X}", r, regs.abt_r[r]);
   }
 
   // DIVIDER();
   // Load IRQ banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     regs.irq_r[r] = initial_json["final"]["R_irq"][i];
-    fmt::println("FINAL R_irq{}: {:#010X}", r, regs.irq_r[r]);
+    // fmt::println("FINAL R_irq{}: {:#010X}", r, regs.irq_r[r]);
   }
 
   // DIVIDER();
   // Load UND banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     regs.und_r[r] = initial_json["final"]["R_und"][i];
-    fmt::println("FINAL R_und{}: {:#010X}", r, regs.und_r[r]);
+    // fmt::println("FINAL R_und{}: {:#010X}", r, regs.und_r[r]);
   }
 
   // DIVIDER();
@@ -310,6 +322,10 @@ Registers get_result_state(auto& initial_json) {
   regs.SPSR_abt   = initial_json["final"]["SPSR"][2];
   regs.SPSR_irq   = initial_json["final"]["SPSR"][3];
   regs.SPSR_und   = initial_json["final"]["SPSR"][4];
+  // regs.pipeline.f = initial_json["final"]["pipeline"][0];
+  regs.pipeline.d = initial_json["final"]["pipeline"][0];
+  regs.pipeline.e = initial_json["final"]["pipeline"][1];
+  
 
   fmt::println("FINAL CPSR: {:#010X}", regs.CPSR.value);
 
@@ -324,45 +340,45 @@ Registers get_result_state(auto& initial_json) {
   return regs;
 }
 
-void get_cpu_from_state(const json& initial_json, Bass* bass) {
+void get_cpu_from_state(const json& initial_json, AGB* bass) {
   // Load GPR
   for (u8 r = 0; r < 16; r++) {
     bass->cpu.regs.r[r] = initial_json["initial"]["R"][r];
-    fmt::println("INITIAL R{}: {:#010X}", r, bass->cpu.regs.r[r]);
+    // fmt::println("INITIAL R{}: {:#010X}", r, bass->cpu.regs.r[r]);
   }
   // DIVIDER();
   // Load FIQ banked regs (8 -> 14)
   for (u8 i = 0, r = 8; r < 15; r++, i++) {
     bass->cpu.regs.fiq_r[r] = initial_json["initial"]["R_fiq"][i];
-    fmt::println("INITIAL R_fiq{}: {:#010x}", r, bass->cpu.regs.fiq_r[r]);
+    // fmt::println("INITIAL R_fiq{}: {:#010x}", r, bass->cpu.regs.fiq_r[r]);
   }
 
   // DIVIDER();
   // Load SVC banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     bass->cpu.regs.svc_r[r] = initial_json["initial"]["R_svc"][i];
-    fmt::println("INITIAL R_svc{}: {:#010x}", r, bass->cpu.regs.svc_r[r]);
+    // fmt::println("INITIAL R_svc{}: {:#010x}", r, bass->cpu.regs.svc_r[r]);
   }
 
   // DIVIDER();
   // Load ABORT banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     bass->cpu.regs.abt_r[r] = initial_json["initial"]["R_abt"][i];
-    fmt::println("INITIAL R_abt{}: {:#010x}", r, bass->cpu.regs.abt_r[r]);
+    // fmt::println("INITIAL R_abt{}: {:#010x}", r, bass->cpu.regs.abt_r[r]);
   }
 
   // DIVIDER();
   // Load IRQ banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     bass->cpu.regs.irq_r[r] = initial_json["initial"]["R_irq"][i];
-    fmt::println("INITIAL R_irq{}: {:#010x}", r, bass->cpu.regs.irq_r[r]);
+    // fmt::println("INITIAL R_irq{}: {:#010x}", r, bass->cpu.regs.irq_r[r]);
   }
 
   // DIVIDER();
   // Load UND banked regs (13 -> 14)
   for (u8 i = 0, r = 13; r < 15; i++, r++) {
     bass->cpu.regs.und_r[r] = initial_json["initial"]["R_und"][i];
-    fmt::println("INITIAL R_und{}: {:#010x}", r, bass->cpu.regs.und_r[r]);
+    // fmt::println("INITIAL R_und{}: {:#010x}", r, bass->cpu.regs.und_r[r]);
   }
 
   // DIVIDER();
@@ -382,11 +398,8 @@ void get_cpu_from_state(const json& initial_json, Bass* bass) {
   fmt::println("INITIAL SPSR_irq: {:#010X}", bass->cpu.regs.SPSR_irq);
   fmt::println("INITIAL SPSR_und: {:#010X}", bass->cpu.regs.SPSR_und);
 
-  bass->cpu.pipeline.decode.opcode  = initial_json["initial"]["pipeline"][0];
-  bass->cpu.pipeline.execute.opcode = initial_json["initial"]["pipeline"][1];
-
-  bass->cpu.pipeline.decode  = bass->cpu.decode(bass->cpu.pipeline.decode);
-  bass->cpu.pipeline.execute = bass->cpu.decode(bass->cpu.pipeline.execute);
+  bass->cpu.pipeline.decode  = initial_json["initial"]["pipeline"][0];
+  bass->cpu.pipeline.execute = initial_json["initial"]["pipeline"][1];
 
   bass->bus.transactions.clear();
 
@@ -401,7 +414,7 @@ void get_cpu_from_state(const json& initial_json, Bass* bass) {
     Transaction t = {};
     t.id          = i;
     t.kind        = (ACCESS_TYPE)kind;
-    t.size        = size;
+    t.size        = (u8)size;
     t.addr        = addr;
     t.data        = data;
     t.opcode      = opcode;
@@ -422,10 +435,7 @@ void run_tests() {
     return;
   }
 
-  Bass bass                  = {};
-  InstructionInfo d          = {};
-  InstructionInfo e          = {};
-  InstructionInfo decoded_op = {};
+  AGB bass = {};
 
   for (const auto& test_file : test_files) {
     printf("Test file: %s\n", test_file.c_str());
@@ -441,9 +451,6 @@ void run_tests() {
       bass.cpu.pipeline.decode  = {};
       bass.cpu.pipeline.execute = {};
 
-      assert(bass.cpu.pipeline.decode.empty == false);
-      assert(bass.cpu.pipeline.execute.empty == false);
-
       get_cpu_from_state(data[idx], &bass);
 
       // construct result struct
@@ -453,13 +460,23 @@ void run_tests() {
       // // Run test
       // fmt::println("{:#08X}", bass.cpu.pipeline.execute.opcode);
       // bass.bus.read8 = 0;
+      bool is_mul = ((bass.cpu.pipeline.decode & 0b111111'1111'000000) == 0b010000'1101'000000) && bass.cpu.regs.CPSR.STATE_BIT == THUMB_MODE;
+
+      is_mul |= is_multiplication_test(test_file);
+      // fmt::println("is mul? : {}", is_mul);
+
+      // fmt::println("{}", (bass.cpu.pipeline.decode & 0b111111'1111'000000) == 0b010000'1101'000000);
+      // fmt::println("{:#010B}", bass.cpu.pipeline.decode);
+      // fmt::println("{}", bass.cpu.regs.CPSR.STATE_BIT == THUMB_MODE);
+
       bass.cpu.step();
-      fmt::println("========= instruction params  =========");
-      bass.cpu.pipeline.execute.print_params();
-      fmt::println("========================================");
+      fmt::println("{}", test_file);
+      // fmt::println("========= instruction params  =========");
+      // bass.cpu.pipeline.execute.print_params();
+      // fmt::println("========================================");
 
       fmt::println("M: {}", bass.cpu.regs.get_mode_string(bass.cpu.regs.CPSR.MODE_BIT));
-      compare_states(&bass, result_state, is_multiplication_test(test_file));
+      compare_states(&bass, result_state, is_mul);
     }
     fmt::println("Completed tests. all good.");
     completed.push_back(test_file);

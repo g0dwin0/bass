@@ -1,11 +1,11 @@
 #pragma once
 
-#include <SDL2/SDL.h>
 #include <unordered_map>
 
-#include "bass.hpp"
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_video.h"
+#include "agb.hpp"
 #include "imgui.h"
-
 // TODO: add breakpoints in debugger
 
 struct State {
@@ -13,19 +13,19 @@ struct State {
   SDL_Texture* backdrop         = nullptr;
   SDL_Texture* tile_set_texture = nullptr;
   SDL_Texture* tile_map_texture = nullptr;
-  SDL_Texture* obj_texture = nullptr;
-  
+  SDL_Texture* obj_texture      = nullptr;
 
   std::array<SDL_Texture*, 4> background_textures{};
 
-  const u8* keyboard_state  = SDL_GetKeyboardState(nullptr);
-  std::atomic<bool> running = true;
+  const bool* keyboard_state = SDL_GetKeyboardState(nullptr);
+  std::atomic<bool> running  = true;
 
   bool memory_viewer_open   = true;
   bool cpu_info_open        = true;
   bool ppu_info_open        = true;
   bool controls_window_open = true;
   bool tile_window_open     = true;
+  bool window_info_open = true;
 
   bool backgrounds_window_open = true;
   bool halted                  = false;
@@ -62,17 +62,14 @@ struct Frontend {
   SDL_Window* window;
   SDL_Renderer* renderer;
   State state;
-  Bass* bass = nullptr;
+  AGB* agb = nullptr;
   std::thread sdlThread;
 
-  Uint32 frameStartTime = 0;
-  Uint32 frameCount     = 0;
-  Uint32 fpsStartTime   = SDL_GetTicks();  // Start time for FPS calculation
-  float fps             = 0.0f;
+  SDL_FRect rect{0, 0, 240, 160};
 
-  SDL_Rect rect{0, 0, 240, 160};
-
-  const char* patterns[1] = {"*.gba"};
+  constexpr static const SDL_DialogFileFilter filters[] = {
+      { "ROMs",          "gba"},
+  };
 
   void init_sdl();
 
@@ -82,6 +79,7 @@ struct Frontend {
 
   void show_menu_bar();
   void show_backgrounds();
+  void show_window_info();
 
   void shutdown();
   void show_memory_viewer();
@@ -92,7 +90,7 @@ struct Frontend {
   void show_tiles();
   void show_obj();
 
-  explicit Frontend(Bass*);
+  explicit Frontend(AGB*);
 
   Settings settings;
 };
@@ -109,4 +107,3 @@ const inline std::unordered_map<KEY, std::string> buttons = {
     {    UP,     "UP"},
     {  DOWN,   "DOWN"},
 };
-

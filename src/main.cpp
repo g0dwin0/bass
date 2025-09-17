@@ -1,8 +1,9 @@
-#include "bass.hpp"
+#include <format>
+#include "frontend/window.hpp"
+#include "agb.hpp"
 #include "bus.hpp"
 #include "cli11/CLI11.hpp"
 #include "common.hpp"
-#include "window.hpp"
 
 
 int handle_args(int& argc, char** argv, std::string& filename) {
@@ -18,20 +19,21 @@ int main(int argc, char** argv) {
   handle_args(argc, argv, filename); 
 
   // setup system thread
-  Bass bass = {};
-  Frontend f{&bass};
+  AGB agb = {};
+  Frontend f{&agb};
 
   std::vector<u8> file = read_file(filename);
-  bass.bus.pak->load_data(file);
-
-  std::thread system = std::thread(&Bass::system_loop, &bass);
+  agb.bus.pak->load_data(file);
+  SDL_SetWindowTitle(f.window, std::format("bass | {}", agb.pak.info.game_title).c_str());
+  
+  std::thread system = std::thread(&AGB::system_loop, &agb);
 
   while (f.state.running) {
     f.handle_events();
     f.render_frame();
   }
 
-  bass.active = false;
+  agb.active = false;
   system.join();
 
   return 0;

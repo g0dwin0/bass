@@ -1,27 +1,26 @@
 #include "dma.hpp"
 
+#include "common/align.hpp"
+
 void DMAContext::print_dma_info() {
-  // dma_logger->info("============ DMA{} INFO ============", id);
-  // dma_logger->info("src: {:#010x}", src);
-  // dma_logger->info("dst: {:#010x}", dst);
-  // dma_logger->info("dst address control: {}", DST_CTRL_MAP.at(dmacnt_h.dst_control));
-  // dma_logger->info("src address control: {}", SRC_CTRL_MAP.at(dmacnt_h.src_control));
-  // dma_logger->info("timing: {}", TIMING_MAP.at(static_cast<DMA_START_TIMING>(dmacnt_h.start_timing)));
-  // dma_logger->info("word count: {:#010x}", dmacnt_l.word_count);
-  // dma_logger->info("word size: {}", dmacnt_h.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
-  // dma_logger->info("===================================");
+  dma_logger->info("============ DMA{} INFO ============", id);
+  dma_logger->info("src: {:#010x}", src);
+  dma_logger->info("dst: {:#010x}", dst);
+  dma_logger->info("dst address control: {}", DST_CTRL_MAP.at(dmacnt_h.dst_control));
+  dma_logger->info("src address control: {}", SRC_CTRL_MAP.at(dmacnt_h.src_control));
+  dma_logger->info("timing: {}", TIMING_MAP.at(static_cast<DMA_START_TIMING>(dmacnt_h.start_timing)));
+  dma_logger->info("word count: {:#010x}", dmacnt_l.word_count);
+  dma_logger->info("word size: {}", dmacnt_h.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
+  dma_logger->info("===================================");
 }
 
 void DMAContext::process() {
-  // if (dmacnt_h.dma_enable) {
-  // fmt::println("dma{} fired", id);
-
-  print_dma_info();
+  // print_dma_info();
 
   internal_src = src;
   internal_dst = dst;
 
-  // dmacnt_l.word_count %= WORD_COUNT_MASK[id];
+  dmacnt_l.word_count &= WORD_COUNT_MASK[id];
 
   if (dmacnt_h.transfer_type == TRANSFER_TYPE::HALFWORD) {
     transfer16(internal_src, internal_dst, dmacnt_l.word_count);
@@ -29,7 +28,7 @@ void DMAContext::process() {
     transfer32(internal_src, internal_dst, dmacnt_l.word_count);
   }
 
-   dmacnt_h.dma_enable = false;
+  dmacnt_h.dma_enable = false;
 
   // if (dmacnt_h.dma_repeat) {
   //   // reload cnt_l & dad (if increment+reload is set)
@@ -50,8 +49,6 @@ void DMAContext::process() {
 bool DMAContext::enabled() { return dmacnt_h.dma_enable; }
 
 void DMAContext::set_values_cnt_h(u8 byte_index, u16 value) {
-  // fmt::println("BYTE INDEX: {} - VALUE: {:08b}", byte_index, value);
-
   if (byte_index == 0) {
     dmacnt_h.dst_control = static_cast<DST_CONTROL>((value & 0b1100000) >> 5);
     dmacnt_h.src_control = static_cast<SRC_CONTROL>(((value & 0b10000000) >> 7) | (u8)dmacnt_h.src_control);
@@ -95,15 +92,19 @@ void DMAContext::transfer16(u32 src, u32 dst, u32 word_count) {
 
   u16 value = 0;
 
-  src = ARM7TDMI::align(src,HALFWORD);
-  dst = ARM7TDMI::align(dst,HALFWORD);
-  
+  src = align(src, HALFWORD);
+  dst = align(dst, HALFWORD);
 
   for (size_t idx = 0; idx < word_count; idx++) {
-    if (src <= 0x1FFFFFF) {
+    if ((src & DMA_SRC_MASK[id]) < 0x02000000) {
       value = dma_open_bus;
     } else {
-      value        = bus->read16(src & DMA_SRC_MASK[id]);
+      if (src > 0x07FFFFFF && id == 0) {
+        value = 0;
+      } else {
+        value = bus->read16(src & DMA_SRC_MASK[id]);
+      }
+
       dma_open_bus = value;
     }
 
@@ -120,7 +121,7 @@ void DMAContext::transfer16(u32 src, u32 dst, u32 word_count) {
       case DST_CONTROL::INCREMENT: dst += 2; break;
       case DST_CONTROL::DECREMENT: dst -= 2; break;
       case DST_CONTROL::FIXED: break;
-      case DST_CONTROL::INCREMENT_RELOAD:break;;
+      case DST_CONTROL::INCREMENT_RELOAD: break; ;
     }
   }
 }
@@ -129,19 +130,23 @@ void DMAContext::transfer32(u32 src, u32 dst, u32 word_count) {
   if (word_count == 0 && id != 3) word_count = 0x4000;
   if (word_count == 0 && id == 3) word_count = 0x10000;
 
+  src = align(src, WORD);
+  dst = align(dst, WORD);
 
-  src = ARM7TDMI::align(src,WORD);
-  dst = ARM7TDMI::align(dst,WORD);
-  
-  
   u32 value = 0;
 
   for (size_t idx = 0; idx < word_count; idx++) {
-    if (src <= 0x1FFFFFF) {
+    if ((src & DMA_SRC_MASK[id]) <= 0x1FFFFFF) {
       value = dma_open_bus;
     } else {
-      value        = bus->read32(src & DMA_SRC_MASK[id]);
-      dma_open_bus = value;
+      value = bus->read32(src & DMA_SRC_MASK[id]);
+      
+      if (src > 0x07FFFFFF && id == 0) { // DMA0 (27 bits) cannot read this high
+        value = 0;
+      } else {
+        dma_open_bus = value;
+      }
+
     }
 
     bus->write32(dst & DMA_DST_MASK[id], value);
