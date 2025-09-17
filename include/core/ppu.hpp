@@ -1,4 +1,5 @@
 #pragma once
+struct Bus;
 #include "bus.hpp"
 #include "common/defs.hpp"
 #include "double_buffer.hpp"
@@ -33,7 +34,7 @@ union ScreenBlockEntry {
 
 using PaletteIndex    = u8;
 using Tile            = std::array<PaletteIndex, 8 * 8>;
-using TileSet         = std::array<Tile, 512>;
+using TileSet         = std::array<Tile, 1024>;
 using TileMap         = std::array<ScreenBlockEntry, 64 * 64>;
 using TransparencyMap = std::array<bool, 512 * 512>;
 
@@ -124,6 +125,7 @@ struct PPU {
 
   std::array<u32*, 4> tile_map_texture_buffer_arr = {tile_map_texture_buffer_0, tile_map_texture_buffer_1, tile_map_texture_buffer_2, tile_map_texture_buffer_3};
 
+  // True if transparent
   std::array<std::array<bool, 512 * 512>, 4> transparency_maps;
 
   u32* composite_bg_texture_buffer = new u32[512 * 512];
@@ -148,8 +150,12 @@ struct PPU {
   u32 absolute_sbb(u8 bg, u8 map_x = 0);
   u32 relative_cbb(u8 bg);
 
+  void clear_buffers();
+
   // Returns tuple containing BGxHOFS, BGxVOFS (in that order)
   std::tuple<u16, u16> get_bg_offset(u8 bg_id);
+  std::tuple<u16, u16> get_render_offset(u8 screen_size);
+  
 
   bool background_enabled(u8 bg_id);
   std::string get_obj_size_string(const OAM_Entry&);

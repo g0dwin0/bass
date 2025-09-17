@@ -1,7 +1,6 @@
 #pragma once
 
 #include <climits>
-#define SPDLOG_COMPILED_LIB
 #define CONCAT(x, y) x##y
 #define EXPAND(x, y) CONCAT(x, y)
 #define RESERVED EXPAND(reserved, __LINE__)
@@ -13,7 +12,6 @@
 #include <iterator>
 #include <vector>
 
-#include "spdlog/fmt/fmt.h" 
 #include "spdlog/spdlog.h"
 #include "common/defs.hpp"
 

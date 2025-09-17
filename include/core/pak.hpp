@@ -14,7 +14,7 @@ static constexpr u32 MAX_ROM_SIZE     = 32 * 1024 * 1024;
 
 enum CartridgeType { EEPROM, SRAM, FLASH, FLASH512, FLASH1M, UNKNOWN };
 
-// thank you, dillon! https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
+// https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
 const std::unordered_map<CartridgeType, std::regex> cart_type_lookup_regex_map = {
     {  EEPROM,   std::regex("EEPROM_V\\d\\d\\d")},
     {    SRAM,     std::regex("SRAM_V\\d\\d\\d")},
