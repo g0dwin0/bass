@@ -39,7 +39,7 @@ void PPU::repopulate_objs() {
 
     for (size_t tile_y = 0; tile_y < obj_height; tile_y++) {
       for (size_t tile_x = 0; tile_x < obj_width; tile_x++) {
-        if (bus->display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == Bus::_1D) {
+        if (bus->display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == Bus::ONE_DIMENSIONAL) {
           current_charname = (entry.char_name + tile_x + (tile_y * 8)) % 1024;
         } else {
           current_charname = (entry.char_name + tile_x + (tile_y * 32)) % 1024;
@@ -93,10 +93,10 @@ u8 PPU::get_obj_height(const OAM_Entry& c) {
       break;
     }
     case OBJ_SHAPE::PROHIBITED: assert(0);
-    default: assert(0);
   };
 
   assert(0);
+  return 0;
 };
 u8 PPU::get_obj_width(const OAM_Entry& c) {
   switch (c.obj_shape) {
@@ -115,20 +115,23 @@ u8 PPU::get_obj_width(const OAM_Entry& c) {
       if (c.obj_size == 3) return 4;
       break;
     }
-    case OBJ_SHAPE::PROHIBITED: assert(0);
-    default: assert(0);
+    case OBJ_SHAPE::PROHIBITED: {
+      assert(0);
+      return -1;
+    }
+      // default: {assert(0); return -1;}
   };
 
-  assert(0);
+  return -1;
 };
 
 std::string PPU::get_obj_size_string(const OAM_Entry& c) {
   switch (c.obj_shape) {
     case OBJ_SHAPE::SQUARE: {
-      if (c.obj_size == 0) return fmt::format("8x8");
-      if (c.obj_size == 1) return fmt::format("16x16");
-      if (c.obj_size == 2) return fmt::format("32x32");
-      if (c.obj_size == 3) return fmt::format("64x64");
+      if (c.obj_size == 0) return "8x8";
+      if (c.obj_size == 1) return "16x16";
+      if (c.obj_size == 2) return "32x32";
+      if (c.obj_size == 3) return "64x64";
 
       assert(0);
       break;
@@ -142,10 +145,15 @@ std::string PPU::get_obj_size_string(const OAM_Entry& c) {
 };
 
 u32 PPU::get_color_by_index(u8 x, u8 palette_num, bool color_depth_is_8bpp) {
-  u16 r = color_depth_is_8bpp ? bus->read16(PALETTE_RAM_BASE + (x * 2) + palette_num) : bus->read16(PALETTE_RAM_BASE + (x * 2) + (0x20 * palette_num));
+  u16 r;
 
-  return BGR555toRGB888((r & 0xFF), (r >> 8) & 0xFF);
-  // return BGR555_TO_RGB888_LUT[r];
+  if (color_depth_is_8bpp) {
+    r = bus->read16(PALETTE_RAM_BASE + (x * 2));
+  } else {
+    r = bus->read16(PALETTE_RAM_BASE + (x * 2) + (0x20 * palette_num));
+  }
+
+  return BGR555_TO_RGB888_LUT[r];
 }
 
 u32 PPU::get_obj_color_by_index(u8 palette_index, u8 bank_number, bool color_depth_is_8bpp) {
@@ -170,29 +178,44 @@ std::tuple<u16, u16> PPU::get_bg_offset(u8 bg) {
     case 1: return {+bus->display_fields.BG1HOFS.OFFSET, +bus->display_fields.BG1VOFS.OFFSET};
     case 2: return {+bus->display_fields.BG2HOFS.OFFSET, +bus->display_fields.BG2VOFS.OFFSET};
     case 3: return {+bus->display_fields.BG3HOFS.OFFSET, +bus->display_fields.BG3VOFS.OFFSET};
-    default: assert(0);
   }
+
+  assert(0);
+  return {};
 }
+// LHS - V, RHS - H
+std::tuple<u16, u16> PPU::get_render_offset(u8 screen_size) {
+  switch (screen_size) {
+    case 0: return {256, 256};
+    case 1: return {512, 256};
+    case 2: return {256, 256};
+    case 3: return {512, 512};
+  }
+
+  assert(0);
+  return {};
+}
+
 void PPU::load_tiles(u8 bg, u8 color_depth) {
   ppu_logger->debug("loading tiles");
   assert(color_depth < 2);
   u8 x = 0;
   Tile tile;
+  u32 rel_cbb = relative_cbb(bg);
+
   if (color_depth == _4BPP) {
-    for (size_t tile_index = 0; tile_index < 512; tile_index++) {
+    for (size_t tile_index = 0; tile_index < 1024; tile_index++) {
       for (size_t byte = 0; byte < 32; byte++) {
-        if (x == 8) x = 0;
-        tile[((byte / 4) * 8) + x]       = bus->VRAM[relative_cbb(bg) + (tile_index * 0x20) + byte] & 0x0F;         // X = 0
-        tile[((byte / 4) * 8) + (x + 1)] = (bus->VRAM[relative_cbb(bg) + (tile_index * 0x20) + byte] & 0xF0) >> 4;  // X = 1
-        x += 2;
+        tile.at((byte * 2) + x)       = bus->VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0x0F;         // X = 0
+        tile.at((byte * 2) + (x + 1)) = (bus->VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0xF0) >> 4;  // X = 1
       }
 
       tile_sets[bg][tile_index] = tile;
     }
   } else {
-    for (size_t tile_index = 0; tile_index < 256; tile_index++) {
+    for (size_t tile_index = 0; tile_index < 1024; tile_index++) {
       for (size_t byte = 0; byte < 64; byte++) {
-        tile[((byte / 8) * 8)] = bus->VRAM[relative_cbb(bg) + (tile_index * 0x40) + byte];
+        tile[byte] = bus->VRAM[rel_cbb + (tile_index * 0x40) + byte];
       }
 
       tile_sets[bg][tile_index] = tile;
@@ -200,10 +223,7 @@ void PPU::load_tiles(u8 bg, u8 color_depth) {
   }
 }
 
-// Tile PPU::get_obj_tile_by_tile_index(const OAM_Entry& entry) {
 Tile PPU::get_obj_tile_by_tile_index(u16 tile_id, COLOR_MODE color_mode) {
-  // u32 address = OBJ_DATA_BASE_ADDR + (tile_index*)
-  // ppu_logger->debug("fetching tile index: {}", entry.char_name);
 
   u8 x = 0;
   Tile tile;
@@ -217,7 +237,7 @@ Tile PPU::get_obj_tile_by_tile_index(u16 tile_id, COLOR_MODE color_mode) {
   } else {
     // assert(0 && "hey, this is broken :-)");
     for (size_t byte = 0; byte < 64; byte++) {
-      tile[((byte / 8) * 8)] = bus->VRAM[OBJ_DATA_OFFSET + (tile_id * 0x40) + byte];
+      tile[byte] = bus->VRAM[OBJ_DATA_OFFSET + (tile_id * 0x40) + byte];
     }
   }
 
@@ -232,8 +252,9 @@ inline u32 PPU::absolute_sbb(u8 bg, u8 map_x) {
     case 1: return VRAM_BASE + ((bus->display_fields.BG1CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
     case 2: return VRAM_BASE + ((bus->display_fields.BG2CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
     case 3: return VRAM_BASE + ((bus->display_fields.BG3CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
-    default: assert(0);
   }
+  throw std::runtime_error("bad sbb");
+  return 0;
 }
 inline u32 PPU::relative_cbb(u8 bg) {
   switch (bg) {
@@ -241,8 +262,8 @@ inline u32 PPU::relative_cbb(u8 bg) {
     case 1: return (bus->display_fields.BG1CNT.CHAR_BASE_BLOCK * 0X4000);
     case 2: return (bus->display_fields.BG2CNT.CHAR_BASE_BLOCK * 0X4000);
     case 3: return (bus->display_fields.BG3CNT.CHAR_BASE_BLOCK * 0X4000);
-    default: assert(0);
   }
+  return 0x0;
 }
 
 bool PPU::background_enabled(u8 bg_id) {
@@ -251,8 +272,16 @@ bool PPU::background_enabled(u8 bg_id) {
     case 1: return (bus->display_fields.DISPCNT.SCREEN_DISPLAY_BG1);
     case 2: return (bus->display_fields.DISPCNT.SCREEN_DISPLAY_BG2);
     case 3: return (bus->display_fields.DISPCNT.SCREEN_DISPLAY_BG3);
-    default: assert(0);
   }
+
+  assert(0);
+  return false;
+}
+void PPU::clear_buffers() {
+  std::memset(tile_map_texture_buffer_0, 0, 512 * 512 * 4);
+  std::memset(tile_map_texture_buffer_1, 0, 512 * 512 * 4);
+  std::memset(tile_map_texture_buffer_2, 0, 512 * 512 * 4);
+  std::memset(tile_map_texture_buffer_3, 0, 512 * 512 * 4);
 }
 void PPU::step(bool called_manually) {
   // TODO: This should be a scanline renderer, at the start of each scanline 1 scanline should be written to the framebuffer.
@@ -282,12 +311,14 @@ void PPU::step(bool called_manually) {
       for (u8 bg = 0; bg < 4; bg++) {
         if (!background_enabled(bg)) continue;
 
+        auto [x_offset, y_offset] = get_bg_offset(bg);
+
         // load tiles into tilesets from charblocks
 
-        if (state.cbb_changed[bg]) {
-          load_tiles(bg, bg_bpp[bg]);  // only gets called when dispstat corresponding to bg changes
-          state.cbb_changed[bg] = false;
-        }
+        // if (state.cbb_changed[bg]) {
+        load_tiles(bg, bg_bpp[bg]);  // only gets called when dispstat corresponding to bg changes
+        // state.cbb_changed[bg] = false;
+        // }
 
         // Load screenblocks to our background tile map
         switch (screen_sizes[bg]) {
@@ -295,11 +326,11 @@ void PPU::step(bool called_manually) {
             // [0]
             u8 map_x = 0;
             // let's calculate tile y beforehand...
-            u8 tile_y = LY / 8;
+            u8 tile_y = ((LY + y_offset) % 256) / 8;
 
             // TODO: probably shouldn't re-populate screenblock entry map every single scanline -- expensive
             // for (size_t tile_y = 0; tile_y < 32; tile_y++) {
-            for (size_t tile_x = 0; tile_x < 32; tile_x++) {
+            for (u32 tile_x = 0; tile_x < 32; tile_x++) {
               u32 dest = (tile_y * 64) + tile_x;
 
               tile_maps[bg][dest] = ScreenBlockEntry{
@@ -307,10 +338,6 @@ void PPU::step(bool called_manually) {
                   // .v = bus->VRAM.at((absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)) - VRAM_BASE),  // should be able to directly access vram, bus adds alot of overhead
 
               };
-
-              // fmt::println("addr: {:#010x}", absolute_sbb(map_x) + ((tile_x + (tile_y * 32)) * 2));
-
-              // ScreenEntry{.v = bus->read16(VRAM_BASE + (se_index(tile_x, tile_y, 0x800)))};
             }
             // };
             // assert(0);
@@ -319,9 +346,9 @@ void PPU::step(bool called_manually) {
           case 1: {
             // [0][1]
 
-            for (size_t map_x = 0; map_x < 2; map_x++) {
-              for (size_t tile_y = 0; tile_y < 32; tile_y++) {
-                for (size_t tile_x = 0; tile_x < 32; tile_x++) {
+            for (u32 map_x = 0; map_x < 2; map_x++) {
+              for (u32 tile_y = 0; tile_y < 32; tile_y++) {
+                for (u32 tile_x = 0; tile_x < 32; tile_x++) {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * 32);
 
                   tile_maps[bg][dest] = ScreenBlockEntry{
@@ -342,10 +369,17 @@ void PPU::step(bool called_manually) {
           case 3: {  // REFACTOR: reloading the entire tilemap every scanline is unnecessarily expensive
             // [0][1]
             // [2][3]
-            for (size_t map_x = 0; map_x < 4; map_x++) {
-              for (size_t tile_y = 0; tile_y < 32; tile_y++) {
-                for (size_t tile_x = 0; tile_x < 32; tile_x++) {
+            for (u32 map_x = 0; map_x < 4; map_x++) {
+              for (u32 tile_y = 0; tile_y < 32; tile_y++) {
+                for (u32 tile_x = 0; tile_x < 32; tile_x++) {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * 32);
+
+                  if (map_x == 2) {
+                    dest = (tile_y * 64) + tile_x + (64 * 32);
+                  }
+                  if (map_x == 3) {
+                    dest = (tile_y * 64) + tile_x + (64 * 32) + (32);
+                  }
 
                   tile_maps[bg][dest] = ScreenBlockEntry{
                       .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
@@ -358,12 +392,14 @@ void PPU::step(bool called_manually) {
           }
         }
 
-        // write scanlines to the buffers
-        u8 tile_y = LY / 8;
-        u8 y      = LY % 8;
+                auto [x_render_offset, y_render_offset] = get_render_offset(screen_sizes[bg]);
 
-        // for (size_t tile_y = 0; tile_y < 32; tile_y++) {
-        for (size_t tile_x = 0; tile_x < 32; tile_x++) {
+        // write scanlines to the buffers
+        u8 tile_y = ((LY + y_offset) % y_render_offset) / 8;
+        u8 y      = ((LY + y_offset) % y_render_offset) % 8;
+
+        
+        for (size_t tile_x = 0; tile_x < 64; tile_x++) {
           const ScreenBlockEntry& entry = tile_maps[bg][(tile_y * 64) + tile_x];
           Tile tile                     = tile_sets[bg][entry.tile_index];
 
@@ -389,56 +425,13 @@ void PPU::step(bool called_manually) {
             auto clr = get_color_by_index(tile[(y * 8) + x], entry.PAL_BANK, bg_bpp[bg]);
 
             // Palette Index = 0 -- if so save entry in the transparency map. Used during composition
-            transparency_maps[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = (tile[(y * 8) + x] == 0) ? true : false;
+            transparency_maps[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = ((tile[(y * 8) + x] == 0) ? true : false);
 
             tile_map_texture_buffer_arr[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = clr;
           }
         }
 
-        // REFACTOR: because we render scanline by scanline
-        //  we essentially just copy to the tile map, then we grab the lines from it, however we ALSO render each scanline in the tilemap line by line
-        // if we were to do it each frame... performance rip, so for now a little hack that just renders the bottom 28 missing lines if we hit scanline 227
-        // find a better way to do it later.
-        if (LY == 226) {
-          for (u16 _ly = 226; _ly < 0x100; _ly++) {
-            u8 tile_y = _ly / 8;
-            u8 y      = _ly % 8;
-
-            // for (size_t tile_y = 0; tile_y < 32; tile_y++) {
-            for (size_t tile_x = 0; tile_x < 32; tile_x++) {
-              const ScreenBlockEntry& screen_entry = tile_maps[bg][(tile_y * 64) + tile_x];
-              Tile tile                            = tile_sets[bg][screen_entry.tile_index];
-
-              if (screen_entry.VERTICAL_FLIP) {
-                Tile tb;
-
-                for (size_t row = 0; row < 8; row++) {
-                  for (size_t pix_n = 0; pix_n < 8; pix_n++) {
-                    tb[(row * 8) + pix_n] = tile[((7 - row) * 8) + pix_n];
-                  }
-                }
-
-                tile = tb;
-              }
-              if (screen_entry.HORIZONTAL_FLIP) {
-                for (size_t row = 0; row < 8; row++) {
-                  std::reverse(tile.begin() + (row * 8), (tile.begin() + 8 + (row * 8)));
-                }
-              }
-
-              for (size_t x = 0; x < 8; x++) {
-                auto clr = get_color_by_index(tile[(y * 8) + x], screen_entry.PAL_BANK, bg_bpp[bg]);
-
-                // Palette Index = 0 -- if so save entry in the transparency map. Used during composition
-                transparency_maps[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = (tile[(y * 8) + x] == 0);
-
-                tile_map_texture_buffer_arr[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = clr;
-              }
-            }
-          }
-        }
-
-        if (LY > 159) continue;
+        // if (LY > 159) continue;
         //  In case that some or all BGs are set to same priority then BG0 is having the highest, and BG3 the lowest priority.
       }
 
@@ -448,27 +441,38 @@ void PPU::step(bool called_manually) {
 
       // determine priority
       for (u8 bg = 0; bg < 4; bg++) {
-        if (!background_enabled(bg)) continue;
+        if (!background_enabled(bg)) {
+          continue;
+        }
         active_bgs.push_back({bg, get_bg_prio(bg)});
       }
 
-      std::sort(active_bgs.begin(), active_bgs.end(), [](const Item& a, const Item& b) {
-        // if (a.bg_prio != b.bg_prio) return a.bg_prio < b.bg_prio;  // primary
-        return a.bg_id < b.bg_id;  // tiebreaker 2
+      std::stable_sort(active_bgs.begin(), active_bgs.end(), [](const Item& a, const Item& b) {
+        if (a.bg_prio != b.bg_prio) return a.bg_prio > b.bg_prio;  // primary
+        return a.bg_id > b.bg_id;                                  // tiebreaker 2
       });
 
-      for (const auto& bg : active_bgs) {
+      // draw backdrop
+      for (size_t x = 0; x < 240; x++) {
+        db.write((LY * MAIN_VIEWPORT_PITCH) + x, get_color_by_index(0, 0, true));
+      }
 
-        auto [x_offset, y_offset] = get_bg_offset(bg.bg_id);
+      for (const auto& bg : active_bgs) {
+        // fmt::println("twan: {}", bg.bg_id);;
+        auto [x_offset, y_offset]               = get_bg_offset(bg.bg_id);
+        auto [x_render_offset, y_render_offset] = get_render_offset(screen_sizes[bg.bg_id]);
         for (size_t x = 0; x < 240; x++) {
-          u32 complete_x_offset = (x + x_offset) % 256;
-          u32 complete_y_offset = ((LY + y_offset) % 256) * 512;
+          u32 complete_x_offset = (x + x_offset) % x_render_offset;
+          u32 complete_y_offset = ((LY + y_offset) % y_render_offset) * 512;
 
           assert((complete_x_offset + complete_y_offset) < 256 * 512);
+
+          if (transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)]) continue;
 
           db.write((LY * MAIN_VIEWPORT_PITCH) + x, tile_map_texture_buffer_arr[bg.bg_id][(complete_x_offset + complete_y_offset)]);
         }
       }
+      // std::memset(transparency_maps[0].data(), false, 512 * 512);
 
       /*
             // process sprites
@@ -548,33 +552,33 @@ void PPU::step(bool called_manually) {
     }
 
     case BG_MODE::MODE_3: {
-      fmt::println("MODE_3");
+      // fmt::println("MODE_3");
       for (size_t i = 0, j = 0; i < (240 * 160); i++, j += 2) {
-        db.write(i, BGR555toRGB888(bus->VRAM.at(j), bus->VRAM.at(j + 1)));
+        db.write(i, BGR555_TO_RGB888_LUT[(bus->VRAM.at(j)) | (bus->VRAM.at(j + 1) << 8)]);
       }
 
-      db.swap_buffers();
+      // db.swap_buffers();
       break;
     };
     case BG_MODE::MODE_4: {
-      fmt::println("MODE_4");
+      // fmt::println("MODE_4 - LY: {}", bus->display_fields.VCOUNT.LY);
       const auto& LY   = bus->display_fields.VCOUNT.LY;
       const auto& page = bus->display_fields.DISPCNT.DISPLAY_FRAME_SELECT;
 
-      if (LY > 160) return;
+      if (LY > 159) return;
 
       for (size_t i = 0; i < 240; i++) {
         db.write(((LY * 240) + i), get_color_by_index(bus->VRAM.at(((LY * 240) + i) + (BITMAP_MODE_PAGE_OFFSET * page)), 0, true));
       }
 
-      db.swap_buffers();
+      // if(LY == 159) db.swap_buffers();
 
       break;
     }
 
     default: {
       ppu_logger->error("mode is not set, or could not draw gfx mode: {} - are you sure the mode is set by the program?", +bus->display_fields.DISPCNT.BG_MODE);
-      assert(0);
+      // assert(0);
       break;
     }
   }
@@ -586,6 +590,7 @@ u8 PPU::get_bg_prio(u8 bg) {
     case 1: return bus->display_fields.BG1CNT.BG_PRIORITY;
     case 2: return bus->display_fields.BG2CNT.BG_PRIORITY;
     case 3: return bus->display_fields.BG3CNT.BG_PRIORITY;
-    default: assert(0);
   }
+  assert(0);
+  return -1;
 }
