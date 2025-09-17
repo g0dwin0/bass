@@ -1,22 +1,16 @@
 #include "frontend/window.hpp"
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_audio.h>
-#include <SDL2/SDL_error.h>
-#include <SDL2/SDL_pixels.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_stdinc.h>
-#include <SDL2/SDL_timer.h>
-#include <SDL2/SDL_version.h>
 #include <spdlog/common.h>
 
 #include <atomic>
 #include <mutex>
 
+#include "SDL3/SDL_dialog.h"
+#include "SDL3/SDL_render.h"
 #include "cpu.hpp"
 #include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_sdlrenderer2.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_sdlrenderer3.h"
 #include "imgui_memory_edit.h"
 
 static MemoryEditor editor_instance;
@@ -25,83 +19,83 @@ void Frontend::handle_events() {
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
     switch (event.type) {
-      case SDL_QUIT: {
+      case SDL_EVENT_QUIT: {
         SPDLOG_INFO("SDL QUIT CALLED");
         state.running = false;
         break;
       }
 
-      case SDL_KEYDOWN: {
+      case SDL_EVENT_KEY_DOWN: {
         if (state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.RIGHT = 0;
+          agb->bus.keypad_input.KEYINPUT.RIGHT = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.LEFT = 0;
+          agb->bus.keypad_input.KEYINPUT.LEFT = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.UP = 0;
+          agb->bus.keypad_input.KEYINPUT.UP = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.DOWN = 0;
+          agb->bus.keypad_input.KEYINPUT.DOWN = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.A = 0;
+          agb->bus.keypad_input.KEYINPUT.A = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.B = 0;
+          agb->bus.keypad_input.KEYINPUT.B = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.L = 0;
+          agb->bus.keypad_input.KEYINPUT.L = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.R = 0;
+          agb->bus.keypad_input.KEYINPUT.R = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.SELECT = 0;
+          agb->bus.keypad_input.KEYINPUT.SELECT = 0;
         }
         if (state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.START = 0;
+          agb->bus.keypad_input.KEYINPUT.START = 0;
         }
 
         break;
       }
 
-      case SDL_KEYUP: {
+      case SDL_EVENT_KEY_UP: {
         if (!state.keyboard_state[settings.keybinds.control_map.at(RIGHT).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.RIGHT = 1;
+          agb->bus.keypad_input.KEYINPUT.RIGHT = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(LEFT).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.LEFT = 1;
+          agb->bus.keypad_input.KEYINPUT.LEFT = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(UP).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.UP = 1;
+          agb->bus.keypad_input.KEYINPUT.UP = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(DOWN).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.DOWN = 1;
+          agb->bus.keypad_input.KEYINPUT.DOWN = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(A).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.A = 1;
+          agb->bus.keypad_input.KEYINPUT.A = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(B).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.B = 1;
+          agb->bus.keypad_input.KEYINPUT.B = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(L).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.L = 1;
+          agb->bus.keypad_input.KEYINPUT.L = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(R).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.R = 1;
+          agb->bus.keypad_input.KEYINPUT.R = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(SELECT).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.SELECT = 1;
+          agb->bus.keypad_input.KEYINPUT.SELECT = 1;
         }
         if (!state.keyboard_state[settings.keybinds.control_map.at(START).current_key]) {
-          bass->bus.keypad_input.KEYINPUT.START = 1;
+          agb->bus.keypad_input.KEYINPUT.START = 1;
         }
 
         break;
       }
     }
-    ImGui_ImplSDL2_ProcessEvent(&event);
+    ImGui_ImplSDL3_ProcessEvent(&event);
   }
 }
 
@@ -120,15 +114,15 @@ void Frontend::show_memory_viewer() {
   };
 
   const std::vector<u8>* memory_partitions[] = {
-      &bass->bus.BIOS,
-      &bass->bus.EWRAM,
-      &bass->bus.IWRAM,
-      // &bass->bus.IO,
-      &bass->bus.PALETTE_RAM,
-      &bass->bus.VRAM,
-      &bass->bus.OAM,
-      &bass->bus.pak->data,
-      &bass->bus.SRAM,
+      &agb->bus.BIOS,
+      &agb->bus.EWRAM,
+      &agb->bus.IWRAM,
+      // &agb->bus.IO,
+      &agb->bus.PALETTE_RAM,
+      &agb->bus.VRAM,
+      &agb->bus.OAM,
+      &agb->bus.pak->data,
+      &agb->bus.SRAM,
 
   };
 
@@ -146,23 +140,23 @@ void Frontend::show_memory_viewer() {
 }
 void Frontend::show_irq_status() {
   ImGui::Begin("IRQ STATUS");
-  ImGui::Text("%s", fmt::format("IME: {}", bass->bus.interrupt_control.IME.enabled ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("IME: {}", agb->bus.interrupt_control.IME.enabled ? 1 : 0).c_str());
   ImGui::Separator();
   ImGui::Text("IE - IF");
-  ImGui::Text("%s", fmt::format("LCD VBLANK:        {} - {}", bass->bus.interrupt_control.IE.LCD_VBLANK ? 1 : 0, bass->bus.interrupt_control.IF.LCD_VBLANK ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("LCD HBLANK:        {} - {}", bass->bus.interrupt_control.IE.LCD_HBLANK ? 1 : 0, bass->bus.interrupt_control.IF.LCD_HBLANK ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("LCD VCOUNT_MATCH:  {} - {}", bass->bus.interrupt_control.IE.LCD_V_COUNTER_MATCH ? 1 : 0, bass->bus.interrupt_control.IF.LCD_V_COUNTER_MATCH ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("TIMER0 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER0_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER0_OVERFLOW ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("TIMER1 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER1_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER1_OVERFLOW ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("TIMER2 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER2_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER2_OVERFLOW ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("TIMER3 OVERFLOW:   {} - {}", bass->bus.interrupt_control.IE.TIMER3_OVERFLOW ? 1 : 0, bass->bus.interrupt_control.IF.TIMER3_OVERFLOW ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("SERIAL COMM:       {} - {}", bass->bus.interrupt_control.IE.SERIAL_COM ? 1 : 0, bass->bus.interrupt_control.IF.SERIAL_COM ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("DMA0:              {} - {}", bass->bus.interrupt_control.IE.DMA0 ? 1 : 0, bass->bus.interrupt_control.IF.DMA0 ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("DMA1:              {} - {}", bass->bus.interrupt_control.IE.DMA1 ? 1 : 0, bass->bus.interrupt_control.IF.DMA1 ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("DMA2:              {} - {}", bass->bus.interrupt_control.IE.DMA2 ? 1 : 0, bass->bus.interrupt_control.IF.DMA2 ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("DMA3:              {} - {}", bass->bus.interrupt_control.IE.DMA3 ? 1 : 0, bass->bus.interrupt_control.IF.DMA3 ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("KEYPAD:            {} - {}", bass->bus.interrupt_control.IE.KEYPAD ? 1 : 0, bass->bus.interrupt_control.IF.KEYPAD ? 1 : 0).c_str());
-  ImGui::Text("%s", fmt::format("GAMEPAK_EXT:       {} - {}", bass->bus.interrupt_control.IE.GAMEPAK ? 1 : 0, bass->bus.interrupt_control.IF.GAMEPAK ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("LCD VBLANK:        {} - {}", agb->bus.interrupt_control.IE.LCD_VBLANK ? 1 : 0, agb->bus.interrupt_control.IF.LCD_VBLANK ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("LCD HBLANK:        {} - {}", agb->bus.interrupt_control.IE.LCD_HBLANK ? 1 : 0, agb->bus.interrupt_control.IF.LCD_HBLANK ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("LCD VCOUNT_MATCH:  {} - {}", agb->bus.interrupt_control.IE.LCD_V_COUNTER_MATCH ? 1 : 0, agb->bus.interrupt_control.IF.LCD_V_COUNTER_MATCH ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER0 OVERFLOW:   {} - {}", agb->bus.interrupt_control.IE.TIMER0_OVERFLOW ? 1 : 0, agb->bus.interrupt_control.IF.TIMER0_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER1 OVERFLOW:   {} - {}", agb->bus.interrupt_control.IE.TIMER1_OVERFLOW ? 1 : 0, agb->bus.interrupt_control.IF.TIMER1_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER2 OVERFLOW:   {} - {}", agb->bus.interrupt_control.IE.TIMER2_OVERFLOW ? 1 : 0, agb->bus.interrupt_control.IF.TIMER2_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("TIMER3 OVERFLOW:   {} - {}", agb->bus.interrupt_control.IE.TIMER3_OVERFLOW ? 1 : 0, agb->bus.interrupt_control.IF.TIMER3_OVERFLOW ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("SERIAL COMM:       {} - {}", agb->bus.interrupt_control.IE.SERIAL_COM ? 1 : 0, agb->bus.interrupt_control.IF.SERIAL_COM ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA0:              {} - {}", agb->bus.interrupt_control.IE.DMA0 ? 1 : 0, agb->bus.interrupt_control.IF.DMA0 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA1:              {} - {}", agb->bus.interrupt_control.IE.DMA1 ? 1 : 0, agb->bus.interrupt_control.IF.DMA1 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA2:              {} - {}", agb->bus.interrupt_control.IE.DMA2 ? 1 : 0, agb->bus.interrupt_control.IF.DMA2 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("DMA3:              {} - {}", agb->bus.interrupt_control.IE.DMA3 ? 1 : 0, agb->bus.interrupt_control.IF.DMA3 ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("KEYPAD:            {} - {}", agb->bus.interrupt_control.IE.KEYPAD ? 1 : 0, agb->bus.interrupt_control.IF.KEYPAD ? 1 : 0).c_str());
+  ImGui::Text("%s", fmt::format("GAMEPAK_EXT:       {} - {}", agb->bus.interrupt_control.IE.GAMEPAK ? 1 : 0, agb->bus.interrupt_control.IF.GAMEPAK ? 1 : 0).c_str());
   ImGui::End();
 }
 void Frontend::show_tiles() {
@@ -193,7 +187,7 @@ void Frontend::show_backgrounds() {
   static int SelectedItem = 0;
   ImGui::Text("Enabled BG(s)");
   for (int bg_id = 0; bg_id < 4; bg_id++) {
-    if (!bass->ppu.background_enabled(bg_id)) continue;
+    if (!agb->ppu.background_enabled(bg_id)) continue;
     ImGui::Text("BG %d", bg_id);
   }
   if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_ARRAYSIZE(backgrounds))) {
@@ -205,7 +199,10 @@ void Frontend::show_backgrounds() {
   }
 
   switch (SelectedItem) {
-    case 0 ... 3: {
+    case 0:
+    case 1:
+    case 2:
+    case 3: {
       ImGui::Image(state.background_textures[SelectedItem], {512, 512});
       break;
     }
@@ -226,20 +223,20 @@ void Frontend::show_cpu_info() {
   ImGui::Columns(4, "Registers");
   for (u8 i = 0; i < 16; i++) {
     if (i % 4 == 0 && i != 0) ImGui::NextColumn();
-    ImGui::Text("%s", fmt::format("r{:d}: {:#010x}", i, bass->cpu.regs.get_reg(i)).c_str());
+    ImGui::Text("%s", fmt::format("r{:d}: {:#010x}", i, agb->cpu.regs.get_reg(i)).c_str());
   }
   ImGui::Columns(1);
   ImGui::Separator();
-  ImGui::Text("%s", fmt::format("SPSR_fiq: {:#010x}", bass->cpu.regs.SPSR_fiq).c_str());
-  ImGui::Text("%s", fmt::format("SPSR_irq: {:#010x}", bass->cpu.regs.SPSR_irq).c_str());
-  ImGui::Text("%s", fmt::format("SPSR_svc: {:#010x}", bass->cpu.regs.SPSR_svc).c_str());
-  ImGui::Text("%s", fmt::format("SPSR_abt: {:#010x}", bass->cpu.regs.SPSR_abt).c_str());
-  ImGui::Text("%s", fmt::format("SPSR_und: {:#010x}", bass->cpu.regs.SPSR_und).c_str());
+  ImGui::Text("%s", fmt::format("SPSR_fiq: {:#010x}", agb->cpu.regs.SPSR_fiq).c_str());
+  ImGui::Text("%s", fmt::format("SPSR_irq: {:#010x}", agb->cpu.regs.SPSR_irq).c_str());
+  ImGui::Text("%s", fmt::format("SPSR_svc: {:#010x}", agb->cpu.regs.SPSR_svc).c_str());
+  ImGui::Text("%s", fmt::format("SPSR_abt: {:#010x}", agb->cpu.regs.SPSR_abt).c_str());
+  ImGui::Text("%s", fmt::format("SPSR_und: {:#010x}", agb->cpu.regs.SPSR_und).c_str());
   ImGui::Separator();
-  bool zero     = bass->cpu.regs.CPSR.ZERO_FLAG;
-  bool negative = bass->cpu.regs.CPSR.SIGN_FLAG;
-  bool carry    = bass->cpu.regs.CPSR.CARRY_FLAG;
-  bool overflow = bass->cpu.regs.CPSR.OVERFLOW_FLAG;
+  bool zero     = agb->cpu.regs.CPSR.ZERO_FLAG;
+  bool negative = agb->cpu.regs.CPSR.SIGN_FLAG;
+  bool carry    = agb->cpu.regs.CPSR.CARRY_FLAG;
+  bool overflow = agb->cpu.regs.CPSR.OVERFLOW_FLAG;
 
   ImGui::BeginDisabled(true);
   ImGui::Spacing();
@@ -254,12 +251,12 @@ void Frontend::show_cpu_info() {
   ImGui::EndDisabled();
 
   ImGui::BeginDisabled(true);
-  ImGui::Text("CPSR: %#010x", bass->cpu.regs.CPSR.value);
-  ImGui::Text("SPSR: %#010x", bass->cpu.regs.get_spsr(bass->cpu.regs.CPSR.MODE_BIT));
+  ImGui::Text("CPSR: %#010X", agb->cpu.regs.CPSR.value);
+  ImGui::Text("SPSR: %#010X", agb->cpu.regs.get_spsr(agb->cpu.regs.CPSR.MODE_BIT));
 
-  ImGui::Text("CPU MODE: %s", bass->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
-  ImGui::Text("OPERATING MODE: %s", fmt::format("{}", mode_map.at(bass->cpu.regs.CPSR.MODE_BIT)).c_str());
-  ImGui::Text("CYCLES ELAPSED: %s", fmt::format("{}", bass->bus.cycles_elapsed).c_str());
+  ImGui::Text("CPU MODE: %s", agb->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
+  ImGui::Text("OPERATING MODE: %s", mode_map.at(agb->cpu.regs.CPSR.MODE_BIT).c_str());
+  ImGui::Text("CYCLES ELAPSED: %lu", agb->bus.cycles_elapsed);
 
   ImGui::EndDisabled();
 
@@ -267,17 +264,17 @@ void Frontend::show_cpu_info() {
 
   ImGui::Separator();
 
-  ImGui::Text("FIQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.fiq_disable);
-  ImGui::Text("IRQ DISABLED: 0x%02x\n", bass->cpu.regs.CPSR.irq_disable);
-  ImGui::Text("KEYINPUT: 0x%02x\n", bass->bus.keypad_input.KEYINPUT.v);
+  ImGui::Text("FIQ DISABLED: 0x%02x\n", agb->cpu.regs.CPSR.fiq_disable);
+  ImGui::Text("IRQ DISABLED: 0x%02x\n", agb->cpu.regs.CPSR.irq_disable);
+  ImGui::Text("KEYINPUT: 0x%02x\n", agb->bus.keypad_input.KEYINPUT.v);
   ImGui::InputInt("step amount", &state.step_amount, 0, 0, 0);
   if (ImGui::Button("STEP")) {
-    bass->cpu.step();
+    agb->cpu.step();
   }
   if (ImGui::Button("STEP AMOUNT")) {
     for (int i = 0; i < state.step_amount; i++) {
-      bass->cpu.step();
-      bass->set_ppu_interrupts();
+      agb->cpu.step();
+      agb->set_ppu_interrupts();
     }
   }
 
@@ -285,96 +282,117 @@ void Frontend::show_cpu_info() {
   if (ImGui::Button("Enable Logging")) {
     spdlog::set_level(spdlog::level::trace);
 
-    bass->cpu.cpu_logger->set_level(spdlog::level::trace);
+    agb->cpu.cpu_logger->set_level(spdlog::level::trace);
   }
   if (ImGui::Button("Disable Logging")) {
     spdlog::set_level(spdlog::level::off);
-    bass->cpu.cpu_logger->set_level(spdlog::level::off);
+    agb->cpu.cpu_logger->set_level(spdlog::level::off);
   }
   if (ImGui::Button("FORCE NEW TILE LOAD")) {
-    // bass->ppu.repopulate_objs();
-         
-          bass->ppu.load_tiles(0, bass->bus.display_fields.BG0CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-          bass->ppu.load_tiles(1, bass->bus.display_fields.BG1CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-          bass->ppu.load_tiles(2, bass->bus.display_fields.BG2CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-          bass->ppu.load_tiles(3, bass->bus.display_fields.BG3CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-          
-       
+    // agb->ppu.repopulate_objs();
 
+    agb->ppu.load_tiles(0, agb->bus.display_fields.BG0CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+    agb->ppu.load_tiles(1, agb->bus.display_fields.BG1CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+    agb->ppu.load_tiles(2, agb->bus.display_fields.BG2CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+    agb->ppu.load_tiles(3, agb->bus.display_fields.BG3CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
   }
 
   ImGui::End();
 }
 
+void Frontend::show_window_info() {
+  ImGui::Begin("PPU INFO", &state.window_info_open, 0);
+  ImGui::Text("WINDOW 0 ENABLED: %d", agb->bus.display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG);
+  ImGui::Text("WINDOW 1 ENABLED: %d", agb->bus.display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG);
+  ImGui::Text("OBJ WINDOW ENABLED: %d", agb->bus.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
+
+  ImGui::Text("WINDOW 0: X2: %d", agb->bus.display_fields.WIN0H.X2);
+  ImGui::Text("WINDOW 0: Y2: %d", agb->bus.display_fields.WIN0V.Y2);
+
+  ImGui::Text("WINDOW 1: X2: %d", agb->bus.display_fields.WIN1H.X2);
+  ImGui::Text("WINDOW 1: Y2: %d", agb->bus.display_fields.WIN1V.Y2);
+
+  
+  ImGui::SeparatorText("WININ");
+  ImGui::Text("W0 BG0 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS & 1);
+  ImGui::Text("W0 BG1 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 1 & 1);
+  ImGui::Text("W0 BG2 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 2 & 1);
+  ImGui::Text("W0 BG3 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 3 & 1);
+
+  ImGui::SeparatorText("WINOUT");
+
+  
+
+  
+  
+
+  ImGui::End();
+}
 void Frontend::show_ppu_info() {
   ImGui::Begin("PPU INFO", &state.cpu_info_open, 0);
 
-  ImGui::Text("FPS: %.2f", (1 / bass->stopwatch.duration.count()) * 1000.0f);
+  // ImGui::Text("FPS: %.2f", (1 / agb->stopwatch.duration.count()) * 1000.0f);
 
+  ImGui::Text("BG0 PRIORITY: %d", agb->bus.display_fields.BG0CNT.BG_PRIORITY);
+  ImGui::Text("BG0 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG0CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG0 MOSAIC: %d", agb->bus.display_fields.BG0CNT.MOSAIC);
+  ImGui::Text("BG0 COLOR MODE: %s", agb->bus.display_fields.BG0CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG0 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG0CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG0CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG0CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG0 PRIORITY: %d", bass->bus.display_fields.BG0CNT.BG_PRIORITY);
-  ImGui::Text("BG0 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG0CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG0 MOSAIC: %d", bass->bus.display_fields.BG0CNT.MOSAIC);
-  ImGui::Text("BG0 COLOR MODE: %s", bass->bus.display_fields.BG0CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG0 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG0CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG0CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG0CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG1 PRIORITY: %d", agb->bus.display_fields.BG1CNT.BG_PRIORITY);
+  ImGui::Text("BG1 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG1CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG1 MOSAIC: %d", agb->bus.display_fields.BG1CNT.MOSAIC);
+  ImGui::Text("BG1 COLOR MODE: %s", agb->bus.display_fields.BG1CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG1CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG1CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG1 PRIORITY: %d", bass->bus.display_fields.BG1CNT.BG_PRIORITY);
-  ImGui::Text("BG1 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG1CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG1 MOSAIC: %d", bass->bus.display_fields.BG1CNT.MOSAIC);
-  ImGui::Text("BG1 COLOR MODE: %s", bass->bus.display_fields.BG1CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG1CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG1CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG2 PRIORITY: %d", agb->bus.display_fields.BG2CNT.BG_PRIORITY);
+  ImGui::Text("BG2 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG2CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG2 MOSAIC: %d", agb->bus.display_fields.BG2CNT.MOSAIC);
+  ImGui::Text("BG2 COLOR MODE: %s", agb->bus.display_fields.BG2CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG2 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG2CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG2CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG2CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG2 PRIORITY: %d", bass->bus.display_fields.BG2CNT.BG_PRIORITY);
-  ImGui::Text("BG2 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG2CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG2 MOSAIC: %d", bass->bus.display_fields.BG2CNT.MOSAIC);
-  ImGui::Text("BG2 COLOR MODE: %s", bass->bus.display_fields.BG2CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG2 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG2CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG2CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG2CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG3 PRIORITY: %d", agb->bus.display_fields.BG3CNT.BG_PRIORITY);
+  ImGui::Text("BG3 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG3CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG3 MOSAIC: %d", agb->bus.display_fields.BG3CNT.MOSAIC);
+  ImGui::Text("BG3 COLOR MODE: %s", agb->bus.display_fields.BG3CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG3 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG3CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG3CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG3CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG3 PRIORITY: %d", bass->bus.display_fields.BG3CNT.BG_PRIORITY);
-  ImGui::Text("BG3 CHAR_BASE_BLOCK: %d", bass->bus.display_fields.BG3CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG3 MOSAIC: %d", bass->bus.display_fields.BG3CNT.MOSAIC);
-  ImGui::Text("BG3 COLOR MODE: %s", bass->bus.display_fields.BG3CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG3 SCREEN_BASE_BLOCK: %d", bass->bus.display_fields.BG3CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", bass->bus.display_fields.BG3CNT.SCREEN_SIZE, bass->ppu.screen_sizes.at(+bass->bus.display_fields.BG3CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG0HOFS: %d", agb->bus.display_fields.BG0HOFS.OFFSET);
+  ImGui::Text("BG0VOFS: %d", agb->bus.display_fields.BG0VOFS.OFFSET);
 
-  ImGui::Text("BG0HOFS: %d", bass->bus.display_fields.BG0HOFS.OFFSET);
-  ImGui::Text("BG0VOFS: %d", bass->bus.display_fields.BG0VOFS.OFFSET);
+  ImGui::Text("BG1HOFS: %d", agb->bus.display_fields.BG1HOFS.OFFSET);
+  ImGui::Text("BG1VOFS: %d", agb->bus.display_fields.BG1VOFS.OFFSET);
 
-  ImGui::Text("BG1HOFS: %d", bass->bus.display_fields.BG1HOFS.OFFSET);
-  ImGui::Text("BG1VOFS: %d", bass->bus.display_fields.BG1VOFS.OFFSET);
-
-  ImGui::Text("LY: %d", bass->bus.display_fields.VCOUNT.LY);
-  // ImGui::Text("Scanline Cycle: %d", bass->ppu.scanline_cycle);
+  ImGui::Text("LY: %d", agb->bus.display_fields.VCOUNT.LY);
+  // ImGui::Text("Scanline Cycle: %d", agb->ppu.scanline_cycle);
 
   ImGui::Separator();
 
-  ImGui::Text("BG MODE: %#010x", bass->bus.display_fields.DISPCNT.BG_MODE);
-  ImGui::Text("OBJ VRAM MAPPING: %s", bass->bus.display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == 0 ? "2D" : "1D");
-  ImGui::Text("OBJ Window: %#010x", bass->bus.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
-  
+  ImGui::Text("BG MODE: %#04x", agb->bus.display_fields.DISPCNT.BG_MODE);
+  ImGui::Text("OBJ VRAM MAPPING: %s", agb->bus.display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == 0 ? "2D" : "1D");
+  ImGui::Text("OBJ Window: %#010x", agb->bus.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
+
   if (ImGui::Button("Set VBLANK")) {
-    bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 1;
+    agb->bus.display_fields.DISPSTAT.VBLANK_FLAG = 1;
   }
   if (ImGui::Button("Reset VBLANK")) {
-    bass->bus.display_fields.DISPSTAT.VBLANK_FLAG = 0;
+    agb->bus.display_fields.DISPSTAT.VBLANK_FLAG = 0;
   }
   if (ImGui::Button("Draw")) {
-    bass->ppu.step();
+    agb->ppu.step();
   }
   if (ImGui::Button("Draw Tileset")) {
-    bass->ppu.step(true);
-    // SDL_UpdateTexture(state.tile_set_texture, nullptr, bass->ppu.tile_set_texture, 240 * 4);
-    // SDL_UpdateTexture(state.tile_map_texture, nullptr, bass->ppu.tile_map_texture_buffer, 512 * 4);
+    agb->ppu.step(true);
+    // SDL_UpdateTexture(state.tile_set_texture, nullptr, agb->ppu.tile_set_texture, 240 * 4);
+    // SDL_UpdateTexture(state.tile_map_texture, nullptr, agb->ppu.tile_map_texture_buffer, 512 * 4);
   }
   ImGui::Separator();
   ImGui::End();
 }
-
-
-
 
 void Frontend::show_controls_menu(bool* p_open) {
   ImGui::Begin("Controls", p_open);
@@ -383,7 +401,7 @@ void Frontend::show_controls_menu(bool* p_open) {
 
   bool invalid_keybind = false;
 
-  for (SDL_Scancode current_scancode = SDL_SCANCODE_A; current_scancode < SDL_SCANCODE_AUDIOFASTFORWARD; current_scancode = (SDL_Scancode)(current_scancode + 1)) {
+  for (SDL_Scancode current_scancode = SDL_SCANCODE_A; current_scancode < SDL_SCANCODE_MEDIA_FAST_FORWARD; current_scancode = (SDL_Scancode)(current_scancode + 1)) {
     if (!state.keyboard_state[current_scancode]) continue;
     ImGui::SameLine();
 
@@ -434,7 +452,21 @@ void Frontend::show_menu_bar() {
   if (ImGui::BeginMainMenuBar()) {
     ImGui::Separator();
     if (ImGui::BeginMenu("File")) {
-      if (ImGui::MenuItem("Load ROM")) {}
+      if (ImGui::MenuItem("Load ROM")) {
+        SDL_ShowOpenFileDialog(
+            [](void* userdata, const char* const* filelist, int filter) {
+              if (filter == -1) {
+                spdlog::info("no filters");
+              }
+
+              auto agb = static_cast<AGB*>(userdata);
+              (void)(agb);
+              fmt::println("{}", *filelist);
+
+              // agb->pak.load_data(std::vector<u8> &)
+            },
+            this, window, filters, 1, "./", false);
+      }
       if (ImGui::MenuItem("Reset")) {}
       ImGui::EndMenu();
     }
@@ -449,81 +481,72 @@ void Frontend::show_menu_bar() {
   }
 }
 void Frontend::shutdown() {
-  ImGui_ImplSDLRenderer2_Shutdown();
-  ImGui_ImplSDL2_Shutdown();
+  ImGui_ImplSDLRenderer3_Shutdown();
+  ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();
 
   SDL_Quit();
 }
 
 void Frontend::render_frame() {
-  ImGui_ImplSDLRenderer2_NewFrame();
-  ImGui_ImplSDL2_NewFrame();
+  ImGui_ImplSDLRenderer3_NewFrame();
+  ImGui_ImplSDL3_NewFrame();
   ImGui::NewFrame();
-  // #ifdef BASS_DEBUG
-  // show_menubar();
-  show_cpu_info();
-  show_ppu_info();
-  show_memory_viewer();
+
+  // show_menu_bar();
+  if (state.cpu_info_open) {
+    show_cpu_info();
+  }
+  if (state.ppu_info_open) {
+    show_ppu_info();
+  }
+  if (state.window_info_open) {
+    show_window_info();
+  }
+
+  if (state.memory_viewer_open) {
+    show_memory_viewer();
+  }
   show_irq_status();
   show_tiles();
   show_backgrounds();
   show_obj();
-  
-  // #endif
-  // Rendering
+
   ImGui::Render();
-  SDL_RenderSetScale(renderer, state.io->DisplayFramebufferScale.x, state.io->DisplayFramebufferScale.y);
+  SDL_SetRenderScale(renderer, state.io->DisplayFramebufferScale.x, state.io->DisplayFramebufferScale.y);
 
   SDL_SetRenderTarget(renderer, NULL);
   SDL_RenderClear(renderer);
 
-  // PPU::DoubleBuffer& buffer = bass->ppu.db;
+  SDL_UpdateTexture(state.background_textures[0], nullptr, agb->ppu.tile_map_texture_buffer_0, 512 * 4);
+  SDL_UpdateTexture(state.background_textures[1], nullptr, agb->ppu.tile_map_texture_buffer_1, 512 * 4);
+  SDL_UpdateTexture(state.background_textures[2], nullptr, agb->ppu.tile_map_texture_buffer_2, 512 * 4);
+  SDL_UpdateTexture(state.background_textures[3], nullptr, agb->ppu.tile_map_texture_buffer_3, 512 * 4);
+  SDL_UpdateTexture(state.obj_texture, nullptr, agb->ppu.obj_texture_buffer, 256 * 4);
 
-  // {
-  //   std::unique_lock<std::mutex> lock(buffer.framebuffer_mutex);
-  //   buffer.framebuffer_cv.wait(lock, [&buffer, this] { return buffer.framebuffer_ready && bass->bus.display_fields.DISPSTAT.VBLANK_FLAG; });
-  // }
+  // SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop, 512 * 4);
+  SDL_UpdateTexture(state.ppu_texture, nullptr, agb->ppu.db.disp_buf, 240 * 4);
+  SDL_RenderTexture(renderer, state.ppu_texture, &rect, NULL);
 
-  // {
-  //   std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
-  //   std::swap(buffer.disp_buf, buffer.write_buf);
-  // }
-
-  SDL_UpdateTexture(state.background_textures[0], nullptr, bass->ppu.tile_map_texture_buffer_0, 512 * 4);
-  SDL_UpdateTexture(state.background_textures[1], nullptr, bass->ppu.tile_map_texture_buffer_1, 512 * 4);
-  SDL_UpdateTexture(state.background_textures[2], nullptr, bass->ppu.tile_map_texture_buffer_2, 512 * 4);
-  SDL_UpdateTexture(state.background_textures[3], nullptr, bass->ppu.tile_map_texture_buffer_3, 512 * 4);
-  SDL_UpdateTexture(state.obj_texture, nullptr, bass->ppu.obj_texture_buffer, 256 * 4);
-
-  // SDL_UpdateTexture(state.backdrop, nullptr, bass->ppu.backdrop, 512 * 4);
-  SDL_UpdateTexture(state.ppu_texture, nullptr, bass->ppu.db.disp_buf, 240 * 4);
-  SDL_RenderCopy(renderer, state.ppu_texture, &rect, NULL);
-
-  ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+  ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
 
   SDL_RenderPresent(renderer);
-
-  // {
-  //   std::lock_guard<std::mutex> lock(buffer.framebuffer_mutex);
-  //   buffer.framebuffer_ready = false;
-  // }
 }
 void Frontend::init_sdl() {
   SPDLOG_DEBUG("constructed frontend with instance pointer");
 
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) != 0) {
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD)) {
     fmt::println("ERROR: failed initialize SDL");
   }
 
-  auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE);
 
-  this->window = SDL_CreateWindow("bass", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 240 * 5, 160 * 5, window_flags);
+  this->window = SDL_CreateWindow("bass", 240 * 5, 160 * 5, window_flags);
   if (this->window == NULL) {
     fmt::println("failed to create window");
     assert(0);
   }
-  this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  this->renderer = SDL_CreateRenderer(window, NULL);
 
   if (this->renderer == NULL) {
     fmt::println("failed to create renderer");
@@ -540,25 +563,23 @@ void Frontend::init_sdl() {
   ImGuiIO& io = ImGui::GetIO();
   (void)io;
 
+  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
   this->state.io = &io;
-  SDL_version version;
-  SDL_GetVersion(&version);
-  printf("SDL version %d.%d.%d\n", version.major, version.minor, version.patch);
 
   ImGui::StyleColorsDark();
 
-  ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-  ImGui_ImplSDLRenderer2_Init(renderer);
-  this->state.ppu_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
-  this->state.tile_set_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
-  this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
-  this->state.backdrop         = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
-  this->state.obj_texture   = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 256, 256);
+  ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
+  ImGui_ImplSDLRenderer3_Init(renderer);
+  this->state.ppu_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
+  this->state.tile_set_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
+  this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+  this->state.backdrop         = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+  this->state.obj_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 256, 256);
 
   for (size_t bg_id = 0; bg_id < 4; bg_id++) {
-    this->state.background_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+    this->state.background_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
   }
 };
 
-Frontend::Frontend(Bass* c) : bass(c) { init_sdl(); }
-
+Frontend::Frontend(AGB* c) : agb(c) { init_sdl(); }

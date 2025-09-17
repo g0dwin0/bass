@@ -1,15 +1,11 @@
 #pragma once
 #include <array>
-#include <unordered_map>
-#include <utility>
 
 #include "defs.hpp"
 
-inline constexpr u8 convert5to8(uint8_t value5) {
-  return (value5 * 255 + 15) / 31;  // Adding 15 for rounding
-}
+inline constexpr u8 convert5to8(uint8_t value5) { return (value5 * 255 + 15) / 31; }
 
-inline constexpr u32 BGR555toRGB888(u8 lsb, u8 msb) {
+inline constexpr u32 BGR555toRGB888(u8 msb, u8 lsb) {
   const u16 bgr555 = (static_cast<u16>(msb) << 8) | lsb;
 
   const u8 blue5  = (bgr555 & 0x1F);
@@ -26,9 +22,9 @@ inline constexpr u32 BGR555toRGB888(u8 lsb, u8 msb) {
 constexpr std::array<u32, 0x10000> compute_color_lut() {
   std::array<u32, 0x10000> lut;
 
-  for (u8 lsb = 0; lsb < 255; lsb++) {
-    for (u8 msb = 0; msb < 255; msb++) {
-      lut.at((msb << 8) + lsb) = BGR555toRGB888(lsb, msb);
+  for (u16 msb = 0; msb <= 255; msb++) {
+    for (u16 lsb = 0; lsb <= 255; lsb++) {
+      lut.at((msb << 8) + lsb) = BGR555toRGB888(msb, lsb);
     }
   }
 

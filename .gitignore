@@ -13,3 +13,4 @@ saves/
 arm-docs/
 .gdb_history
 tests/v1
+CMakeFiles/

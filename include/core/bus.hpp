@@ -1,29 +1,44 @@
 #pragma once
 
-#include <type_traits>
-#include <unordered_map>
-
 #include "common.hpp"
 #include "common/defs.hpp"
 #include "common/test_structs.hpp"
-#include "labels.hpp"
-struct ARM7TDMI;
-#include "cpu.hpp"
 #include "enums.hpp"
+#include "labels.hpp"
 #include "pak.hpp"
-struct Bus;
+
 struct PPU;
 #include "ppu.hpp"
 
 struct DMAContext;
 #include "dma.hpp"
+struct ARM7TDMI;
 
 struct Bus {
   enum class ACCESS_TYPE { SEQUENTIAL, NON_SEQUENTIAL };
+  enum class REGION : u8 {
+    BIOS           = 0x0,
+    EWRAM          = 0x2,
+    IWRAM          = 0x3,
+    IO             = 0x4,
+    BG_OBJ_PALETTE = 0x5,
+    VRAM           = 0x6,
+    OAM            = 0x7,
+    PAK_WS0_0      = 0x8,
+    PAK_WS0_1      = 0x9,
+
+    PAK_WS1_0 = 0xA,
+    PAK_WS1_1 = 0xB,
+
+    PAK_WS2_0 = 0xC,
+    PAK_WS2_1 = 0xD,
+
+    SRAM_0 = 0xE,
+    SRAM_1 = 0xF,
+
+  };
 
   // memory/devices
-  // TODO: replace vectors with arrays, dynamically allocate bus to avoid stack issues
-  // (these vectors might get resized, that's not gewd)
   std::vector<u8> BIOS;
   std::vector<u8> IWRAM;
   std::vector<u8> EWRAM;
@@ -37,9 +52,9 @@ struct Bus {
 
   Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) {
     std::fill(SRAM.begin(), SRAM.end(), 0xFF);
-    BIOS = read_file("roms/gba_bios.bin");
-    bus_logger->set_level(spdlog::level::off);
-    mem_logger->set_level(spdlog::level::off);
+    BIOS = read_file("roms/magic.bin");
+    bus_logger->set_level(spdlog::level::debug);
+    mem_logger->set_level(spdlog::level::debug);
   }
 
   std::shared_ptr<spdlog::logger> bus_logger = spdlog::stdout_color_mt("BUS");
@@ -66,7 +81,7 @@ struct Bus {
   [[nodiscard]] u8 io_read(u32 address);
   void io_write(u32 address, u8 value);
 
-  enum MAPPING_MODE : u8 { _1D = 1, _2D = 0 };
+  enum MAPPING_MODE : u8 { ONE_DIMENSIONAL = 1, TWO_DIMENSIONAL = 0 };
 
   struct {
     union {
@@ -100,14 +115,14 @@ struct Bus {
     union {
       u16 v = 0;
       struct {
-        u8 VBLANK_FLAG          : 1;
-        u8 HBLANK_FLAG          : 1;
-        u8 VCOUNT_MATCH_FLAG    : 1;
-        u8 VBLANK_IRQ_ENABLE    : 1;
-        u8 HBLANK_IRQ_ENABLE    : 1;
-        u8 V_COUNTER_IRQ_ENABLE : 1;
-        u8 LCD_INIT_READY       : 1;
-        u8 VCOUNT_MSB           : 1;
+        bool VBLANK_FLAG          : 1;
+        bool HBLANK_FLAG          : 1;
+        bool VCOUNT_MATCH_FLAG    : 1;
+        bool VBLANK_IRQ_ENABLE    : 1;
+        bool HBLANK_IRQ_ENABLE    : 1;
+        bool V_COUNTER_IRQ_ENABLE : 1;
+        u8 LCD_INIT_READY         : 1;
+        u8 VCOUNT_MSB             : 1;
         u8 LYC;
       };
 
@@ -191,7 +206,7 @@ struct Bus {
     } BG3X_L, BG23_H, BG3Y_L, BG3Y_H = {};
 
     union {
-      u32 v = 0;
+      u16 v = 0;
       struct {
         u8 X2;
         u8 X1;
@@ -199,7 +214,7 @@ struct Bus {
     } WIN0H, WIN1H = {};
 
     union {
-      u32 v = 0;
+      u16 v = 0;
       struct {
         u8 Y2;
         u8 Y1;
@@ -226,7 +241,7 @@ struct Bus {
         u8 OUTSIDE_BG_ENABLE_BITS      : 4;
         u8 OUTSIDE_OBJ_ENABLE_BIT      : 1;
         u8 OUTSIDE_COLOR_SPECIAL_FX    : 1;
-        u8 RESERVED                    : 2;
+        u8                             : 2;
         u8 OBJ_WINDOW_BG_ENABLE_BITS   : 4;
         u8 OBJ_WINDOW_OBJ_ENABLE_BIT   : 1;
         u8 OBJ_WINDOW_COLOR_SPECIAL_FX : 1;
@@ -265,7 +280,7 @@ struct Bus {
         u8 OBJ_2ND_TARGET_PIXEL : 1;
         u8 BD_2ND_TARGET_PIXEL  : 1;
 
-        u8 RESERVED             : 2;
+        u8              : 2;
       };
     } BLDCNT = {};
 
@@ -275,7 +290,7 @@ struct Bus {
         u8 EVA_COEFFICIENT_FIRST_TARGET : 5;
         u8 OBJ_MOSAIC_H_SIZE            : 3;
         u8 OBJ_MOSAIC_V_SIZE            : 5;
-        u8 RESERVED                     : 3;
+        u8                      : 3;
       };
     } BLDALPHA = {};
 
@@ -283,7 +298,7 @@ struct Bus {
       u32 v = 0;
       struct {
         u8 EVY_COEFFICIENT : 5;
-        u32 RESERVED       : 27;
+        u32        : 27;
       };
     } BLDY;
 

@@ -1,11 +1,8 @@
 #pragma once
+#include "common/defs.hpp"
+struct ARM7TDMI;
 
-#include "cpu.hpp"
-
-enum PSR {
-  CPSR,      // CPSR
-  SPSR_MODE  // SPSR of the current mode
-};
+enum PSR { CPSR, SPSR_MODE };
 
 enum SHIFT_MODE {
   LSL,
@@ -14,75 +11,75 @@ enum SHIFT_MODE {
   ROR,
 };
 
-namespace ARM::Instructions {
-  // Data Processing (ALU)
-  void AND(ARM7TDMI& c, InstructionInfo& instr);
-  void EOR(ARM7TDMI& c, InstructionInfo& instr);
-  void SUB(ARM7TDMI& c, InstructionInfo& instr);
-  void RSB(ARM7TDMI& c, InstructionInfo& instr);
-  void ADD(ARM7TDMI& c, InstructionInfo& instr);
-  void ADC(ARM7TDMI& c, InstructionInfo& instr);
-  void SBC(ARM7TDMI& c, InstructionInfo& instr);
-  void RSC(ARM7TDMI& c, InstructionInfo& instr);
-  void TST(ARM7TDMI& c, InstructionInfo& instr);
-  void TEQ(ARM7TDMI& c, InstructionInfo& instr);
-  void CMP(ARM7TDMI& c, InstructionInfo& instr);
-  void CMN(ARM7TDMI& c, InstructionInfo& instr);
-  void ORR(ARM7TDMI& c, InstructionInfo& instr);
-  void MOV(ARM7TDMI& c, InstructionInfo& instr);
-  void BIC(ARM7TDMI& c, InstructionInfo& instr);
-  void MVN(ARM7TDMI& c, InstructionInfo& instr);
+void ARM_BRANCH_LINK(ARM7TDMI* cpu, u32 x);
+void ARM_SWAP(ARM7TDMI* cpu, u32 x);
+void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x);
+void ARM_SIGNED_LOAD(ARM7TDMI* cpu, u32 x);
+void ARM_MULTIPLY(ARM7TDMI* cpu, u32 x);
 
-  // Mutiplication
-  void MUL(ARM7TDMI& c, InstructionInfo& instr);
-  void MLA(ARM7TDMI& c, InstructionInfo& instr);
-  void UMAAL(ARM7TDMI& c, InstructionInfo& instr);
-  void UMULL(ARM7TDMI& c, InstructionInfo& instr);
-  void UMLAL(ARM7TDMI& c, InstructionInfo& instr);
-  void SMULL(ARM7TDMI& c, InstructionInfo& instr);
-  void SMLAL(ARM7TDMI& c, InstructionInfo& instr);
+void ARM_PSR_TRANSFER(ARM7TDMI* cpu, u32 x);
+void ARM_DATA_PROCESSING(ARM7TDMI* cpu, u32 x);
+void ARM_BRANCH_EXCHANGE(ARM7TDMI* cpu, u32 x);
+void ARM_SINGLE_DATA_TRANSFER(ARM7TDMI* c, u32);
+void ARM_BLOCK_DATA_TRANSFER(ARM7TDMI* cpu, u32 x);
+void ARM_SOFTWARE_INTERRUPT(ARM7TDMI* cpu, u32 x);
 
-  // Single Data Transfer
-  void LDR(ARM7TDMI& c, InstructionInfo& instr);  
-  void STR(ARM7TDMI& c, InstructionInfo& instr);
+void THUMB_ADD_SUB(ARM7TDMI* cpu, u32 opcode);
+void THUMB_MOVE_SHIFTED_REG(ARM7TDMI* cpu, u32 opcode);
+void THUMB_MOV_CMP_ADD_SUB(ARM7TDMI* cpu, u32 opcode);
+void THUMB_DATA_PROC(ARM7TDMI* cpu, u32 opcode);
+void THUMB_ADD_CMP_MOV_HI(ARM7TDMI* cpu, u32 opcode);
+void THUMB_LDR_PC_REL(ARM7TDMI* cpu, u32 opcode);
+void THUMB_CONDITIONAL_BRANCH(ARM7TDMI* cpu, u32 opcode);
+void THUMB_UNCONDITIONAL_BRANCH(ARM7TDMI* cpu, u32 opcode);
+void THUMB_BLX_PREFIX(ARM7TDMI* cpu, u32 offset);  // BLL
+void THUMB_BL_SUFFIX(ARM7TDMI* cpu, u32 offset);   // BLH
 
-  void THUMB_LDR(ARM7TDMI& c, InstructionInfo& instr);  
-  void THUMB_STR(ARM7TDMI& c, InstructionInfo& instr);
+void THUMB_HALFWORD_REG_OFFSET(ARM7TDMI* cpu, u32 offset);
+void THUMB_HALFWORD_IMM_OFFSET(ARM7TDMI* cpu, u32 offset);
+void THUMB_WORD_BYTE_IMM_OFFSET(ARM7TDMI* cpu, u32 opcode);
+void THUMB_WORD_BYTE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode);
+void THUMB_ADD_SP_PC(ARM7TDMI* cpu, u32 opcode);
+void THUMB_ADD_OFFSET_SP(ARM7TDMI* cpu, u32 opcode);
+void THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode);
+void THUMB_LOAD_STORE_SP_REL(ARM7TDMI* cpu, u32 opcode);
 
-  // Halfword, Signed Data Transfer
-  void LDRH(ARM7TDMI& c, InstructionInfo& instr);
-  void STRH(ARM7TDMI& c, InstructionInfo& instr);
-  void LDRSB(ARM7TDMI& c, InstructionInfo& instr);
-  void LDRSH(ARM7TDMI& c, InstructionInfo& instr);
+void THUMB_PUSH_POP(ARM7TDMI* cpu, u32 offset);
+void THUMB_BLOCK_DATA_TRANSFER(ARM7TDMI* cpu, u32 offset);
 
-  // Single Data Swap
-  void SWP(ARM7TDMI& c, InstructionInfo& instr);
+void THUMB_LDR_REG_OFFSET(ARM7TDMI* cpu, u32 opcode);
+void THUMB_LDR_SP_REL(ARM7TDMI* cpu, u32 opcode);
 
-  // Branching
-  void B(ARM7TDMI& c, InstructionInfo& instr);
-  void BX(ARM7TDMI& c, InstructionInfo& instr);
+void AND(ARM7TDMI* cpu, u32 opcode);
+void EOR(ARM7TDMI* cpu, u32 opcode);
+void SUB(ARM7TDMI* cpu, u32 opcode);
+void RSB(ARM7TDMI* cpu, u32 opcode);
+void ADD(ARM7TDMI* cpu, u32 opcode);
+void ADC(ARM7TDMI* cpu, u32 opcode);
+void SBC(ARM7TDMI* cpu, u32 opcode);
+void RSC(ARM7TDMI* cpu, u32 opcode);
+void TST(ARM7TDMI* cpu, u32 opcode);
+void TEQ(ARM7TDMI* cpu, u32 opcode);
+void CMP(ARM7TDMI* cpu, u32 opcode);
+void CMN(ARM7TDMI* cpu, u32 opcode);
+void ORR(ARM7TDMI* cpu, u32 opcode);
+void MOV(ARM7TDMI* cpu, u32 opcode);
+void BIC(ARM7TDMI* cpu, u32 opcode);
+void MVN(ARM7TDMI* cpu, u32 opcode);
 
-  // Block Data Transfer
-  void LDM(ARM7TDMI& c, InstructionInfo& instr);
-  void STM(ARM7TDMI& c, InstructionInfo& instr);
-  
-  // PSR Transfer
-  void MRS(ARM7TDMI& c, InstructionInfo& instr);
-  void MSR(ARM7TDMI& c, InstructionInfo& instr);
-  
-  // Software Interrupt
-  void SWI(ARM7TDMI& c, InstructionInfo& instr);
+void LDR(ARM7TDMI* c, u32 opcode, bool pc_relative = false);
+void STR(ARM7TDMI* c, u32 opcode);
+void BLH(ARM7TDMI* c, u32 opcode);
+void BLL(ARM7TDMI* c, u32 opcode);
 
-  
-  void BLL(ARM7TDMI& c, InstructionInfo& instr);
-  void BLH(ARM7TDMI& c, InstructionInfo& instr);
-  
-  void NOP(ARM7TDMI& c, InstructionInfo& instr);
-  
-  // Misc Helper
-  void check_r15_lookahead(InstructionInfo& instr, u32& op1); 
-  void single_data_transfer_writeback_str(ARM7TDMI& c, InstructionInfo& instr, u32 address, u8 added_writeback_value); 
-  void single_data_transfer_writeback_ldr(ARM7TDMI& c, InstructionInfo& instr, u32 address, u8 added_writeback_value); 
-  
-  
-}  // namespace ARM::Instructions
+void LDRSB(ARM7TDMI* c, u32 opcode);
+void LDRSH(ARM7TDMI* c, u32 opcode);
+
+void LDM(ARM7TDMI* c, u32 opcode, bool lr_bit = false, bool thumb_load_store = false);
+void STM(ARM7TDMI* c, u32 opcode, bool lr_bit = false, bool thumb_load_store = false);
+
+void OP_MSR(ARM7TDMI* c, u32 opcode);
+
+void check_r15_lookahead(u8 Rn, bool I, bool R, u32& op1);
+void single_data_transfer_writeback_str(ARM7TDMI* cpu, u8 Rn, u32 address, u8 added_writeback_value, bool P, bool W);
+void single_data_transfer_writeback_ldr(ARM7TDMI* cpu, u8 Rd, u8 Rn, u32 address, u8 added_writeback_value, bool P, bool W);

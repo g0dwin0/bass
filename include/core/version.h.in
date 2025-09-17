@@ -1,0 +1,2 @@
+#pragma
+#define SOFTWARE_VERSION "@BASS_VERSION@"
