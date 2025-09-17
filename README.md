@@ -1,3 +1,13 @@
 # Bass
+:-)
 
-GameBoy Advance emulator, nothing works, yet (kirby plays at like 10FPS). CPU core is being re-written, check back later.
+
+## Acknowledgments/Resources
+
+heavily used GBATEK and TONC (incl. the demos!), wouldn't be possible without these invaluable pieces of information:
+
+
+### [GBATEK](https://problemkaputt.de/gbatek.htm) by Martin "no$cash" Koth
+
+
+### [TONC](https://www.coranac.com/tonc/text/toc.htm) by Jasper "cearn" Vijn
