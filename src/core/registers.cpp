@@ -3,7 +3,6 @@
 #include <cassert>
 
 #include "spdlog/fmt/bundled/core.h"
-// #include "instructions/arm.hpp"
 
 u32 Registers::get_spsr(BANK_MODE m) {
   switch (m) {
@@ -32,10 +31,14 @@ u32 Registers::get_spsr(BANK_MODE m) {
       // fmt::println("fetching spsr of UND: {:#010x}", SPSR_und);
       return SPSR_und;
     }
-    default: assert(0);
+    default: {
+      assert(0);
+      return -1;
+    }
   }
 }
 std::string Registers::get_mode_string(BANK_MODE bm) {
+  
   switch (bm) {
     case USER: return "USER";
     case SYSTEM: return "SYSTEM";
@@ -51,11 +54,10 @@ std::string Registers::get_mode_string(BANK_MODE bm) {
 u32& Registers::get_reg(u8 i) {
   assert(i < 16);
 
-  if (i < 8) { return r[i]; }
+  if (i < 8) {
+    return r[i];
+  }
 
-  // fmt::println("{:#010x}", CPSR.MODE_BIT | 0);
-
-  // fmt::println("{:#010x}", (CPSR.MODE_BIT | 0x10));
 
   switch ((CPSR.MODE_BIT | 0x10)) {
     case USER:
@@ -63,27 +65,39 @@ u32& Registers::get_reg(u8 i) {
       return r[i];
     }
     case FIQ: {
-      if (i > 7 && i < 15) { return fiq_r[i]; }
+      if (i > 7 && i < 15) {
+        return fiq_r[i];
+      }
       return r[i];
     }
     case SUPERVISOR: {
-      if ((i < 13) || (i == 15)) { return r[i]; }
+      if ((i < 13) || (i == 15)) {
+        return r[i];
+      }
       return svc_r[i];
     }
     case ABORT: {
-      if ((i < 13) || (i == 15)) { return r[i]; }
+      if ((i < 13) || (i == 15)) {
+        return r[i];
+      }
       return abt_r[i];
     }
     case IRQ: {
-      if ((i < 13) || (i == 15)) { return r[i]; }
+      if ((i < 13) || (i == 15)) {
+        return r[i];
+      }
       return irq_r[i];
     }
     case UNDEFINED: {
-      if ((i < 13) || (i == 15)) { return r[i]; }
+      if ((i < 13) || (i == 15)) {
+        return r[i];
+      }
       return und_r[i];
     }
     default: {
-    if (i > 7 && i < 15) { return zero; }
+      if (i > 7 && i < 15) {
+        return zero;
+      }
       return r[i];
     }
   }
