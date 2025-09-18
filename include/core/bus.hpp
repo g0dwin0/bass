@@ -46,11 +46,12 @@ struct Bus {
   std::vector<u8> PALETTE_RAM;
   std::vector<u8> OAM;
   std::vector<u8> SRAM;
+  std::vector<u8> WAVE_RAM;
   std::vector<Transaction> transactions;
 
   u32 bios_open_bus = 0;
 
-  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000) {
+  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000), WAVE_RAM(0x20) {
     std::fill(SRAM.begin(), SRAM.end(), 0xFF);
     BIOS = read_file("roms/magic.bin");
     bus_logger->set_level(spdlog::level::debug);

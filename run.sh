@@ -1,1 +1,1 @@
-make -j12 $2 && build/bin/bass -f $1
+cmake --build build -j && build/bass -f $1

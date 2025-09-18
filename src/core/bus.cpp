@@ -641,7 +641,11 @@ u8 Bus::io_read(u32 address) {
       // bus_logger->info("dispcnt read");
       break;
     }
-    case GREEN_SWAP ... GREEN_SWAP + 1: SPDLOG_DEBUG("READING FROM GREEN_SWAP UNIMPL"); break;
+    case GREEN_SWAP:
+    case GREEN_SWAP + 1: {
+      retval = read_byte(display_fields.GREEN_SWAP.v, address % 2);
+      break;
+    }
     case DISPSTAT:
     case DISPSTAT + 1: {
       retval = read_byte(display_fields.DISPSTAT.v, address % 2);
@@ -653,19 +657,23 @@ u8 Bus::io_read(u32 address) {
       retval = read_byte(display_fields.VCOUNT.v, address % 2);
       break;
     }
-    case BG0CNT ... BG0CNT + 1: {
+    case BG0CNT:
+    case BG0CNT + 1: {
       retval = read_byte(display_fields.BG0CNT.v, address % 0x2);
       break;
     }
-    case BG1CNT ... BG1CNT + 1: {
+    case BG1CNT:
+    case BG1CNT + 1: {
       retval = read_byte(display_fields.BG1CNT.v, address % 0x2);
       break;
     }
-    case BG2CNT ... BG2CNT + 1: {
+    case BG2CNT:
+    case BG2CNT + 1: {
       retval = read_byte(display_fields.BG2CNT.v, address % 0x2);
       break;
     }
-    case BG3CNT ... BG3CNT + 1: {
+    case BG3CNT:
+    case BG3CNT + 1: {
       retval = read_byte(display_fields.BG3CNT.v, address % 0x2);
       break;
     }
@@ -781,7 +789,27 @@ u8 Bus::io_read(u32 address) {
       retval = read_byte(system_control.sound_bias, address % 2);
       break;
     }
-    // case WAVE_RAM: bus_logger->debug("READING FROM WAVE_RAM UNIMPL"); break;
+
+    case WAVE_RAM0_L:
+    case WAVE_RAM0_L + 1:
+    case WAVE_RAM0_H:
+    case WAVE_RAM0_H + 1:
+    case WAVE_RAM1_L:
+    case WAVE_RAM1_L + 1:
+    case WAVE_RAM1_H:
+    case WAVE_RAM1_H + 1:
+    case WAVE_RAM2_L:
+    case WAVE_RAM2_L + 1:
+    case WAVE_RAM2_H:
+    case WAVE_RAM2_H + 1:
+    case WAVE_RAM3_L:
+    case WAVE_RAM3_L + 1:
+    case WAVE_RAM3_H:
+    case WAVE_RAM3_H + 1: {
+      retval = WAVE_RAM.at(address % 0x10);
+      break;
+    }
+
     case DMA0CNT_L:
     case DMA0CNT_L + 1: return 0;
 
@@ -795,17 +823,20 @@ u8 Bus::io_read(u32 address) {
       // case DMA3CNT_L:
       // case DMA3CNT_L + 1: return 0;
 
-    case DMA0CNT_H ... DMA0CNT_H + 1: {
+    case DMA0CNT_H:
+    case DMA0CNT_H + 1: {
       retval = ch0->get_values_cnt_h(address % 0x2);
       break;
     }
 
-    case DMA1CNT_H ... DMA1CNT_H + 1: {
+    case DMA1CNT_H:
+    case DMA1CNT_H + 1: {
       retval = ch1->get_values_cnt_h(address % 0x2);
       break;
     }
 
-    case DMA2CNT_H ... DMA2CNT_H + 1: {
+    case DMA2CNT_H:
+    case DMA2CNT_H + 1: {
       retval = ch2->get_values_cnt_h(address % 0x2);
       break;
     }
@@ -813,39 +844,78 @@ u8 Bus::io_read(u32 address) {
     case DMA3CNT_L:
     case DMA3CNT_L + 1: return 0;
 
-    case DMA3CNT_H ... DMA3CNT_H + 1: {
+    case DMA3CNT_H:
+    case DMA3CNT_H + 1: {
       retval = ch3->get_values_cnt_h(address % 0x2);
       break;
     }
-    case TM0CNT_L: bus_logger->debug("READING FROM TM0CNT_L UNIMPL"); break;
-    case TM0CNT_H: bus_logger->debug("READING FROM TM0CNT_H UNIMPL"); break;
-    case TM1CNT_L: bus_logger->debug("READING FROM TM1CNT_L UNIMPL"); break;
-    case TM1CNT_H: bus_logger->debug("READING FROM TM1CNT_H UNIMPL"); break;
-    case TM2CNT_L: bus_logger->debug("READING FROM TM2CNT_L UNIMPL"); break;
-    case TM2CNT_H: bus_logger->debug("READING FROM TM2CNT_H UNIMPL"); break;
-    case TM3CNT_L: bus_logger->debug("READING FROM TM3CNT_L UNIMPL"); break;
-    case TM3CNT_H: bus_logger->debug("READING FROM TM3CNT_H UNIMPL"); break;
+
+    case TM0CNT_L:
+    case TM0CNT_L + 1: {
+      break;
+    }
+    case TM0CNT_H:
+    case TM0CNT_H + 1: {
+      break;
+    }
+
+    case TM1CNT_L:
+    case TM1CNT_L + 1: {
+      break;
+    }
+    case TM1CNT_H:
+    case TM1CNT_H + 1: {
+      break;
+    }
+
+    case TM2CNT_L:
+    case TM2CNT_L + 1: {
+      break;
+    }
+    case TM2CNT_H:
+    case TM2CNT_H + 1: {
+      break;
+    }
+
+    case TM3CNT_L:
+    case TM3CNT_L + 1: {
+      break;
+    }
+    case TM3CNT_H:
+    case TM3CNT_H + 1: {
+      break;
+    }
+
     case SIODATA32: bus_logger->debug("READING FROM SIODATA32 UNIMPL"); break;
     case SIOMULTI1: bus_logger->debug("READING FROM SIOMULTI1 UNIMPL"); break;
     case SIOMULTI2: bus_logger->debug("READING FROM SIOMULTI2 UNIMPL"); break;
     case SIOMULTI3: bus_logger->debug("READING FROM SIOMULTI3 UNIMPL"); break;
-    case SIOCNT: bus_logger->debug("READING FROM SIOCNT UNIMPL"); break;
+    case SIOCNT: {
+      bus_logger->debug("READING FROM SIOCNT UNIMPL");
+      break;
+    }
     case SIOMLT_SEND: bus_logger->debug("READING FROM SIOMLT_SEND UNIMPL"); break;
-    case KEYINPUT ... KEYINPUT + 1: {
+    case KEYINPUT:
+    case KEYINPUT + 1: {
       retval = read_byte(keypad_input.KEYINPUT.v, address % 2);
       break;
     }
     case KEYCNT: bus_logger->debug("READING FROM UNIMPL KEYCNT"); break;
-    case RCNT: bus_logger->debug("READING FROM UNIMPL RCNT"); break;
+    // case RCNT: retval = 0x0; break;
+    // case RCNT+1: retval = 0x80; break;
+    case RCNT: break;
+
     case JOYCNT: bus_logger->debug("READING FROM UNIMPL JOYCNT"); break;
     case JOY_RECV: bus_logger->debug("READING FROM UNIMPL JOY_RECV"); break;
     case JOY_TRANS: bus_logger->debug("READING FROM UNIMPL JOY_TRANS"); break;
     case JOYSTAT: bus_logger->debug("READING FROM UNIMPL JOYSTAT"); break;
-    case IE ... IE + 1: {
+    case IE:
+    case IE + 1: {
       retval = read_byte(interrupt_control.IE.v, address % 2);
       break;
     }
-    case IF ... IF + 1: {
+    case IF:
+    case IF + 1: {
       retval = read_byte(interrupt_control.IF.v, address % 2);
       break;
     }
@@ -867,6 +937,9 @@ u8 Bus::io_read(u32 address) {
     case 0x4000077:
     case 0x400007E:
     case 0x400007F:
+    case 0x400008A:
+    case 0x400008B:
+
     case 0x400006E:
     case 0x400006F:
     case UNKNOWN136:
@@ -883,7 +956,7 @@ u8 Bus::io_read(u32 address) {
     case POSTFLG: break;
     // case HALTCNT: break;
     default: {
-      // fmt::println("misaligned/partial read {:#08x} - [{}]", address, get_label(address));
+      fmt::println("misaligned/partial read {:#08x} - [{}]", address, get_label(address));
       // assert(0);
       return cpu->pipeline.fetch >> (address & 1) * 8;
     }
@@ -895,7 +968,8 @@ void Bus::io_write(u32 address, u8 value) {
   // auto r = (REG)address;
   // fmt::println("[IO] write: {:#010x}", address);
   switch (address) {
-    case DISPCNT ... DISPCNT + 1: {
+    case DISPCNT:
+    case DISPCNT + 1: {
       auto old_mapping_mode = display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING;
       set_byte(display_fields.DISPCNT.v, address % 2, value);
       auto new_mapping_mode = display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING;
@@ -1201,9 +1275,41 @@ void Bus::io_write(u32 address, u8 value) {
       // system_control.sound_bias = value;
       break;
     }
-    case WAVE_RAM: bus_logger->debug("WRITING TO WAVE_RAM UNIMPL"); break;
-    case FIFO_A: bus_logger->debug("WRITING TO FIFO_A UNIMPL"); break;
-    case FIFO_B: bus_logger->debug("WRITING TO FIFO_B UNIMPL"); break;
+    // case WAVE_RAM: bus_logger->debug("WRITING TO WAVE_RAM UNIMPL"); break;
+
+
+    case WAVE_RAM0_L:
+    case WAVE_RAM0_L + 1:
+    case WAVE_RAM0_H:
+    case WAVE_RAM0_H + 1:
+    case WAVE_RAM1_L:
+    case WAVE_RAM1_L + 1:
+    case WAVE_RAM1_H:
+    case WAVE_RAM1_H + 1:
+    case WAVE_RAM2_L:
+    case WAVE_RAM2_L + 1:
+    case WAVE_RAM2_H:
+    case WAVE_RAM2_H + 1:
+    case WAVE_RAM3_L:
+    case WAVE_RAM3_L + 1:
+    case WAVE_RAM3_H:
+    case WAVE_RAM3_H + 1: {
+      WAVE_RAM.at(address % 0x10) = value;
+      break;
+    }
+
+    case FIFO_A:
+    case FIFO_A + 1:
+    case FIFO_A + 2:
+    case FIFO_A + 3: break;
+
+    case FIFO_B:
+    case FIFO_B + 1:
+    case FIFO_B + 2:
+    case FIFO_B + 3:
+      break;
+
+      // case FIFO_B: bus_logger->debug("WRITING TO FIFO_B UNIMPL"); break;
 
     case DMA0SAD ... DMA0SAD + 3: {
       assert(ch0 != nullptr);
@@ -1219,7 +1325,8 @@ void Bus::io_write(u32 address, u8 value) {
       set_byte(ch0->dmacnt_l.v, address % 0x2, value);
       break;
     }
-    case DMA0CNT_H ... DMA0CNT_H + 1: {
+    case DMA0CNT_H:
+    case DMA0CNT_H + 1: {
       ch0->set_values_cnt_h(address % 0x2, value);
       break;
     }

@@ -17,7 +17,7 @@ enum CartridgeType { EEPROM, SRAM, FLASH, FLASH512, FLASH1M, UNKNOWN };
 // https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
 const std::unordered_map<CartridgeType, std::regex> cart_type_lookup_regex_map = {
     {  EEPROM,   std::regex("EEPROM_V\\d\\d\\d")},
-    {    SRAM,     std::regex("SRAM_V\\d\\d\\d")},
+    {    SRAM,     std::regex("SRAM_V")},
     {   FLASH,    std::regex("FLASH_V\\d\\d\\d")},
     {FLASH512, std::regex("FLASH512_V\\d\\d\\d")},
     { FLASH1M,  std::regex("FLASH1M_V\\d\\d\\d")},

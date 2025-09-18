@@ -58,7 +58,14 @@ enum REG : u32 {
   SOUNDCNT_H   = 0x4000082,  //  Control Mixing/DMA Control
   SOUNDCNT_X   = 0x4000084,  //  Control Sound on/off           (NR52)
   SOUNDBIAS    = 0x4000088,  //  Sound PWM Control
-  WAVE_RAM     = 0x4000090,  //  Channel 3 Wave Pattern RAM (2 banks!!)
+  WAVE_RAM0_L  = 0X4000090,
+  WAVE_RAM0_H  = 0X4000092,
+  WAVE_RAM1_L  = 0X4000094,
+  WAVE_RAM1_H  = 0X4000096,
+  WAVE_RAM2_L  = 0X4000098,
+  WAVE_RAM2_H  = 0X400009A,
+  WAVE_RAM3_L  = 0X400009C,
+  WAVE_RAM3_H  = 0X400009E,
   FIFO_A       = 0x40000A0,  //  Channel A FIFO, Data 0-3
   FIFO_B       = 0x40000A4,  //  Channel B FIFO, Data 0-3
   DMA0SAD      = 0x40000B0,  //  DMA 0 Source Address
@@ -155,7 +162,7 @@ const std::unordered_map<u32, std::string> label_map = {
     { SOUNDCNT_H,  "SOUNDCNT_H"},
     { SOUNDCNT_X,  "SOUNDCNT_X"},
     {  SOUNDBIAS,   "SOUNDBIAS"},
-    {   WAVE_RAM,    "WAVE_RAM"},
+    // {   WAVE_RAM,    "WAVE_RAM"},
     {     FIFO_A,      "FIFO_A"},
     {     FIFO_B,      "FIFO_B"},
     {    DMA0SAD,     "DMA0SAD"},
@@ -210,7 +217,9 @@ inline std::string get_label(const u32 address) {
 
   std::string result = fmt::format("{:#010x}", address);
 
-  if (label_entry != label_map.end()) { result = fmt::format("{:#010x} [{}]", address, label_entry->second); }
+  if (label_entry != label_map.end()) {
+    result = fmt::format("{:#010x} [{}]", address, label_entry->second);
+  }
 
   return result;
 }

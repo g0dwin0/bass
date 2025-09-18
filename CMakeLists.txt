@@ -17,7 +17,7 @@ add_custom_target(version
 add_dependencies(${PROJECT_NAME} version)
 
 if(UNIX)
-target_compile_options(${PROJECT_NAME} PRIVATE -g -std=c++20 -Werror -Wextra -Wall -Wconversion -fconstexpr-depth=9999999 -Wno-error=sign-conversion)
+target_compile_options(${PROJECT_NAME} PRIVATE -g -std=c++20 -Werror -Wextra -Wall -Wconversion -fconstexpr-depth=9999999 -Wno-sign-conversion)
 elseif(WIN32)
 target_compile_options(${PROJECT_NAME} PRIVATE /g /utf-8 /std:c++20 /SUBSYSTEM:WINDOWS)
 endif()

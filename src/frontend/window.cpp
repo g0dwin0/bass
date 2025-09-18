@@ -385,11 +385,11 @@ void Frontend::show_ppu_info() {
   if (ImGui::Button("Draw")) {
     agb->ppu.step();
   }
-  if (ImGui::Button("Draw Tileset")) {
-    agb->ppu.step(true);
-    // SDL_UpdateTexture(state.tile_set_texture, nullptr, agb->ppu.tile_set_texture, 240 * 4);
-    // SDL_UpdateTexture(state.tile_map_texture, nullptr, agb->ppu.tile_map_texture_buffer, 512 * 4);
-  }
+  // if (ImGui::Button("Draw Tileset")) {
+  //   agb->ppu.step(true);
+  //   // SDL_UpdateTexture(state.tile_set_texture, nullptr, agb->ppu.tile_set_texture, 240 * 4);
+  //   // SDL_UpdateTexture(state.tile_map_texture, nullptr, agb->ppu.tile_map_texture_buffer, 512 * 4);
+  // }
   ImGui::Separator();
   ImGui::End();
 }

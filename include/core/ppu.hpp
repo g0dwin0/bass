@@ -142,10 +142,12 @@ struct PPU {
   std::array<TileSet, 4> tile_sets = {};
   std::array<TileMap, 4> tile_maps = {};
 
+  // std::array<BGCNT> a = {};
+
   [[nodiscard]] u32 get_color_by_index(const u8 x, u8 palette_num = 0, bool color_depth_is_8bpp = false);
   [[nodiscard]] u32 get_obj_color_by_index(const u8 x, u8 palette_num = 0, bool color_depth_is_8bpp = false);
 
-  void step(bool called_manually = false);
+  void step();
   void load_tiles(u8 bg, u8 color_depth);
   u32 absolute_sbb(u8 bg, u8 map_x = 0);
   u32 relative_cbb(u8 bg);
@@ -155,7 +157,6 @@ struct PPU {
   // Returns tuple containing BGxHOFS, BGxVOFS (in that order)
   std::tuple<u16, u16> get_bg_offset(u8 bg_id);
   std::tuple<u16, u16> get_render_offset(u8 screen_size);
-  
 
   bool background_enabled(u8 bg_id);
   std::string get_obj_size_string(const OAM_Entry&);
