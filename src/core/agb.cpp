@@ -98,7 +98,7 @@ bool AGB::start_timing_cond_met(DMAContext* ch) {
 void AGB::system_loop() {
   while (active) {
     cpu.step();
-    set_ppu_interrupts();
     check_for_dma();
+    set_ppu_interrupts();
   }
 }

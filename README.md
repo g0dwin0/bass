@@ -4,7 +4,7 @@
 
 ## Acknowledgments/Resources
 
-heavily used GBATEK and TONC (incl. the demos!), wouldn't be possible without these invaluable pieces of information:
+heavily used GBATEK and TONC (incl. the demos!), wouldn't be possible without these invaluable resources:
 
 
 ### [GBATEK](https://problemkaputt.de/gbatek.htm) by Martin "no$cash" Koth

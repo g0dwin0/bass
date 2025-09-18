@@ -173,7 +173,7 @@ struct ARM7TDMI {
       return THUMB_ADD_CMP_MOV_HI;
     }
 
-    if ((opcode & 0b1111100000) == 0b0100100000) {  /
+    if ((opcode & 0b1111100000) == 0b0100100000) { 
       return THUMB_LDR_PC_REL;
     }
 
