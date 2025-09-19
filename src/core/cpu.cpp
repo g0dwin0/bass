@@ -21,15 +21,15 @@ void ARM7TDMI::flush_pipeline() {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
     pipeline = {};
 
-    pipeline.decode  = bus->read32(regs.r[15]);
-    pipeline.fetch = bus->read32(regs.r[15] + 4);
+    pipeline.decode = bus->read32(regs.r[15]);
+    pipeline.fetch  = bus->read32(regs.r[15] + 4);
 
     regs.r[15] += 4;
   } else {
     pipeline = {};
 
-    pipeline.decode  = bus->read16(regs.r[15]);
-    pipeline.fetch = bus->read16(regs.r[15] + 2);
+    pipeline.decode = bus->read16(regs.r[15]);
+    pipeline.fetch  = bus->read16(regs.r[15] + 2);
 
     regs.r[15] += 2;
   }
@@ -99,32 +99,33 @@ inline void ARM7TDMI::handle_interrupts() {
 u16 ARM7TDMI::step() {
   // fmt::println("R0:{:08X} R1:{:08X} R2:{:08X} R3:{:08X} R4:{:08X} R5:{:08X} R6:{:08X} R7:{:08X} R8:{:08X} R9:{:08X} R10:{:08X} R11:{:08X} R12:{:08X} R13:{:08X} R14:{:08X} R15:{:08X}",
   // regs.get_reg(0),
-  //              regs.get_reg(1), regs.get_reg(2), regs.get_reg(3), regs.get_reg(4), regs.get_reg(5), regs.get_reg(6), regs.get_reg(7), regs.get_reg(8), regs.get_reg(9), regs.get_reg(10), regs.get_reg(11),
+  //              regs.get_reg(1), regs.get_reg(2), regs.get_reg(3), regs.get_reg(4), regs.get_reg(5), regs.get_reg(6), regs.get_reg(7), regs.get_reg(8), regs.get_reg(9), regs.get_reg(10),
+  //              regs.get_reg(11),
   //  regs.get_reg(12), regs.get_reg(13), regs.get_reg(14), regs.get_reg(15));
+  // regs.r[15] &= ~1;
 
-  
   if (regs.r[15] != align_by_current_mode(regs.r[15])) {
     fmt::println("something left PC unaligned -- addr: {:#010x}", regs.r[15]);
     exit(-1);
     assert(0);
   }
-  
+
   // if (regs.r[15] == 0x134) { fmt::println("branched to IRQ VECTOR -- cycles elapsed: {}", bus->cycles_elapsed); }
-  
+
   pipeline.execute = pipeline.decode;
   pipeline.decode  = pipeline.fetch;
-  
+
   handle_interrupts();
-  
+
   // flushed_pipeline = false;
-  
+
   // print_pipeline();
   bus->cycles_elapsed += 1;
-  
+
   pipeline.fetch = fetch(regs.r[15]);
 
   execute(pipeline.execute);
-  
+
   regs.r[15] += regs.CPSR.STATE_BIT == THUMB_MODE ? 2 : 4;
 
   return 0;
