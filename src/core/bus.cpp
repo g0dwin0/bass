@@ -47,7 +47,7 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
   switch ((REGION)(address >> 24)) {
     case REGION::BIOS: {
-      if (address >= 0x00003FFF) return bios_open_bus;
+      if (address >= 0x00003FFF) return cpu->pipeline.fetch >> (address & 1) * 8;
 
       if (cpu->regs.r[15] > 0x00003FFF) {
         // v = bios_open_bus;
@@ -303,7 +303,7 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
   switch ((REGION)(address >> 24)) {
     case REGION::BIOS: {
-      if (address >= 0x00003FFF) return bios_open_bus;
+      if (address >= 0x00003FFF) return std::rotr(cpu->pipeline.fetch, misaligned_by);
       // BIOS read
       if (cpu->regs.r[15] > 0x00003FFF) {
         v = bios_open_bus;
@@ -420,8 +420,9 @@ void Bus::write8(u32 address, u8 value) {
 
     case REGION::BG_OBJ_PALETTE: {
       // BG/OBJ Palette RAM
-      PALETTE_RAM.at((address & ~1) % 0x400)       = value;
-      PALETTE_RAM.at(((address & ~1) + 1) % 0x400) = value;
+      fmt::println("{:#010X} -- {:#010X}", address, value);
+      *(uint16_t*)(&PALETTE_RAM.at((address % 0x400) & ~1)) = value * 0x101;
+      // PALETTE_RAM.at(((address & ~1) + 1) % 0x400) = value;
 
       return;
     }
@@ -431,16 +432,16 @@ void Bus::write8(u32 address, u8 value) {
 
       if (max_addr >= 0x18000) max_addr -= 0x8000u;
 
-      if (display_fields.DISPCNT.BG_MODE >= 3) return;
+      // if (display_fields.DISPCNT.BG_MODE >= 3) return;
 
-      fmt::println("value:{:#04X}", value);
+      // fmt::println("value:{:#04X}", value);
       *(uint16_t*)(&VRAM.at(max_addr & ~1)) = value * 0x101;
       return;
     }
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      *(uint8_t*)(&SRAM.data()[(address % 0x8000)]) = value;
+      SRAM.at(address % 0x8000) = value;
       break;
     }
 
@@ -526,7 +527,7 @@ void Bus::write16(u32 address, u16 value) {
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      SRAM.at(_address % 0x8000) = std::rotr(value, address * 8) & 0xFF;
+      SRAM.at(_address % 0x8000) = std::rotr(value, _address * 8) & 0xFF;
       break;
     }
 
@@ -701,69 +702,67 @@ u8 Bus::io_read(u32 address) {
       break;
     }
 
-    case SOUND1CNT_L: {
+    case SOUND1CNT_L:
+    case SOUND1CNT_L + 1: {
       retval = read_byte(sound_registers.SOUND1CNT_L.v, address % 0x2);
       break;
     }
 
-    case SOUND1CNT_H: {
-      retval = read_byte(sound_registers.SOUND1CNT_H.v, 0) & 0b11000000;
-      break;
-    }
-    case SOUND1CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND1CNT_H.v, 1);
-      break;
-    }
-
-    case SOUND1CNT_X + 1: {
-      retval = read_byte(sound_registers.SOUND1CNT_X.v, 1);
+    case SOUND1CNT_X:
+    case SOUND1CNT_X + 1:
+    case SOUND1CNT_X + 2:
+    case SOUND1CNT_X + 3: {
+      retval = read_byte(sound_registers.SOUND1CNT_X.v, address % 0x4);
       break;
     }
 
-    case SOUND2CNT_L: {
-      retval = read_byte(sound_registers.SOUND2CNT_L.v, 0) & 0xc0;
-      break;
-    }
+    case SOUND2CNT_L:
     case SOUND2CNT_L + 1: {
-      retval = read_byte(sound_registers.SOUND2CNT_L.v, 1);
+      retval = read_byte(sound_registers.SOUND2CNT_L.v, address % 0x2);
       break;
     }
 
-    // case SOUND2CNT_H: {
-    //   retval = read_byte(sound_registers.SOUND2CNT_H.v, 0);
-    //   break;
-    // }
+    case SOUND3CNT_L:
+    case SOUND3CNT_L + 1: {
+      retval = read_byte(sound_registers.SOUND3CNT_L.v, address % 0x2);
+      break;
+    }
+
+    case SOUND1CNT_H:
+    case SOUND1CNT_H + 1: {
+      retval = read_byte(sound_registers.SOUND1CNT_H.v, address % 2);
+      break;
+    }
+
+    case SOUND2CNT_H:
     case SOUND2CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND2CNT_H.v, 1) & 0x40;
+      retval = read_byte(sound_registers.SOUND2CNT_H.v, address % 2);
       break;
     }
 
-    case SOUND3CNT_L: {
-      retval = read_byte(sound_registers.SOUND3CNT_L.v, 0) & 0b11100000;
-      break;
-    }
-
+    case SOUND3CNT_H:
     case SOUND3CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND3CNT_H.v, 1) & 0b11100000;
+      retval = read_byte(sound_registers.SOUND3CNT_H.v, address % 2);
       break;
     }
 
+    case SOUND3CNT_X:
     case SOUND3CNT_X + 1: {
-      retval = read_byte(sound_registers.SOUND3CNT_X.v, 1) & 0b01000000;
+      retval = read_byte(sound_registers.SOUND3CNT_X.v, address % 2);
       break;
     }
 
-    case SOUND4CNT_L + 1: {
-      retval = read_byte(sound_registers.SOUND4CNT_L.v, 1);
+    case SOUND4CNT_L:
+    case SOUND4CNT_L + 1:
+    case SOUND4CNT_L + 2:
+    case SOUND4CNT_L + 3: {
+      retval = read_byte(sound_registers.SOUND4CNT_L.v, address % 4);
       break;
     }
 
-    case SOUND4CNT_H: {
-      retval = read_byte(sound_registers.SOUND4CNT_H.v, 0);
-      break;
-    }
+    case SOUND4CNT_H:
     case SOUND4CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND4CNT_H.v, 1) & 0b01000000;
+      retval = read_byte(sound_registers.SOUND4CNT_H.v, address % 2);
       break;
     }
 
@@ -779,8 +778,11 @@ u8 Bus::io_read(u32 address) {
       break;
     }
 
-    case SOUNDCNT_X: {
-      retval = read_byte(sound_registers.SOUNDCNT_X.v, 0);
+    case SOUNDCNT_X:
+    case SOUNDCNT_X + 1:
+    case SOUNDCNT_X + 2:
+    case SOUNDCNT_X + 3: {
+      retval = read_byte(sound_registers.SOUNDCNT_X.v, address % 4);
       break;
     }
 
@@ -901,9 +903,11 @@ u8 Bus::io_read(u32 address) {
       break;
     }
     case KEYCNT: bus_logger->debug("READING FROM UNIMPL KEYCNT"); break;
-    // case RCNT: retval = 0x0; break;
-    // case RCNT+1: retval = 0x80; break;
-    case RCNT: break;
+    case RCNT: retval = 0x0; break;
+    case RCNT + 1:
+      retval = 0x80;
+      break;
+      // case RCNT: break;
 
     case JOYCNT: bus_logger->debug("READING FROM UNIMPL JOYCNT"); break;
     case JOY_RECV: bus_logger->debug("READING FROM UNIMPL JOY_RECV"); break;
@@ -919,27 +923,26 @@ u8 Bus::io_read(u32 address) {
       retval = read_byte(interrupt_control.IF.v, address % 2);
       break;
     }
-    case WAITCNT: break;
+    case WAITCNT:
+    case WAITCNT + 1:
+    case WAITCNT + 2:
+    case WAITCNT + 3: {
+      retval = read_byte(system_control.WAITCNT.v, address % 4);
+      break;
+    }
     case IME ... IME + 3: {
       retval = read_byte(interrupt_control.IME.v, address % 4);
       break;
     }
 
-    case 0x4000086:
-    case 0x4000087:
-    case 0x4000066:
-    case 0x4000067:
     case 0x400006A:
     case 0x400006B:
-    case 0x400007A:
-    case 0x400007B:
     case 0x4000076:
     case 0x4000077:
     case 0x400007E:
     case 0x400007F:
     case 0x400008A:
     case 0x400008B:
-
     case 0x400006E:
     case 0x400006F:
     case UNKNOWN136:
@@ -948,8 +951,6 @@ u8 Bus::io_read(u32 address) {
     case UNKNOWN142 + 1:
     case UNKNOWN15A:
     case UNKNOWN15A + 1:
-    case UNKNOWN206:
-    case UNKNOWN206 + 1:
     case UNKNOWN302:
     case UNKNOWN302 + 1: return 0x00;
 
@@ -1190,14 +1191,18 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUND1CNT_H + 1: {
       set_byte(sound_registers.SOUND1CNT_H.v, address % 2, value);
       // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
+
+      sound_registers.SOUND1CNT_H.v &= ~0b111111;
       break;
     }
 
     case SOUND1CNT_X:
-    case SOUND1CNT_X + 1: {
-      set_byte(sound_registers.SOUND1CNT_X.v, address % 2, value);
+    case SOUND1CNT_X + 1:
+    case SOUND1CNT_X + 2:
+    case SOUND1CNT_X + 3: {
+      set_byte(sound_registers.SOUND1CNT_X.v, address % 4, value);
 
-      sound_registers.SOUND1CNT_X.v &= 0xFFFF;
+      sound_registers.SOUND1CNT_X.v &= (1 << 14);
       break;
     }
 
@@ -1205,7 +1210,7 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUND2CNT_L + 1: {
       set_byte(sound_registers.SOUND2CNT_L.v, address % 2, value);
 
-      sound_registers.SOUND2CNT_L.v &= 0x7f;
+      sound_registers.SOUND2CNT_L.v &= 0xFFC0;
       break;
     }
 
@@ -1213,37 +1218,55 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUND2CNT_H + 1: {
       set_byte(sound_registers.SOUND2CNT_H.v, address % 2, value);
       // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
+
+      sound_registers.SOUND2CNT_H.v &= 0X4000;
+
       break;
     }
 
     case SOUND3CNT_L:
     case SOUND3CNT_L + 1: {
       set_byte(sound_registers.SOUND3CNT_L.v, address % 2, value);
+
+      sound_registers.SOUND3CNT_L.v &= 0XE0;
       break;
     }
 
     case SOUND3CNT_H:
     case SOUND3CNT_H + 1: {
       set_byte(sound_registers.SOUND3CNT_H.v, address % 2, value);
-      // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
+
+      sound_registers.SOUND3CNT_H.v &= 0b1110000000000000;
       break;
     }
 
     case SOUND3CNT_X:
-    case SOUND3CNT_X + 1: {
-      set_byte(sound_registers.SOUND3CNT_X.v, address % 2, value);
+    case SOUND3CNT_X + 1:
+    case SOUND3CNT_X + 2:
+    case SOUND3CNT_X + 3: {
+      set_byte(sound_registers.SOUND3CNT_X.v, address % 4, value);
+
+      sound_registers.SOUND3CNT_X.v &= (1 << 14);
       break;
     };
 
     case SOUND4CNT_L:
-    case SOUND4CNT_L + 1: {
-      set_byte(sound_registers.SOUND4CNT_L.v, address % 2, value);
+    case SOUND4CNT_L + 1:
+    case SOUND4CNT_L + 2:
+    case SOUND4CNT_L + 3: {
+      set_byte(sound_registers.SOUND4CNT_L.v, address % 4, value);
+
+      sound_registers.SOUND4CNT_L.v &= 0xFF00;
       break;
     }
 
     case SOUND4CNT_H:
-    case SOUND4CNT_H + 1: {
-      set_byte(sound_registers.SOUND4CNT_H.v, address % 2, value);
+    case SOUND4CNT_H + 1:
+    case SOUND4CNT_H + 2:
+    case SOUND4CNT_H + 3: {
+      set_byte(sound_registers.SOUND4CNT_H.v, address % 4, value);
+      sound_registers.SOUND4CNT_H.v &= 0x40FF;
+
       break;
     }
     case SOUNDCNT_L: {
@@ -1264,8 +1287,13 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
-    case SOUNDCNT_X: {
-      set_byte(sound_registers.SOUNDCNT_X.v, 0, value & (1 << 7));
+    case SOUNDCNT_X:
+    case SOUNDCNT_X + 1:
+    case SOUNDCNT_X + 2:
+    case SOUNDCNT_X + 3: {
+      if (address != SOUNDCNT_X) break;
+
+      set_byte(sound_registers.SOUNDCNT_X.v, address % 4, value & (1 << 7));
       break;
     }
 
@@ -1275,8 +1303,17 @@ void Bus::io_write(u32 address, u8 value) {
       // system_control.sound_bias = value;
       break;
     }
-    // case WAVE_RAM: bus_logger->debug("WRITING TO WAVE_RAM UNIMPL"); break;
+      // case WAVE_RAM: bus_logger->debug("WRITING TO WAVE_RAM UNIMPL"); break;
 
+    case WAITCNT:
+    case WAITCNT + 1:
+    case WAITCNT + 2:
+    case WAITCNT + 3: {
+      set_byte(system_control.WAITCNT.v, address % 4, value);
+
+      system_control.WAITCNT.v &= 0b1101111111111111;
+      break;
+    }
 
     case WAVE_RAM0_L:
     case WAVE_RAM0_L + 1:
@@ -1425,7 +1462,7 @@ void Bus::io_write(u32 address, u8 value) {
       // bus_logger->debug("NEW IF: {:#010x}", interrupt_control.IF.v, address);
       break;
     }
-    case WAITCNT: bus_logger->debug("WRITING TO UNIMPL WAITCNT"); break;
+
     case IME ... IME + 3: {
       if (address != IME) return;
       interrupt_control.IME.v = (value & 0b1);
