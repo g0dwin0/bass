@@ -4,10 +4,10 @@ struct Bus;
 #include "bus.hpp"
 #include "common/defs.hpp"
 
-enum class SRC_CONTROL : u8 { INCREMENT = 0, DECREMENT, FIXED, PROHIBITED };
-enum class DST_CONTROL : u8 { INCREMENT = 0, DECREMENT, FIXED, INCREMENT_RELOAD };
-enum class TRANSFER_TYPE : u8 { HALFWORD = 0, WORD };
-enum class DMA_START_TIMING : u8 { IMMEDIATELY = 0, VBLANK, HBLANK, SPECIAL };
+enum class SRC_CONTROL : u16 { INCREMENT = 0, DECREMENT, FIXED, PROHIBITED };
+enum class DST_CONTROL : u16 { INCREMENT = 0, DECREMENT, FIXED, INCREMENT_RELOAD };
+enum class TRANSFER_TYPE : u16 { HALFWORD = 0, WORD };
+enum class DMA_START_TIMING : u16 { IMMEDIATELY = 0, VBLANK, HBLANK, SPECIAL };
 
 const std::unordered_map<DMA_START_TIMING, std::string> TIMING_MAP = {
     {DMA_START_TIMING::IMMEDIATELY, "IMMEDIATELY"},
@@ -37,16 +37,19 @@ union DMACNT_L {
   };
 };
 
-struct DMACNT_H {  // packed manually because of alignment issues -> dmacnt_h_values
-  u8                            : 4;
-  DST_CONTROL dst_control       : 2;
-  SRC_CONTROL src_control       : 2;
-  bool dma_repeat                 : 1;
-  TRANSFER_TYPE transfer_type   : 1;
-  bool game_pak_drq               : 1;
-  DMA_START_TIMING start_timing : 2;
-  bool irq_at_end                 : 1;
-  bool dma_enable               : 1;
+union DMACNT_H {
+  u16 v;
+  struct {
+    u16                           : 5;
+    DST_CONTROL dst_control       : 2;
+    SRC_CONTROL src_control       : 2;
+    bool dma_repeat               : 1;
+    TRANSFER_TYPE transfer_type   : 1;
+    bool game_pak_drq             : 1;
+    DMA_START_TIMING start_timing : 2;
+    bool irq_at_end               : 1;
+    bool dma_enable               : 1;
+  };
 };
 
 static u8 dma_ctx_id;
@@ -76,9 +79,6 @@ struct DMAContext {
   void print_dma_info();
   void process();
   bool enabled();
-
-  void set_values_cnt_h(u8 byte_index, u16 value);
-  u8 get_values_cnt_h(u8 byte_index);
 
   void transfer16(const u32 src, const u32 dst, u32 word_count);
   void transfer32(const u32 src, const u32 dst, u32 word_count);
