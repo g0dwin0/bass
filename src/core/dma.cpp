@@ -48,44 +48,6 @@ void DMAContext::process() {
 
 bool DMAContext::enabled() { return dmacnt_h.dma_enable; }
 
-void DMAContext::set_values_cnt_h(u8 byte_index, u16 value) {
-  if (byte_index == 0) {
-    dmacnt_h.dst_control = static_cast<DST_CONTROL>((value & 0b1100000) >> 5);
-    dmacnt_h.src_control = static_cast<SRC_CONTROL>(((value & 0b10000000) >> 7) | (u8)dmacnt_h.src_control);
-
-  } else {
-    dmacnt_h.src_control = static_cast<SRC_CONTROL>(((value & 1)) | ((u8)dmacnt_h.src_control << 1));
-    value <<= 8;
-
-    dmacnt_h.dma_repeat    = static_cast<u8>((value & (1 << 9)) >> 9);
-    dmacnt_h.transfer_type = static_cast<TRANSFER_TYPE>((value & (1 << 10)) >> 10);
-
-    if (id == 3) dmacnt_h.game_pak_drq = static_cast<bool>((value & (1 << 11)) >> 11);  // game pak drq is dma3 only
-    dmacnt_h.start_timing = static_cast<DMA_START_TIMING>((value & (0b11 << 12)) >> 12);
-    dmacnt_h.irq_at_end   = static_cast<bool>((value & (1 << 14)) >> 14);
-    dmacnt_h.dma_enable   = static_cast<bool>((value & (1 << 15)) >> 15) ? true : false;
-  }
-}
-
-u8 DMAContext::get_values_cnt_h(u8 byte_index) {
-  u16 v = 0;
-
-  v |= ((u8)dmacnt_h.dst_control << 5);
-  v |= ((u8)dmacnt_h.src_control << 7);
-  v |= ((u8)dmacnt_h.dma_repeat << 9);
-  v |= ((u8)dmacnt_h.transfer_type << 10);
-  v |= ((u8)dmacnt_h.game_pak_drq << 11);
-  v |= ((u8)dmacnt_h.start_timing << 12);
-  v |= ((u8)dmacnt_h.irq_at_end << 14);
-  v |= ((u8)dmacnt_h.dma_enable << 15);
-
-  if (byte_index == 0) {
-    return v & 0xFF;
-  } else {
-    return (v & 0xFF00) >> 8;
-  }
-}
-
 void DMAContext::transfer16(u32 src, u32 dst, u32 word_count) {
   if (word_count == 0 && id != 3) word_count = 0x4000;
   if (word_count == 0 && id == 3) word_count = 0x10000;
@@ -110,18 +72,20 @@ void DMAContext::transfer16(u32 src, u32 dst, u32 word_count) {
 
     bus->write16(dst & DMA_DST_MASK[id], value);
 
-    switch (dmacnt_h.src_control) {
-      case SRC_CONTROL::INCREMENT: src += 2; break;
-      case SRC_CONTROL::DECREMENT: src -= 2; break;
-      case SRC_CONTROL::FIXED: break;
-      case SRC_CONTROL::PROHIBITED: assert(0);
-    }
-
     switch (dmacnt_h.dst_control) {
       case DST_CONTROL::INCREMENT: dst += 2; break;
       case DST_CONTROL::DECREMENT: dst -= 2; break;
       case DST_CONTROL::FIXED: break;
       case DST_CONTROL::INCREMENT_RELOAD: break; ;
+    }
+
+    if (src >= 0x08000000 && dmacnt_h.src_control != SRC_CONTROL::INCREMENT) src += 2;
+
+    switch (dmacnt_h.src_control) {
+      case SRC_CONTROL::INCREMENT: src += 2; break;
+      case SRC_CONTROL::DECREMENT: src -= 2; break;
+      case SRC_CONTROL::FIXED: break;
+      case SRC_CONTROL::PROHIBITED: assert(0);
     }
   }
 }
@@ -140,13 +104,12 @@ void DMAContext::transfer32(u32 src, u32 dst, u32 word_count) {
       value = dma_open_bus;
     } else {
       value = bus->read32(src & DMA_SRC_MASK[id]);
-      
-      if (src > 0x07FFFFFF && id == 0) { // DMA0 (27 bits) cannot read this high
+
+      if (src > 0x07FFFFFF && id == 0) {  // DMA0 (27 bits) cannot read this high
         value = 0;
       } else {
         dma_open_bus = value;
       }
-
     }
 
     bus->write32(dst & DMA_DST_MASK[id], value);
