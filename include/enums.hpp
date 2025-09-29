@@ -3,7 +3,7 @@
 #include "common/defs.hpp"
 enum ALIGN_TO { HALFWORD, WORD };
 
-enum PRESCALER_SEL { F_1, F_64, F_256, F_1024 };
+enum PRESCALER_SEL : u8 { F_1, F_64, F_256, F_1024 };
 
 enum class INTERRUPT_TYPE : u8 {
   LCD_VBLANK       = 0,
@@ -21,3 +21,5 @@ enum class INTERRUPT_TYPE : u8 {
   KEYPAD           = 12,
   GAMEPAK_EX       = 13
 };
+
+enum CartridgeType { EEPROM, SRAM, FLASH, FLASH512, FLASH1M, UNKNOWN };
