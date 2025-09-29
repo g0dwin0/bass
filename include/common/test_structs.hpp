@@ -5,9 +5,9 @@
 #include "defs.hpp"
 #include "spdlog/fmt/bundled/core.h"
 
-enum ACCESS_TYPE : u32 { INSTRUCTION_READ, GENERAL_READ, WRITE };
+enum SST_ACCESS_TYPE : u32 { INSTRUCTION_READ, GENERAL_READ, WRITE };
 
-const std::unordered_map<ACCESS_TYPE, std::string> TransactionType = {
+const std::unordered_map<SST_ACCESS_TYPE, std::string> TransactionType = {
     {INSTRUCTION_READ, "INSTRUCTION READ"},
     {    GENERAL_READ,     "GENERAL READ"},
     {           WRITE,            "WRITE"}
@@ -15,7 +15,7 @@ const std::unordered_map<ACCESS_TYPE, std::string> TransactionType = {
 
 struct Transaction {
   u8 id = 0;
-  ACCESS_TYPE kind;
+  SST_ACCESS_TYPE kind;
   u8 size;
   u32 addr;
   u32 data;
@@ -35,5 +35,4 @@ struct Transaction {
     fmt::println("base_addr: {:#010x}", base_addr);
     fmt::println("=======================");
   }
-  
 };
