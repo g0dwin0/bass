@@ -7,10 +7,10 @@
 #include "common/test_structs.hpp"
 #include "cpu.hpp"
 #include "enums.hpp"
+#include "flash.hpp"
 #include "labels.hpp"
 #include "pak.hpp"
 #include "registers.hpp"
-#include "save/flash.hpp"
 #include "sched/sched.hpp"
 
 void Bus::request_interrupt(INTERRUPT_TYPE type) { interrupt_control.IF.v |= 1 << static_cast<u8>(type); }
@@ -126,13 +126,6 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
         return pak->flash_controller.handle_read(address);
       }
       v = pak->SRAM.at(address % 0x8000);
-
-      // if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000000) return 0x62;
-      // if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000001) return 0x13;
-
-      // if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000000) return 0x32;
-      // if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000001) return 0x1B;
-      // TODO: ^^^^^^^^ Flash stub -- remove when flash implementation is done ^^^^^^^^
 
       break;
     }
