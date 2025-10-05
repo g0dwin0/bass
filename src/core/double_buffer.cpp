@@ -1,11 +1,10 @@
 #include "double_buffer.hpp"
-#include <cassert>
-#include <cstring>
 
-void DoubleBuffer::write(size_t idx, u32 value) {
-  assert(idx < 241*160);
+#include <cassert>
+#include <utility>
+
+void DoubleBuffer::write(const size_t idx, const u32 value) {
+  assert(idx < 241 * 160);
   write_buf[idx] = value;
 }
-void DoubleBuffer::swap_buffers() {
-  std::swap(write_buf, disp_buf);
-};
+void DoubleBuffer::swap_buffers() { std::swap(write_buf, disp_buf); };
