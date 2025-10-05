@@ -9,8 +9,6 @@
 #include "registers.hpp"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
-// Only CPU and opcode are used in handlers.
-
 typedef void (*FuncPtr)(ARM7TDMI*, u32);
 
 enum struct ALU_OP : u8 {
@@ -56,9 +54,6 @@ static constexpr u32 IRQ_VECTOR = 0x18;
 struct ARM7TDMI {
   ARM7TDMI();
   Registers regs = {};
-
-  csh handler;
-  cs_insn *insn;
 
   enum SHIFT_MODE : u8 {
     LSL,
@@ -144,7 +139,7 @@ struct ARM7TDMI {
       return ARM_SOFTWARE_INTERRUPT;
     }
 
-    SPDLOG_DEBUG("[ARM] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
+    SPDLOG_DEBUG("[ARM7] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
     return nullptr;
   };
 
@@ -157,7 +152,7 @@ struct ARM7TDMI {
       return THUMB_MOVE_SHIFTED_REG;
     }
 
-    if ((opcode & 0b1110000000) == 0b0010000000) {  
+    if ((opcode & 0b1110000000) == 0b0010000000) {
       return THUMB_MOV_CMP_ADD_SUB;
     }
 
@@ -165,64 +160,49 @@ struct ARM7TDMI {
       return THUMB_DATA_PROC;
     }
 
-    if ((opcode & 0b1111111100) == 0b0100011100) { 
+    if ((opcode & 0b1111111100) == 0b0100011100) {
       return THUMB_ADD_CMP_MOV_HI;
     }
 
-    if ((opcode & 0b1111110000) == 0b0100010000) {  
+    if ((opcode & 0b1111110000) == 0b0100010000) {
       return THUMB_ADD_CMP_MOV_HI;
     }
 
-    if ((opcode & 0b1111100000) == 0b0100100000) { 
+    if ((opcode & 0b1111100000) == 0b0100100000) {
       return THUMB_LDR_PC_REL;
     }
 
-
-    
     if ((opcode & 0b1111'0'11000) == 0b0101'0'01000) {
       return THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET;
     }
 
     if ((opcode & 0b1111'011000) == 0b0101011000) {
-      return  THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET;
+      return THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET;
     }
 
-    
-
-
-
-    if ((opcode & 0b1111'0'11'000) == 0b0101000000 || (opcode & 0b1111011000) == 0b0101010000) { 
+    if ((opcode & 0b1111'0'11'000) == 0b0101000000 || (opcode & 0b1111011000) == 0b0101010000) {
       return THUMB_WORD_BYTE_REG_OFFSET;
     }
 
-    if ((opcode & 0b1110000000) == 0b0110000000) { 
+    if ((opcode & 0b1110000000) == 0b0110000000) {
       return THUMB_WORD_BYTE_IMM_OFFSET;
     }
 
-    if ((opcode & 0b1111000000) == 0b1000000000) { 
+    if ((opcode & 0b1111000000) == 0b1000000000) {
       return THUMB_HALFWORD_IMM_OFFSET;
     }
-
-    
-
-
 
     if ((opcode & 0b1111000000) == 0b1001000000) {  // THUMB 11
       return THUMB_LOAD_STORE_SP_REL;
     }
 
-
-
     if ((opcode & 0b1111000000) == 0b1010000000) {  // THUMB 12
       return THUMB_ADD_SP_PC;
     }
 
-
     if ((opcode & 0b1111111000) == 0b1011000000) {  // THUMB 13
       return THUMB_ADD_OFFSET_SP;
     }
-
-    
 
     if ((opcode & 0b1111'011000) == 0b1011'010'000) {  // PUSH/POP
       return THUMB_PUSH_POP;
@@ -261,14 +241,14 @@ struct ARM7TDMI {
   };
 
   void flush_pipeline();
-
-  u16 step();
+  u64 cycles_this_step;
+  u64 step();
 
   void print_pipeline() const;
   void execute(u32 opcode);
   void handle_interrupts();
 
-  [[nodiscard]] bool check_condition(const Condition i) const;
+  [[nodiscard]] bool check_condition(Condition i) const;
 
   void print_registers() const;
 
@@ -279,17 +259,17 @@ struct ARM7TDMI {
 
   [[nodiscard]] bool interrupt_queued() const;
 
-  inline void set_zero() { regs.CPSR.ZERO_FLAG = 1; };
-  inline void reset_zero() { regs.CPSR.ZERO_FLAG = 0; };
+  void set_zero() { regs.CPSR.ZERO_FLAG = true; };
+  void reset_zero() { regs.CPSR.ZERO_FLAG = false; };
 
-  inline void set_negative() { regs.CPSR.SIGN_FLAG = 1; };
-  inline void reset_negative() { regs.CPSR.SIGN_FLAG = 0; };
+  void set_negative() { regs.CPSR.SIGN_FLAG = true; };
+  void reset_negative() { regs.CPSR.SIGN_FLAG = false; };
 
-  inline void set_carry() { regs.CPSR.CARRY_FLAG = 1; };
-  inline void reset_carry() { regs.CPSR.CARRY_FLAG = 0; };
+  void set_carry() { regs.CPSR.CARRY_FLAG = true; };
+  void reset_carry() { regs.CPSR.CARRY_FLAG = false; };
 
-  inline void set_overflow() { regs.CPSR.OVERFLOW_FLAG = 1; };
-  inline void reset_overflow() { regs.CPSR.OVERFLOW_FLAG = 0; };
+  void set_overflow() { regs.CPSR.OVERFLOW_FLAG = true; };
+  void reset_overflow() { regs.CPSR.OVERFLOW_FLAG = false; };
 
   [[nodiscard]] u32 handle_shifts(bool I, bool R, u8 Rm, u8 Rs, u8 shift_type, u32 imm, u8 rotate, u8 shift_amount, bool S, bool affect_flags = true);
 
@@ -317,7 +297,7 @@ struct ARM7TDMI {
   std::array<FuncPtr, 4096> arm_funcs   = fill_arm_func_tables();
   std::array<FuncPtr, 1024> thumb_funcs = fill_thumb_func_tables();
 
-  [[nodiscard]] constexpr u32 align_by_current_mode(u32 value) {
+  [[nodiscard]] constexpr u32 align_by_current_mode(u32 value) const {
     if (regs.CPSR.STATE_BIT == ARM_MODE) {
       return value & ~3;
     } else {
