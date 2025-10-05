@@ -6,12 +6,15 @@
 #include <mutex>
 
 #include "SDL3/SDL_dialog.h"
+#include "SDL3/SDL_oldnames.h"
 #include "SDL3/SDL_render.h"
+#include "common/stopwatch.hpp"
 #include "cpu.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
 #include "imgui_memory_edit.h"
+#include "ppu.hpp"
 
 static MemoryEditor editor_instance;
 
@@ -101,17 +104,10 @@ void Frontend::handle_events() {
 
 void Frontend::show_memory_viewer() {
   ImGui::Begin("Memory Viewer", &state.memory_viewer_open, 0);
-  const char* regions[] = {
-      "Region: [0x00000000 - 0x00003FFF] BIOS",
-      "Region: [0x02000000 - 0x0203FFFF] EWRAM",
-      "Region: [0x03000000 - 0x03007FFF] IWRAM",
-      // "Region: [0x04000000 - 0x040003FE] IO",
-      "Region: [0x05000000 - 0x050003FF] BG/OBJ Palette RAM",
-      "Region: [0x06000000 - 0x06017FFF] VRAM",
-      "Region: [0x07000000 - 0x070003FF] OAM",
-      "Region: [0x08000000 - 0x09FFFFFF] Game Pak ROM",
-      "Region: [0x0E000000 - 0x0E00FFFF] Game Pak SRAM",
-  };
+  const char* regions[] = {"Region: [0x00000000 - 0x00003FFF] BIOS", "Region: [0x02000000 - 0x0203FFFF] EWRAM", "Region: [0x03000000 - 0x03007FFF] IWRAM",
+                           // "Region: [0x04000000 - 0x040003FE] IO",
+                           "Region: [0x05000000 - 0x050003FF] BG/OBJ Palette RAM", "Region: [0x06000000 - 0x06017FFF] VRAM", "Region: [0x07000000 - 0x070003FF] OAM",
+                           "Region: [0x08000000 - 0x09FFFFFF] Game Pak ROM", "Region: [0x0E000000 - 0x0E00FFFF] Game Pak SRAM", "Region: BGMAP1"};
 
   const std::vector<u8>* memory_partitions[] = {
       &agb->bus.BIOS,
@@ -121,8 +117,8 @@ void Frontend::show_memory_viewer() {
       &agb->bus.PALETTE_RAM,
       &agb->bus.VRAM,
       &agb->bus.OAM,
-      &agb->bus.pak->data,
-      &agb->bus.SRAM,
+      &agb->pak.data,
+      &agb->pak.SRAM,
 
   };
 
@@ -134,7 +130,12 @@ void Frontend::show_memory_viewer() {
   editor_instance.OptShowAscii = false;
   // editor_instance.ReadOnly = true;
 
-  editor_instance.DrawContents((void*)memory_partitions[SelectedItem]->data(), memory_partitions[SelectedItem]->size());
+  if (SelectedItem == 8) {
+    // agb->ppu.tile_map_texture_buffer_1,
+    editor_instance.DrawContents((void*)agb->ppu.tile_map_texture_buffer_1, sizeof(u32) * 512 * 512);
+  } else {
+    editor_instance.DrawContents((void*)memory_partitions[SelectedItem]->data(), memory_partitions[SelectedItem]->size());
+  }
 
   ImGui::End();
 }
@@ -180,6 +181,58 @@ void Frontend::show_obj() {
   ImGui::End();
 }
 
+void Frontend::show_timer_window() {
+  ImGui::Begin("Show Timer Window", &state.timer_window_open);
+
+  ImGui::SeparatorText("Timer 0");
+  // bool enabled_0     = agb->timers[0].ctrl.timer_start_stop;
+  // bool irq_enabled_0 = agb->timers[0].ctrl.timer_irq_enable;
+
+  ImGui::Text("Ticking Enabled: %d", agb->timers[0].ctrl.timer_start_stop);
+  ImGui::Text("IRQ Enabled: %d", agb->timers[0].ctrl.timer_irq_enable);
+  ImGui::Text("Counter: %d", agb->timers[0].counter);
+  ImGui::Text("Prescaler: %s", agb->timers[0].get_prescaler_string().c_str());
+
+  // =========================
+
+  ImGui::SeparatorText("Timer 1");
+  bool enabled_1     = agb->timers[1].ctrl.timer_start_stop;
+  bool irq_enabled_1 = agb->timers[1].ctrl.timer_irq_enable;
+
+  ImGui::Checkbox("Ticking Enabled##l1", &enabled_1);
+  ImGui::Checkbox("IRQ Enabled##il1", &irq_enabled_1);
+  ImGui::Text("Counter: %d", agb->timers[1].counter);
+  ImGui::Text("Prescaler: %s", agb->timers[1].get_prescaler_string().c_str());
+
+  // =========================
+  ImGui::SeparatorText("Timer 2");
+  bool enabled_2     = agb->timers[2].ctrl.timer_start_stop;
+  bool irq_enabled_2 = agb->timers[2].ctrl.timer_irq_enable;
+
+  ImGui::Checkbox("Ticking Enabled##l2", &enabled_2);
+  ImGui::Checkbox("IRQ Enabled##il2", &irq_enabled_2);
+  ImGui::Text("Counter: %d", agb->timers[2].counter);
+  ImGui::Text("Prescaler: %s", agb->timers[2].get_prescaler_string().c_str());
+
+  // =========================
+  ImGui::SeparatorText("Timer 3");
+  bool enabled_3     = agb->timers[3].ctrl.timer_start_stop;
+  bool irq_enabled_3 = agb->timers[3].ctrl.timer_irq_enable;
+
+  ImGui::Checkbox("Ticking Enabled##l3", &enabled_3);
+  ImGui::Checkbox("IRQ Enabled##il3", &irq_enabled_3);
+
+  ImGui::Text("Counter: %d", agb->timers[3].counter);
+  ImGui::Text("Prescaler: %s", agb->timers[3].get_prescaler_string().c_str());
+
+  ImGui::End();
+}
+void Frontend::show_viewport() {
+  ImGui::Begin("Viewport");
+  ImGui::Image(state.ppu_texture, {ImGui::GetWindowWidth() - 10, ImGui::GetWindowHeight() - 10});
+
+  ImGui::End();
+}
 void Frontend::show_backgrounds() {
   ImGui::Begin("Backgrounds", &state.backgrounds_window_open, 0);
   const char* backgrounds[] = {"BG0", "BG1", "BG2", "BG3", "viewport", "backdrop"};
@@ -193,11 +246,6 @@ void Frontend::show_backgrounds() {
   if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_ARRAYSIZE(backgrounds))) {
     fmt::println("switched to: {}", backgrounds[SelectedItem]);
   }
-
-  if (SelectedItem < 4) {
-    ImGui::Image(state.background_textures[SelectedItem], {512, 512});
-  }
-
   switch (SelectedItem) {
     case 0:
     case 1:
@@ -256,7 +304,7 @@ void Frontend::show_cpu_info() {
 
   ImGui::Text("CPU MODE: %s", agb->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
   ImGui::Text("OPERATING MODE: %s", mode_map.at(agb->cpu.regs.CPSR.MODE_BIT).c_str());
-  ImGui::Text("CYCLES ELAPSED: %lu", agb->bus.cycles_elapsed);
+  ImGui::Text("CYCLES ELAPSED: %lu", cycles_elapsed);
 
   ImGui::EndDisabled();
 
@@ -274,7 +322,6 @@ void Frontend::show_cpu_info() {
   if (ImGui::Button("STEP AMOUNT")) {
     for (int i = 0; i < state.step_amount; i++) {
       agb->cpu.step();
-      agb->set_ppu_interrupts();
     }
   }
 
@@ -288,14 +335,14 @@ void Frontend::show_cpu_info() {
     spdlog::set_level(spdlog::level::off);
     agb->cpu.cpu_logger->set_level(spdlog::level::off);
   }
-  if (ImGui::Button("FORCE NEW TILE LOAD")) {
-    // agb->ppu.repopulate_objs();
-
-    agb->ppu.load_tiles(0, agb->bus.display_fields.BG0CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-    agb->ppu.load_tiles(1, agb->bus.display_fields.BG1CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-    agb->ppu.load_tiles(2, agb->bus.display_fields.BG2CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-    agb->ppu.load_tiles(3, agb->bus.display_fields.BG3CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-  }
+  // if (ImGui::Button("FORCE NEW TILE LOAD")) {
+  //   // agb->ppu.repopulate_objs();
+  //
+  //   agb->ppu.load_tiles(0, agb->bus.display_fields.BG0CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  //   agb->ppu.load_tiles(1, agb->bus.display_fields.BG1CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  //   agb->ppu.load_tiles(2, agb->bus.display_fields.BG2CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  //   agb->ppu.load_tiles(3, agb->bus.display_fields.BG3CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  // }
 
   ImGui::End();
 }
@@ -312,7 +359,6 @@ void Frontend::show_window_info() {
   ImGui::Text("WINDOW 1: X2: %d", agb->bus.display_fields.WIN1H.X2);
   ImGui::Text("WINDOW 1: Y2: %d", agb->bus.display_fields.WIN1V.Y2);
 
-  
   ImGui::SeparatorText("WININ");
   ImGui::Text("W0 BG0 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS & 1);
   ImGui::Text("W0 BG1 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 1 & 1);
@@ -320,11 +366,6 @@ void Frontend::show_window_info() {
   ImGui::Text("W0 BG3 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 3 & 1);
 
   ImGui::SeparatorText("WINOUT");
-
-  
-
-  
-  
 
   ImGui::End();
 }
@@ -336,28 +377,28 @@ void Frontend::show_ppu_info() {
   ImGui::Text("BG0 PRIORITY: %d", agb->bus.display_fields.BG0CNT.BG_PRIORITY);
   ImGui::Text("BG0 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG0CNT.CHAR_BASE_BLOCK);
   ImGui::Text("BG0 MOSAIC: %d", agb->bus.display_fields.BG0CNT.MOSAIC);
-  ImGui::Text("BG0 COLOR MODE: %s", agb->bus.display_fields.BG0CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG0 COLOR MODE: %s", agb->bus.display_fields.BG0CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG0 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG0CNT.SCREEN_BASE_BLOCK);
   ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG0CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG0CNT.SCREEN_SIZE).data());
 
   ImGui::Text("BG1 PRIORITY: %d", agb->bus.display_fields.BG1CNT.BG_PRIORITY);
   ImGui::Text("BG1 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG1CNT.CHAR_BASE_BLOCK);
   ImGui::Text("BG1 MOSAIC: %d", agb->bus.display_fields.BG1CNT.MOSAIC);
-  ImGui::Text("BG1 COLOR MODE: %s", agb->bus.display_fields.BG1CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG1 COLOR MODE: %s", agb->bus.display_fields.BG1CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
   ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG1CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG1CNT.SCREEN_SIZE).data());
 
   ImGui::Text("BG2 PRIORITY: %d", agb->bus.display_fields.BG2CNT.BG_PRIORITY);
   ImGui::Text("BG2 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG2CNT.CHAR_BASE_BLOCK);
   ImGui::Text("BG2 MOSAIC: %d", agb->bus.display_fields.BG2CNT.MOSAIC);
-  ImGui::Text("BG2 COLOR MODE: %s", agb->bus.display_fields.BG2CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG2 COLOR MODE: %s", agb->bus.display_fields.BG2CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG2 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG2CNT.SCREEN_BASE_BLOCK);
   ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG2CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG2CNT.SCREEN_SIZE).data());
 
   ImGui::Text("BG3 PRIORITY: %d", agb->bus.display_fields.BG3CNT.BG_PRIORITY);
   ImGui::Text("BG3 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG3CNT.CHAR_BASE_BLOCK);
   ImGui::Text("BG3 MOSAIC: %d", agb->bus.display_fields.BG3CNT.MOSAIC);
-  ImGui::Text("BG3 COLOR MODE: %s", agb->bus.display_fields.BG3CNT.COLOR_MODE ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG3 COLOR MODE: %s", agb->bus.display_fields.BG3CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
   ImGui::Text("BG3 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG3CNT.SCREEN_BASE_BLOCK);
   ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG3CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG3CNT.SCREEN_SIZE).data());
 
@@ -372,7 +413,9 @@ void Frontend::show_ppu_info() {
 
   ImGui::Separator();
 
-  ImGui::Text("BG MODE: %#04x", agb->bus.display_fields.DISPCNT.BG_MODE);
+  ImGui::Text("BG MODE: %#02x", agb->bus.display_fields.DISPCNT.BG_MODE);
+  ImGui::Text("OBJ DRAW: %#02x", agb->bus.display_fields.DISPCNT.SCREEN_DISPLAY_OBJ);
+
   ImGui::Text("OBJ VRAM MAPPING: %s", agb->bus.display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == 0 ? "2D" : "1D");
   ImGui::Text("OBJ Window: %#010x", agb->bus.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
 
@@ -507,10 +550,16 @@ void Frontend::render_frame() {
   if (state.memory_viewer_open) {
     show_memory_viewer();
   }
+  if (state.timer_window_open) {
+    show_timer_window();
+  }
+
   show_irq_status();
   show_tiles();
   show_backgrounds();
-  show_obj();
+  show_viewport();
+
+  SDL_SetWindowTitle(window, fmt::format("{}fps", 1000 / Stopwatch::duration.count()).c_str());
 
   ImGui::Render();
   SDL_SetRenderScale(renderer, state.io->DisplayFramebufferScale.x, state.io->DisplayFramebufferScale.y);
@@ -524,7 +573,7 @@ void Frontend::render_frame() {
   SDL_UpdateTexture(state.background_textures[3], nullptr, agb->ppu.tile_map_texture_buffer_3, 512 * 4);
   SDL_UpdateTexture(state.obj_texture, nullptr, agb->ppu.obj_texture_buffer, 256 * 4);
 
-  // SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop, 512 * 4);
+  SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop, 512 * 4);
   SDL_UpdateTexture(state.ppu_texture, nullptr, agb->ppu.db.disp_buf, 240 * 4);
   SDL_RenderTexture(renderer, state.ppu_texture, &rect, NULL);
 
@@ -541,7 +590,7 @@ void Frontend::init_sdl() {
 
   auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE);
 
-  this->window = SDL_CreateWindow("bass", 240 * 5, 160 * 5, window_flags);
+  this->window = SDL_CreateWindow("bass", 640, 480, window_flags);
   if (this->window == NULL) {
     fmt::println("failed to create window");
     assert(0);

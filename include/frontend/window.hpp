@@ -25,7 +25,8 @@ struct State {
   bool ppu_info_open        = true;
   bool controls_window_open = true;
   bool tile_window_open     = true;
-  bool window_info_open = true;
+  bool window_info_open     = true;
+  bool timer_window_open    = true;
 
   bool backgrounds_window_open = true;
   bool halted                  = false;
@@ -68,7 +69,7 @@ struct Frontend {
   SDL_FRect rect{0, 0, 240, 160};
 
   constexpr static const SDL_DialogFileFilter filters[] = {
-      { "ROMs",          "gba"},
+      {"ROMs", "gba"},
   };
 
   void init_sdl();
@@ -79,6 +80,8 @@ struct Frontend {
 
   void show_menu_bar();
   void show_backgrounds();
+  void show_viewport();
+  
   void show_window_info();
 
   void shutdown();
@@ -89,6 +92,8 @@ struct Frontend {
   void show_irq_status();
   void show_tiles();
   void show_obj();
+  void show_timer_window();
+  
 
   explicit Frontend(AGB*);
 
