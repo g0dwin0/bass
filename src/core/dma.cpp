@@ -43,7 +43,6 @@ void DMAContext::process() {
       default: assert(0);
     }
   }
-  // }
 };
 
 bool DMAContext::enabled() { return dmacnt_h.dma_enable; }
@@ -57,29 +56,34 @@ void DMAContext::transfer16(u32 src, u32 dst, u32 word_count) {
   src = align(src, HALFWORD);
   dst = align(dst, HALFWORD);
 
+  auto access_type = ACCESS_TYPE::NON_SEQUENTIAL;
+
   for (size_t idx = 0; idx < word_count; idx++) {
-    if ((src & DMA_SRC_MASK[id]) < 0x02000000) {
+    idx == 0 ? access_type = ACCESS_TYPE::NON_SEQUENTIAL : access_type = ACCESS_TYPE::SEQUENTIAL;
+    if ((src & DMA_SRC_MASK[id]) <= 0x1FFFFFF) {
       value = dma_open_bus;
     } else {
-      if (src > 0x07FFFFFF && id == 0) {
-        value = 0;
-      } else {
-        value = bus->read16(src & DMA_SRC_MASK[id]);
-      }
+      value = bus->read16(src & DMA_SRC_MASK[id], access_type);
 
-      dma_open_bus = value;
+      dma_open_bus  = value;
+      open_bus_size = OPEN_BUS_WIDTH::HALFWORD;
     }
 
-    bus->write16(dst & DMA_DST_MASK[id], value);
+    if (!((src & DMA_SRC_MASK[id]) >= 0X0E000000 && id == 0)) {
+      bus->write16(dst & DMA_DST_MASK[id], value);
+    }
 
     switch (dmacnt_h.dst_control) {
       case DST_CONTROL::INCREMENT: dst += 2; break;
       case DST_CONTROL::DECREMENT: dst -= 2; break;
       case DST_CONTROL::FIXED: break;
-      case DST_CONTROL::INCREMENT_RELOAD: break; ;
+      case DST_CONTROL::INCREMENT_RELOAD: break;
     }
 
-    if (src >= 0x08000000 && dmacnt_h.src_control != SRC_CONTROL::INCREMENT) src += 2;
+    if (src >= 0x08000000 && src < 0x0E000000) {
+      if (dmacnt_h.src_control == SRC_CONTROL::FIXED) src += 2;
+      if (dmacnt_h.src_control == SRC_CONTROL::DECREMENT) src += 4;
+    }
 
     switch (dmacnt_h.src_control) {
       case SRC_CONTROL::INCREMENT: src += 2; break;
@@ -101,24 +105,21 @@ void DMAContext::transfer32(u32 src, u32 dst, u32 word_count) {
 
   for (size_t idx = 0; idx < word_count; idx++) {
     if ((src & DMA_SRC_MASK[id]) <= 0x1FFFFFF) {
-      value = dma_open_bus;
+      if (open_bus_size == OPEN_BUS_WIDTH::HALFWORD) {
+        value = (dma_open_bus << 16) | dma_open_bus;
+      } else {
+        value = dma_open_bus;
+      }
+
     } else {
       value = bus->read32(src & DMA_SRC_MASK[id]);
 
-      if (src > 0x07FFFFFF && id == 0) {  // DMA0 (27 bits) cannot read this high
-        value = 0;
-      } else {
-        dma_open_bus = value;
-      }
+      dma_open_bus  = value;
+      open_bus_size = OPEN_BUS_WIDTH::WORD;
     }
 
-    bus->write32(dst & DMA_DST_MASK[id], value);
-
-    switch (dmacnt_h.src_control) {
-      case SRC_CONTROL::INCREMENT: src += 4; break;
-      case SRC_CONTROL::DECREMENT: src -= 4; break;
-      case SRC_CONTROL::FIXED: break;
-      case SRC_CONTROL::PROHIBITED: assert(0);
+    if (!((src & DMA_SRC_MASK[id]) >= 0X0E000000 && id == 0)) {
+      bus->write32(dst & DMA_DST_MASK[id], value);
     }
 
     switch (dmacnt_h.dst_control) {
@@ -126,6 +127,18 @@ void DMAContext::transfer32(u32 src, u32 dst, u32 word_count) {
       case DST_CONTROL::DECREMENT: dst -= 4; break;
       case DST_CONTROL::FIXED: break;
       case DST_CONTROL::INCREMENT_RELOAD: assert(0);
+    }
+
+    if (src >= 0x08000000 && src < 0x0E000000) {
+      if (dmacnt_h.src_control == SRC_CONTROL::FIXED) src += 4;
+      if (dmacnt_h.src_control == SRC_CONTROL::DECREMENT) src += 8;
+    }
+
+    switch (dmacnt_h.src_control) {
+      case SRC_CONTROL::INCREMENT: src += 4; break;
+      case SRC_CONTROL::DECREMENT: src -= 4; break;
+      case SRC_CONTROL::FIXED: break;
+      case SRC_CONTROL::PROHIBITED: assert(0);
     }
   }
 }

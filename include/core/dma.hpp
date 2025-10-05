@@ -58,7 +58,7 @@ struct DMAContext {
   u8 id            = 0;
   Bus* bus         = nullptr;
   u32 dma_open_bus = 0;
-
+  enum class OPEN_BUS_WIDTH { HALFWORD, WORD } open_bus_size;
   u32 src = 0;  // DMASAD - forward facing
   u32 dst = 0;  // DMADAD - forward facing
 
@@ -80,14 +80,10 @@ struct DMAContext {
   void process();
   bool enabled();
 
-  void transfer16(const u32 src, const u32 dst, u32 word_count);
-  void transfer32(const u32 src, const u32 dst, u32 word_count);
+  void transfer16(u32 src, u32 dst, u32 word_count);
+  void transfer32(u32 src, u32 dst, u32 word_count);
 
-  // DMA 0 has a 27 bit SAD, but 1 2 3 has a 28 bit SAD.
-  static constexpr std::array<u32, 4> DMA_SRC_MASK = {0x07FFFFFF, 0x0FFFFFFF, 0x0FFFFFFF, 0x0FFFFFFF};
-
-  // DMA 0 1 2 has a 27 bit DAD but DMA 3 has a 28 bit DAD
-  static constexpr const std::array<u32, 4> DMA_DST_MASK = {0x07FFFFFF, 0x07FFFFFF, 0x07FFFFFF, 0x0FFFFFFF};
-
-  static constexpr const std::array<u32, 4> WORD_COUNT_MASK = {0x3FFF, 0x3FFF, 0x3FFF, 0xFFFF};
+  static constexpr std::array<u32, 4> DMA_SRC_MASK    = {0x07FFFFFF, 0x0FFFFFFF, 0x0FFFFFFF, 0x0FFFFFFF};
+  static constexpr std::array<u32, 4> DMA_DST_MASK    = {0x07FFFFFF, 0x07FFFFFF, 0x07FFFFFF, 0x0FFFFFFF};
+  static constexpr std::array<u32, 4> WORD_COUNT_MASK = {0x3FFF, 0x3FFF, 0x3FFF, 0xFFFF};
 };
