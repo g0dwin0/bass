@@ -6,6 +6,7 @@
 #include "enums.hpp"
 #include "labels.hpp"
 #include "pak.hpp"
+#include "timer.hpp"
 
 struct PPU;
 #include "ppu.hpp"
@@ -14,8 +15,11 @@ struct DMAContext;
 #include "dma.hpp"
 struct ARM7TDMI;
 
+inline u64 cycles_elapsed;
+
+enum class ACCESS_TYPE { SEQUENTIAL, NON_SEQUENTIAL };
+enum class WAITSTATE { WS0, WS1, WS2 };
 struct Bus {
-  enum class ACCESS_TYPE { SEQUENTIAL, NON_SEQUENTIAL };
   enum class REGION : u8 {
     BIOS           = 0x0,
     EWRAM          = 0x2,
@@ -45,14 +49,17 @@ struct Bus {
   std::vector<u8> VRAM;
   std::vector<u8> PALETTE_RAM;
   std::vector<u8> OAM;
-  std::vector<u8> SRAM;
   std::vector<u8> WAVE_RAM;
   std::vector<Transaction> transactions;
 
   u32 bios_open_bus = 0;
 
-  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), SRAM(0x10000), WAVE_RAM(0x20) {
-    std::fill(SRAM.begin(), SRAM.end(), 0xFF);
+  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), VRAM(0x18000), PALETTE_RAM(0x400), OAM(0x400), WAVE_RAM(0x20) {
+    if (!std::filesystem::exists("./roms/magic.bin")) {
+      spdlog::error("Running this emulator requires a valid GBA BIOS. Rename your BIOS to magic.bin, and place it in the roms/ folder.");
+      assert(0);
+    }
+
     BIOS = read_file("roms/magic.bin");
     bus_logger->set_level(spdlog::level::debug);
     mem_logger->set_level(spdlog::level::debug);
@@ -62,12 +69,11 @@ struct Bus {
   std::shared_ptr<spdlog::logger> mem_logger = spdlog::stdout_color_mt("MEM");
   std::shared_ptr<spdlog::logger> dma_logger = spdlog::stdout_color_mt("DMA");
 
-  u64 cycles_elapsed = 0;
-
   ARM7TDMI* cpu = nullptr;
   Pak* pak      = nullptr;
   PPU* ppu      = nullptr;
   DMAContext *ch0, *ch1, *ch2, *ch3 = nullptr;
+  Timer *tm0, *tm1, *tm2, *tm3      = nullptr;
 
   void request_interrupt(INTERRUPT_TYPE type);
 
@@ -81,6 +87,8 @@ struct Bus {
 
   [[nodiscard]] u8 io_read(u32 address);
   void io_write(u32 address, u8 value);
+
+  u8 get_rom_cycles_by_waitstate(ACCESS_TYPE access_type, WAITSTATE ws);
 
   enum MAPPING_MODE : u8 { ONE_DIMENSIONAL = 1, TWO_DIMENSIONAL = 0 };
 
@@ -147,14 +155,14 @@ struct Bus {
       u16 v = 0;
 
       struct {
-        u8 BG_PRIORITY       : 2;
-        u8 CHAR_BASE_BLOCK   : 2;
-        u8                   : 2;
-        u8 MOSAIC            : 1;
-        u8 COLOR_MODE        : 1;  // 0 = 4bpp (16 colors) 1 = 8bpp (256 colors)
-        u8 SCREEN_BASE_BLOCK : 5;
-        u8 BG_WRAP           : 1;
-        u8 SCREEN_SIZE       : 2;
+        u8 BG_PRIORITY          : 2;
+        u8 CHAR_BASE_BLOCK      : 2;
+        u8                      : 2;
+        u8 MOSAIC               : 1;
+        COLOR_DEPTH color_depth : 1;
+        u8 SCREEN_BASE_BLOCK    : 5;
+        u8 BG_WRAP              : 1;  // BG2/BG3: Display Area Overflow (0=Transparent, 1=Wraparound)
+        u8 SCREEN_SIZE          : 2;
       };
     } BG0CNT, BG1CNT, BG2CNT, BG3CNT = {};
 
@@ -175,7 +183,7 @@ struct Bus {
         u32 INTEGER_PORT : 7;
         u8 SIGN          : 1;
       };
-    } BG2PA, BG2PB, BG2PC, BG2PD = {};
+    } BG2PA, BG2PB, BG2PC, BG2PD, BG3PA, BG3PB, BG3PC, BG3PD = {};
 
     union {
       u32 v = 0;
@@ -185,26 +193,7 @@ struct Bus {
         u8 SIGN          : 1;
         u8               : 4;
       };
-    } BG2X_L, BG2X_H, BG2Y_L, BG2Y_H = {};
-
-    union {
-      u16 v = 0;
-      struct {
-        u8 FRACTIONAL_PORT;
-        u32 INTEGER_PORT : 7;
-        u8 SIGN          : 1;
-      };
-    } BG3PA, BG3PB, BG3PC, BG3PD = {};
-
-    union {
-      u32 v = 0;
-      struct {
-        u8 FRACTIONAL_PORT;
-        u32 INTEGER_PORT : 19;
-        u8 SIGN          : 1;
-        u8               : 4;
-      };
-    } BG3X_L, BG23_H, BG3Y_L, BG3Y_H = {};
+    } BG2X, BG2Y, BG3X, BG3Y = {};
 
     union {
       u16 v = 0;
@@ -281,7 +270,7 @@ struct Bus {
         u8 OBJ_2ND_TARGET_PIXEL : 1;
         u8 BD_2ND_TARGET_PIXEL  : 1;
 
-        u8              : 2;
+        u8                      : 2;
       };
     } BLDCNT = {};
 
@@ -291,7 +280,7 @@ struct Bus {
         u8 EVA_COEFFICIENT_FIRST_TARGET : 5;
         u8 OBJ_MOSAIC_H_SIZE            : 3;
         u8 OBJ_MOSAIC_V_SIZE            : 5;
-        u8                      : 3;
+        u8                              : 3;
       };
     } BLDALPHA = {};
 
@@ -299,7 +288,7 @@ struct Bus {
       u32 v = 0;
       struct {
         u8 EVY_COEFFICIENT : 5;
-        u32        : 27;
+        u32                : 27;
       };
     } BLDY;
 
