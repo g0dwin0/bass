@@ -6,7 +6,7 @@
 #include "common.hpp"
 #include "common/defs.hpp"
 #include "enums.hpp"
-#include "save/flash.hpp"
+#include "flash.hpp"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 static constexpr u8 BITMAP_SIZE       = 156;
