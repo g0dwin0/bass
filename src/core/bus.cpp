@@ -10,13 +10,16 @@
 #include "labels.hpp"
 #include "pak.hpp"
 #include "registers.hpp"
+#include "save/flash.hpp"
+#include "sched/sched.hpp"
 
-void Bus::request_interrupt(INTERRUPT_TYPE t) { interrupt_control.IF.v |= (1 << (u8)t); }
+void Bus::request_interrupt(INTERRUPT_TYPE type) { interrupt_control.IF.v |= 1 << static_cast<u8>(type); }
 
-u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
+u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
+  cpu->cycles_this_step += 1;
   // u8 word_alignment_offset = (address & 3);
 #ifdef SST_TEST_MODE
-  // TODO: make a separate function for these, extra overhead does not matter at all
+  // TODO: make a separate function for these
   fmt::println("requested [8] read at {:#010x}", address);
   for (auto& transaction : transactions) {
     if (transaction.size == 2 && transaction.kind != WRITE && (transaction.addr == address + 1 || transaction.addr == address)) {
@@ -45,17 +48,16 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 #else
   u32 v = 0x0;
 
-  switch ((REGION)(address >> 24)) {
+  switch (static_cast<REGION>(address >> 24)) {
     case REGION::BIOS: {
       if (address >= 0x00003FFF) return cpu->pipeline.fetch >> (address & 1) * 8;
 
       if (cpu->regs.r[15] > 0x00003FFF) {
-        // v = bios_open_bus;
         v = std::rotr(bios_open_bus, (address & 3) * 8);
       } else {
-        // BIOS read
         v = BIOS.at(address);
       }
+
       break;
     }
 
@@ -70,7 +72,6 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case REGION::IO: {
-      // fmt::println("[R8] io read: {:#010x} - [{}]", address, get_label(address));
       v = io_read(address);
       break;
     }
@@ -81,15 +82,13 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case REGION::VRAM: {
-      u64 addr = address & 0x1ffffu;
-      // if (address >= 0x06018000) return 0xFF;
-      // u32 addr = address;
+      u64 norm_addr = address & 0x1ffffu;
 
-      if (addr >= 0x18000) {
-        addr -= 0x8000;
+      if (norm_addr >= 0x18000) {
+        norm_addr -= 0x8000;
       }
 
-      v = *(uint8_t*)(&VRAM.at((addr)));
+      v = *(uint8_t*)(&VRAM.at((norm_addr)));
       break;
     }
 
@@ -100,6 +99,7 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case REGION::PAK_WS0_0:
     case REGION::PAK_WS0_1: {
       // game pak read (ws0)
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0);
       v = pak->data.at(address - 0x08000000);
       break;
     }
@@ -107,6 +107,7 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case REGION::PAK_WS1_0:
     case REGION::PAK_WS1_1: {
       // game pak read (ws1)
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
       v = pak->data.at(address - 0x0A000000);
       break;
     }
@@ -114,20 +115,25 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
       // game pak read (ws2)
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
       v = pak->data.at(address - 0x0C000000);
       break;
     }
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000000) return 0x62;
-      if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000001) return 0x13;
+      if (pak->info.uses_flash) {
+        return pak->flash_controller.handle_read(address);
+      }
+      v = pak->SRAM.at(address % 0x8000);
 
-      if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000000) return 0x32;
-      if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000001) return 0x1B;
+      // if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000000) return 0x62;
+      // if (pak->info.cartridge_save_type == FLASH1M && address == 0x0E000001) return 0x13;
+
+      // if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000000) return 0x32;
+      // if (pak->info.cartridge_save_type == FLASH512 && address == 0x0E000001) return 0x1B;
       // TODO: ^^^^^^^^ Flash stub -- remove when flash implementation is done ^^^^^^^^
 
-      v = SRAM.at(address % 0x8000);
       break;
     }
 
@@ -143,14 +149,14 @@ u8 Bus::read8(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
 #endif
 };
-u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
-  // fmt::println("addr read: {:#010x}", address);
-  u8 misaligned_by         = (address & 1) * 8;
-  u8 word_alignment_offset = (address & 3);
-  u32 _address             = address;
+u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
+  cpu->cycles_this_step += 1;
+  u32 _address = address;
+  // u8 misaligned_by         = (address & 1) * 8;
+  // u8 word_alignment_offset = (address & 3);
   (void)_address;
 
-  (void)(word_alignment_offset);
+  // (void)(word_alignment_offset);
 
   address = align(address, HALFWORD);
 
@@ -159,11 +165,11 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
   for (auto& transaction : transactions) {
     if (transaction.size != 2 && transaction.kind != WRITE) continue;
 
-    if (address == align(transaction.addr, HALFWORD)) {
-      fmt::println("[R16] {:#010x} -> {:#010x} [misaligned by: {}] after ROR: {:#010X}", address, transaction.data, misaligned_by, std::rotr(transaction.data, misaligned_by));
-      transaction.accessed = true;
-      return std::rotr(transaction.data, misaligned_by);
-    }
+    // if (address == align(transaction.addr, HALFWORD)) {
+    fmt::println("[R16] {:#010x} -> {:#010x}", address, transaction.data);
+    transaction.accessed = true;
+    return transaction.data;
+    // }
 
     if (address == transaction.base_addr) {
       return transaction.opcode;
@@ -177,22 +183,14 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
   u32 v = 0;
   switch ((REGION)(address >> 24)) {
     case REGION::BIOS: {
-      // BIOS read
       if (address >= 0x00003FFF) {
         v = cpu->pipeline.fetch;
         break;
       }
       if (cpu->regs.r[15] > 0x00003FFF) {  // BIOS only readable when PC in BIOS range
-        (void)misaligned_by;
-        fmt::println("0: {:#2X}, 0: {:#2X}, 0: {:#2X}, 0: {:#2X}", (u8)(bios_open_bus >> 24), (u8)(bios_open_bus >> 16), (u8)(bios_open_bus >> 8), bios_open_bus & 0xFF);
-        (void)(word_alignment_offset);
-        if (misaligned_by) fmt::println("misaligned");
-        if (word_alignment_offset == 0) return bios_open_bus;
-
-        v = (bios_open_bus >> 24) << 8 | (u8)(bios_open_bus >> 16);
-
+        v = bios_open_bus;
       } else {
-        v = *(uint16_t*)(&BIOS.data()[address]);
+        v = *(uint16_t*)(&BIOS[address]);
       }
       break;
     }
@@ -209,23 +207,20 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
     case REGION::IO: {
       for (u32 i = 0; i < 2; i++) {
-        // fmt::println("[R16] io read: {:#010x} - [{}]", address + i, get_label(address + i));
         v |= (io_read(address + i) << (8 * i));  // NOLINT
       }
       break;
     }
     case REGION::BG_OBJ_PALETTE: {
-      // BG/OBJ Palette RAM
       return *(uint16_t*)(&PALETTE_RAM.at(address % 0x400));
     }
 
     case REGION::VRAM: {
       // fmt::println("HIT VRAM");
-      u64 max_addr = address & 0x1FFFFu;
+      u64 norm_addr = address & 0x1FFFFu;
 
-      if (max_addr >= 0x18000) max_addr -= 0x8000u;
-      // if (misaligned_by) fmt::println("misaligned VRAM access");
-      return *(uint16_t*)(&VRAM[(max_addr)]);
+      if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
+      return *(uint16_t*)(&VRAM[(norm_addr)]);
     }
 
     case REGION::OAM: {
@@ -235,6 +230,7 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case REGION::PAK_WS0_0:
     case REGION::PAK_WS0_1: {
       // game pak read (ws0)
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0);
       v = *(uint16_t*)(&pak->data[address - 0x08000000]);
       break;
     }
@@ -242,6 +238,7 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case REGION::PAK_WS1_0:
     case REGION::PAK_WS1_1: {
       // game pak read (ws1)
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
       v = *(uint16_t*)(&pak->data[address - 0x0A000000]);
       break;
     }
@@ -249,32 +246,34 @@ u16 Bus::read16(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
       // game pak read (ws2);
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
       v = *(uint16_t*)(&pak->data[address - 0x0C000000]);
       break;
     }
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      return (SRAM.at(_address % 0x8000) * 0x0101);
+      return (pak->SRAM.at(_address % 0x8000) * 0x0101);
+      // if(_address >= 0x0E000000) fmt::println("{:#010x}: {:#010x} m: {} -> {:#010x}", _address, v, misaligned_by, std::rotr(v, misaligned_by));
       break;
     }
 
     default: {
-      v = cpu->pipeline.fetch >> (_address & 1) * 8;
+      v = cpu->pipeline.fetch;
       break;
     }
   }
-  return static_cast<u16>(std::rotr(v, misaligned_by));
+
+  return v;
+  // return static_cast<u16>(std::rotr(v, misaligned_by));
   // bus_logger->info("[R16] {:#010X} => {:#010x}", address, v);
 
 #endif
 };
 u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
-  u8 misaligned_by = (address & 3) * 8;
-  u32 _address     = address;
+  cpu->cycles_this_step += 1;
+  u32 _address = address;
   (void)_address;
-  // if (misaligned_by) fmt::println("unaligned {:#010X} - PC:{:#010x}", address, cpu->regs.r[15]);
-  (void)misaligned_by;
   address = align(address, WORD);
 
 #ifdef SST_TEST_MODE
@@ -284,10 +283,10 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     if (transaction.size != 4 && transaction.kind != WRITE) continue;
 
     if (address == align(transaction.addr, WORD)) {
-      fmt::println("[R32] [TX_ID: {}] {:#010x} -> {:#010x} [misaligned by: {}] -> {:#010x}", transaction.id, address, transaction.data, misaligned_by, std::rotr(transaction.data, misaligned_by * 8));
+      fmt::println("[R32] [TX_ID: {}] {:#010x} -> {:#010x}", transaction.id, address, transaction.data);
 
       transaction.accessed = true;
-      return std::rotr(transaction.data, misaligned_by);
+      return transaction.data;
     }
 
     if (address == transaction.base_addr) {
@@ -303,43 +302,39 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
   switch ((REGION)(address >> 24)) {
     case REGION::BIOS: {
-      if (address >= 0x00003FFF) return std::rotr(cpu->pipeline.fetch, misaligned_by);
+      if (address >= 0x00003FFF) return cpu->pipeline.fetch;
       // BIOS read
       if (cpu->regs.r[15] > 0x00003FFF) {
         v = bios_open_bus;
       } else {
-        v = *(uint32_t*)(&BIOS.data()[address]);
+        v = *(uint32_t*)(&BIOS[address]);
       };
       break;
     }
 
     case REGION::EWRAM: {
-      v = *(uint32_t*)(&EWRAM.data()[address % 0x40000]);
+      v = *(uint32_t*)(&EWRAM[address % 0x40000]);
       break;
     }
 
     case REGION::IWRAM: {
-      v = *(uint32_t*)(&IWRAM.data()[address % 0x8000]);
+      v = *(uint32_t*)(&IWRAM[address % 0x8000]);
       break;
     }
 
     case REGION::IO: {
       for (u32 i = 0; i < 4; i++) {
-        // fmt::println("[R32] io read: {:#010x} - [{}]", address + i, get_label(address + i));
         v |= (io_read(address + i) << (8 * i));
       }
       break;
     }
 
     case REGION::BG_OBJ_PALETTE: {
-      // BG/OBJ Palette RAM
-      v = *(uint32_t*)(&PALETTE_RAM.data()[address % 0x400]);
+      v = *(uint32_t*)(&PALETTE_RAM[address % 0x400]);
       break;
     }
 
     case REGION::VRAM: {
-      // if (address >= 0x06018000 && display_fields.DISPCNT.BG_MODE >= 3) return 0;
-
       u64 max_addr = address & 0x1FFFFu;
 
       if (max_addr >= 0x18000) max_addr -= 0x8000u;
@@ -349,43 +344,50 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case REGION::OAM: {
-      v = *(uint32_t*)(&OAM.data()[address % 0x400]);
+      v = *(uint32_t*)(&OAM[address % 0x400]);
       break;
     }
 
     case REGION::PAK_WS0_0:
     case REGION::PAK_WS0_1: {
-      // game pak read (ws0)
+      // fmt::println("calculated WS0 access: {}", get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0));
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0);
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0);
+
       v = *(uint32_t*)(&pak->data[address - 0x08000000]);
       break;
     }
 
     case REGION::PAK_WS1_0:
     case REGION::PAK_WS1_1: {
-      // game pak read (ws1)
+      // fmt::println("calculated WS1 access: {}", get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1));
+      // cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
       v = *(uint32_t*)(&pak->data[address - 0x0A000000]);
       break;
     }
 
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
-      // game pak read (ws2)
+      // fmt::println("calculated WS2 access: {}", get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2));
+      // cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
       v = *(uint32_t*)(&pak->data[address - 0x0C000000]);
       break;
     }
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      v = SRAM.at(_address % 0x8000) * 0x01010101;
+      v = (pak->SRAM.at((_address) % 0x8000)) * 0x01010101;
       break;
     }
 
     default: {
       v = cpu->pipeline.fetch;
+      break;
     }
   }
   // mem_logger->info("[R32] {} => {:#010x}", get_label(address), v);
-  return std::rotr(v, misaligned_by);
+  // return std::rotr(v, misaligned_by);
+  return v;
 #endif
 };
 
@@ -400,7 +402,7 @@ void Bus::write8(u32 address, u8 value) {
   }
   return;
 #else
-
+  cycles_elapsed += 1;
   switch ((REGION)(address >> 24)) {
     case REGION::EWRAM: {
       EWRAM.at(address % 0x40000) = value;
@@ -419,10 +421,8 @@ void Bus::write8(u32 address, u8 value) {
     }
 
     case REGION::BG_OBJ_PALETTE: {
-      // BG/OBJ Palette RAM
       fmt::println("{:#010X} -- {:#010X}", address, value);
       *(uint16_t*)(&PALETTE_RAM.at((address % 0x400) & ~1)) = value * 0x101;
-      // PALETTE_RAM.at(((address & ~1) + 1) % 0x400) = value;
 
       return;
     }
@@ -432,7 +432,7 @@ void Bus::write8(u32 address, u8 value) {
 
       if (max_addr >= 0x18000) max_addr -= 0x8000u;
 
-      // if (display_fields.DISPCNT.BG_MODE >= 3) return;
+      if (max_addr >= 0x10000) return;
 
       // fmt::println("value:{:#04X}", value);
       *(uint16_t*)(&VRAM.at(max_addr & ~1)) = value * 0x101;
@@ -441,7 +441,12 @@ void Bus::write8(u32 address, u8 value) {
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      SRAM.at(address % 0x8000) = value;
+      if (pak->info.uses_flash) {
+        pak->flash_controller.handle_write(address, value);
+        return;
+      }
+
+      pak->SRAM.at(address % 0x8000) = value;
       break;
     }
 
@@ -483,12 +488,12 @@ void Bus::write16(u32 address, u16 value) {
 
   switch ((REGION)(address >> 24)) {
     case REGION::EWRAM: {
-      *(uint16_t*)(&EWRAM.data()[address % 0x40000]) = value;
+      *(uint16_t*)(&EWRAM[address % 0x40000]) = value;
       break;
     }
 
     case REGION::IWRAM: {
-      *(uint16_t*)(&IWRAM.data()[address % 0x8000]) = value;
+      *(uint16_t*)(&IWRAM[address % 0x8000]) = value;
 
       break;
     }
@@ -503,18 +508,18 @@ void Bus::write16(u32 address, u16 value) {
 
     case REGION::BG_OBJ_PALETTE: {
       // BG/OBJ Palette RAM
-      *(uint16_t*)(&PALETTE_RAM.data()[address % 0x400]) = value;
+      *(uint16_t*)(&PALETTE_RAM[address % 0x400]) = value;
       break;
     }
 
     case REGION::VRAM: {
       // if (address >= 0x06018000 && display_fields.DISPCNT.BG_MODE >= 3) return;
 
-      u64 max_addr = address & 0x1FFFFu;
+      u64 norm_addr = address & 0x1FFFFu;
 
-      if (max_addr >= 0x18000) max_addr -= 0x8000u;
+      if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
 
-      *(uint16_t*)(&VRAM.at(max_addr)) = value;
+      *(uint16_t*)(&VRAM.at(norm_addr)) = value;
       break;
     }
 
@@ -527,7 +532,9 @@ void Bus::write16(u32 address, u16 value) {
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      SRAM.at(_address % 0x8000) = std::rotr(value, _address * 8) & 0xFF;
+      pak->SRAM.at(_address % 0x8000) = std::rotr(value, _address * 8) & 0xFF;
+      // SRAM.at(_address % 0x8000) = value & 0xFF;
+
       break;
     }
 
@@ -543,7 +550,6 @@ void Bus::write16(u32 address, u16 value) {
 }
 
 void Bus::write32(u32 address, u32 value) {
-  // u8 misaligned_by = (address & 3);
   u32 _address = address;
   (void)_address;
   address = align(address, WORD);
@@ -577,15 +583,10 @@ void Bus::write32(u32 address, u32 value) {
 
     case REGION::IWRAM: {
       *(uint32_t*)(&IWRAM.at(address % 0x8000)) = value;
-      // if (address == 0x03FFFFFC) fmt::println("[W32] {:#010x} => {:#04x}", address, value);
-
-      // set32(IWRAM, address % 0x8000, value);
       break;
     }
 
     case REGION::IO: {
-      // IO
-      // fmt::println("IO ADDR: {:#010x}", address);
       write16(address, value & 0x0000FFFF);
       write16(address + 2, (value & 0xFFFF0000) >> 16);
       // assert(0);
@@ -594,31 +595,28 @@ void Bus::write32(u32 address, u32 value) {
     }
 
     case REGION::BG_OBJ_PALETTE: {
-      // BG/OBJ Palette RAM
-      *(uint32_t*)(&PALETTE_RAM.data()[(address % 0x400)]) = value;
+      *(uint32_t*)(&PALETTE_RAM[(address % 0x400)]) = value;
       break;
     }
 
     case REGION::VRAM: {
-      // VRAM
-      u64 max_addr = address & 0x1FFFFu;
+      u64 norm_addr = address & 0x1FFFFu;
 
-      if (max_addr >= 0x18000) max_addr -= 0x8000u;
+      if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
 
-      *(uint32_t*)(&VRAM.at(max_addr)) = value;
+      *(uint32_t*)(&VRAM.at(norm_addr)) = value;
       break;
     }
 
     case REGION::OAM: {
-      // OAM
-      *(uint32_t*)(&OAM.data()[(address % 0x400)]) = value;
-      ppu->state.oam_changed                       = true;
+      *(uint32_t*)(&OAM[(address % 0x400)]) = value;
+      ppu->state.oam_changed                = true;
       break;
     }
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      SRAM.at(_address % 0x8000) = std::rotr(value, address * 8) & 0xFF;
+      pak->SRAM.at(_address % 0x8000) = std::rotr(value, _address * 8) & 0xFF;
       break;
     }
 
@@ -637,9 +635,9 @@ u8 Bus::io_read(u32 address) {
   u8 retval = 0x0;
 
   switch (address) {
-    case DISPCNT ... DISPCNT + 1: {
+    case DISPCNT:
+    case DISPCNT + 1: {
       retval = read_byte(display_fields.DISPCNT.v, address % 2);
-      // bus_logger->info("dispcnt read");
       break;
     }
     case GREEN_SWAP:
@@ -827,19 +825,19 @@ u8 Bus::io_read(u32 address) {
 
     case DMA0CNT_H:
     case DMA0CNT_H + 1: {
-      retval = ch0->get_values_cnt_h(address % 0x2);
+      retval = read_byte(ch0->dmacnt_h.v, address % 2);
       break;
     }
 
     case DMA1CNT_H:
     case DMA1CNT_H + 1: {
-      retval = ch1->get_values_cnt_h(address % 0x2);
+      retval = read_byte(ch1->dmacnt_h.v, address % 2);
       break;
     }
 
     case DMA2CNT_H:
     case DMA2CNT_H + 1: {
-      retval = ch2->get_values_cnt_h(address % 0x2);
+      retval = read_byte(ch2->dmacnt_h.v, address % 2);
       break;
     }
 
@@ -848,43 +846,51 @@ u8 Bus::io_read(u32 address) {
 
     case DMA3CNT_H:
     case DMA3CNT_H + 1: {
-      retval = ch3->get_values_cnt_h(address % 0x2);
+      retval = read_byte(ch3->dmacnt_h.v, address % 2);
       break;
     }
 
     case TM0CNT_L:
     case TM0CNT_L + 1: {
+      retval = read_byte(tm0->counter, address % 2);
       break;
     }
     case TM0CNT_H:
     case TM0CNT_H + 1: {
+      retval = read_byte(tm0->ctrl.v, address % 2);
       break;
     }
 
     case TM1CNT_L:
     case TM1CNT_L + 1: {
+      retval = read_byte(tm1->counter, address % 2);
       break;
     }
     case TM1CNT_H:
     case TM1CNT_H + 1: {
+      retval = read_byte(tm1->ctrl.v, address % 2);
       break;
     }
 
     case TM2CNT_L:
     case TM2CNT_L + 1: {
+      retval = read_byte(tm2->counter, address % 2);
       break;
     }
     case TM2CNT_H:
     case TM2CNT_H + 1: {
+      retval = read_byte(tm2->ctrl.v, address % 2);
       break;
     }
 
     case TM3CNT_L:
     case TM3CNT_L + 1: {
+      retval = read_byte(tm3->counter, address % 2);
       break;
     }
     case TM3CNT_H:
     case TM3CNT_H + 1: {
+      retval = read_byte(tm0->ctrl.v, address % 2);
       break;
     }
 
@@ -928,6 +934,7 @@ u8 Bus::io_read(u32 address) {
     case WAITCNT + 2:
     case WAITCNT + 3: {
       retval = read_byte(system_control.WAITCNT.v, address % 4);
+      // system_control.WAITCNT.
       break;
     }
     case IME ... IME + 3: {
@@ -957,7 +964,7 @@ u8 Bus::io_read(u32 address) {
     case POSTFLG: break;
     // case HALTCNT: break;
     default: {
-      fmt::println("misaligned/partial read {:#08x} - [{}]", address, get_label(address));
+      // fmt::println("misaligned/partial read {:#08x} - [{}]", address, get_label(address));
       // assert(0);
       return cpu->pipeline.fetch >> (address & 1) * 8;
     }
@@ -966,8 +973,11 @@ u8 Bus::io_read(u32 address) {
   return retval;
 }
 void Bus::io_write(u32 address, u8 value) {
-  // auto r = (REG)address;
-  // fmt::println("[IO] write: {:#010x}", address);
+  (void)address;
+  (void)value;
+
+#ifndef SST_TEST_MODE
+  if (address > 0x040003FE) return;
   switch (address) {
     case DISPCNT:
     case DISPCNT + 1: {
@@ -1003,68 +1013,26 @@ void Bus::io_write(u32 address, u8 value) {
 
     case BG0CNT:
     case BG0CNT + 1: {
-      // u8 old_character_base_block = display_fields.BG0CNT.CHAR_BASE_BLOCK;
-      // u8 old_sbb                  = display_fields.BG0CNT.SCREEN_BASE_BLOCK;
-
       set_byte(display_fields.BG0CNT.v, address % 2, value);
-
-      // u8 new_character_base_block = display_fields.BG0CNT.CHAR_BASE_BLOCK;
-      // u8 new_sbb                  = display_fields.BG0CNT.SCREEN_BASE_BLOCK;
-
-      // if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[0] = true;
-      // if (old_sbb != new_sbb) ppu->state.cbb_changed[0] = true;
-
-      // bus_logger->debug("NEW BG0CNT: {:#010x}", display_fields.BG0CNT.v);
       display_fields.BG0CNT.v &= 0b1101111111111111;
       break;
     }
 
     case BG1CNT:
     case BG1CNT + 1: {
-      // u8 old_character_base_block = display_fields.BG1CNT.CHAR_BASE_BLOCK;
-      // u8 old_sbb                  = display_fields.BG1CNT.SCREEN_BASE_BLOCK;
-
       set_byte(display_fields.BG1CNT.v, address % 2, value);
-
-      // u8 new_character_base_block = display_fields.BG1CNT.CHAR_BASE_BLOCK;
-      // u8 new_sbb                  = display_fields.BG1CNT.SCREEN_BASE_BLOCK;
-
-      // if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[1] = true;
-      // if (old_sbb != new_sbb) ppu->state.cbb_changed[1] = true;
-
-      // bus_logger->debug("NEW BG1CNT: {:#010x}", display_fields.BG1CNT.v);
       display_fields.BG1CNT.v &= 0b1101111111111111;
       break;
     }
 
     case BG2CNT:
     case BG2CNT + 1: {
-      // u8 old_character_base_block = display_fields.BG2CNT.CHAR_BASE_BLOCK;
-      // u8 old_sbb                  = display_fields.BG2CNT.SCREEN_BASE_BLOCK;
-
       set_byte(display_fields.BG2CNT.v, address % 0x2, value);
-      // bus_logger->debug("NEW BG2CNT: {:#010x}", display_fields.BG2CNT.v);
-
-      // u8 new_character_base_block = display_fields.BG2CNT.CHAR_BASE_BLOCK;
-      // u8 new_sbb                  = display_fields.BG2CNT.SCREEN_BASE_BLOCK;
-
-      // if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[2] = true;
-      // if (old_sbb != new_sbb) ppu->state.cbb_changed[2] = true;
       break;
     }
     case BG3CNT:
     case BG3CNT + 1: {
-      // u8 old_character_base_block = display_fields.BG3CNT.CHAR_BASE_BLOCK;
-      // u8 old_sbb                  = display_fields.BG3CNT.SCREEN_BASE_BLOCK;
-
       set_byte(display_fields.BG3CNT.v, address % 0x2, value);
-
-      // u8 new_character_base_block = display_fields.BG3CNT.CHAR_BASE_BLOCK;
-      // u8 new_sbb                  = display_fields.BG3CNT.SCREEN_BASE_BLOCK;
-
-      // if (old_character_base_block != new_character_base_block) ppu->state.cbb_changed[3] = true;
-      // if (old_sbb != new_sbb) ppu->state.cbb_changed[3] = true;
-      // bus_logger->debug("NEW BG3CNT: {:#010x}", display_fields.BG3CNT.v);
       break;
     }
 
@@ -1112,18 +1080,78 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
-    case BG2PA: bus_logger->debug("WRITING TO BG2PA UNIMPL"); break;
-    case BG2PB: bus_logger->debug("WRITING TO BG2PB UNIMPL"); break;
-    case BG2PC: bus_logger->debug("WRITING TO BG2PC UNIMPL"); break;
-    case BG2PD: bus_logger->debug("WRITING TO BG2PD UNIMPL"); break;
-    case BG2X: bus_logger->debug("WRITING TO BG2X UNIMPL"); break;
-    case BG2Y: bus_logger->debug("WRITING TO BG2Y UNIMPL"); break;
-    case BG3PA: bus_logger->debug("WRITING TO BG3PA UNIMPL"); break;
-    case BG3PB: bus_logger->debug("WRITING TO BG3PB UNIMPL"); break;
-    case BG3PC: bus_logger->debug("WRITING TO BG3PC UNIMPL"); break;
-    case BG3PD: bus_logger->debug("WRITING TO BG3PD UNIMPL"); break;
-    case BG3X: bus_logger->debug("WRITING TO BG3X UNIMPL"); break;
-    case BG3Y: bus_logger->debug("WRITING TO BG3Y UNIMPL"); break;
+    case BG2PA:
+    case BG2PA + 1: {
+      set_byte(display_fields.BG2PA.v, address % 0x2, value);
+      break;
+    }
+    case BG2PB:
+    case BG2PB + 1: {
+      set_byte(display_fields.BG2PB.v, address % 0x2, value);
+      break;
+    }
+    case BG2PC:
+    case BG2PC + 1: {
+      set_byte(display_fields.BG2PC.v, address % 0x2, value);
+      break;
+    }
+    case BG2PD:
+    case BG2PD + 1: {
+      set_byte(display_fields.BG2PD.v, address % 0x2, value);
+      break;
+    }
+
+    case BG3PA:
+    case BG3PA + 1: {
+      set_byte(display_fields.BG3PA.v, address % 0x2, value);
+      break;
+    }
+    case BG3PB:
+    case BG3PB + 1: {
+      set_byte(display_fields.BG3PB.v, address % 0x2, value);
+      break;
+    }
+    case BG3PC:
+    case BG3PC + 1: {
+      set_byte(display_fields.BG3PC.v, address % 0x2, value);
+      break;
+    }
+    case BG3PD:
+    case BG3PD + 1: {
+      set_byte(display_fields.BG3PD.v, address % 0x2, value);
+      break;
+    }
+
+    case BG2X:
+    case BG2X + 1:
+    case BG2X + 2:
+    case BG2X + 3: {
+      set_byte(display_fields.BG2X.v, address % 0x4, value);
+      break;
+    }
+    case BG2Y:
+    case BG2Y + 1:
+    case BG2Y + 2:
+    case BG2Y + 3: {
+      set_byte(display_fields.BG2Y.v, address % 0x4, value);
+      break;
+    }
+
+    case BG3X:
+    case BG3X + 1:
+    case BG3X + 2:
+    case BG3X + 3: {
+      set_byte(display_fields.BG3X.v, address % 0x4, value);
+      break;
+    }
+    case BG3Y:
+    case BG3Y + 1:
+    case BG3Y + 2:
+    case BG3Y + 3: {
+      set_byte(display_fields.BG3Y.v, address % 0x4, value);
+      break;
+    }
+
     case WIN0H:
     case WIN0H + 1: {
       set_byte(display_fields.WIN0H.v, address % 0x2, value);
@@ -1364,7 +1392,8 @@ void Bus::io_write(u32 address, u8 value) {
     }
     case DMA0CNT_H:
     case DMA0CNT_H + 1: {
-      ch0->set_values_cnt_h(address % 0x2, value);
+      set_byte(ch0->dmacnt_h.v, address % 2, value);
+      ch0->dmacnt_h.v &= 0xf7e0;
       break;
     }
 
@@ -1378,12 +1407,15 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
-    case DMA1CNT_L ... DMA1CNT_L + 1: {
+    case DMA1CNT_L:
+    case DMA1CNT_L + 1: {
       set_byte(ch1->dmacnt_l.v, address % 0x2, value);
       break;
     }
     case DMA1CNT_H ... DMA1CNT_H + 1: {
-      ch1->set_values_cnt_h(address % 0x2, value);
+      set_byte(ch1->dmacnt_h.v, address % 2, value);
+      ch1->dmacnt_h.v &= 0xf7e0;
+
       break;
     }
 
@@ -1397,12 +1429,16 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
-    case DMA2CNT_L ... DMA2CNT_L + 1: {
+    case DMA2CNT_L:
+    case DMA2CNT_L + 1: {
       set_byte(ch2->dmacnt_l.v, address % 0x2, value);
       break;
     }
-    case DMA2CNT_H ... DMA2CNT_H + 1: {
-      ch2->set_values_cnt_h(address % 0x2, value);
+    case DMA2CNT_H:
+    case DMA2CNT_H + 1: {
+      set_byte(ch2->dmacnt_h.v, address % 2, value);
+      ch2->dmacnt_h.v &= 0xf7e0;
+
       break;
     }
 
@@ -1421,17 +1457,87 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
     case DMA3CNT_H ... DMA3CNT_H + 1: {
-      ch3->set_values_cnt_h(address % 0x2, value);
+      set_byte(ch3->dmacnt_h.v, address % 2, value);
+      ch3->dmacnt_h.v &= 0xffe0;
+
       break;
     }
-    case TM0CNT_L: bus_logger->debug("WRITING TO TM0CNT_L UNIMPL"); break;
-    case TM0CNT_H: bus_logger->debug("WRITING TO TM0CNT_H UNIMPL"); break;
-    case TM1CNT_L: bus_logger->debug("WRITING TO TM1CNT_L UNIMPL"); break;
-    case TM1CNT_H: bus_logger->debug("WRITING TO TM1CNT_H UNIMPL"); break;
-    case TM2CNT_L: bus_logger->debug("WRITING TO TM2CNT_L UNIMPL"); break;
-    case TM2CNT_H: bus_logger->debug("WRITING TO TM2CNT_H UNIMPL"); break;
-    case TM3CNT_L: bus_logger->debug("WRITING TO TM3CNT_L UNIMPL"); break;
-    case TM3CNT_H: bus_logger->debug("WRITING TO TM3CNT_H UNIMPL"); break;
+    case TM0CNT_L:
+    case TM0CNT_L + 1: {
+      set_byte(tm0->reload_value, address % 2, value);
+      break;
+    }
+    case TM0CNT_H:
+    case TM0CNT_H + 1: {
+      bool stopped = tm0->ctrl.timer_start_stop == false;
+      set_byte(tm0->ctrl.v, address % 2, value);
+      bool started = tm0->ctrl.timer_start_stop;
+
+      if (stopped && started) {
+        // tm0->ctrl.v &= 0x7F;
+        tm0->reload_divider();
+        tm0->reload_counter();
+        // Scheduler::schedule(Scheduler::EventType::TIMER0_START, cycles_elapsed + 2);
+      }
+      break;
+    }
+    case TM1CNT_L:
+    case TM1CNT_L + 1: {
+      set_byte(tm1->reload_value, address % 2, value);
+      break;
+    }
+    case TM1CNT_H:
+    case TM1CNT_H + 1: {
+      bool stopped = tm1->ctrl.timer_start_stop == false;
+      set_byte(tm1->ctrl.v, address % 2, value);
+      bool started = tm1->ctrl.timer_start_stop;
+
+      if (stopped && started) {
+        tm1->reload_counter();
+        // tm1->ctrl.v &= 0x7F;
+        // Scheduler::Schedule(Scheduler::EventType::TIMER1_START, cycles_elapsed + 2);
+      }
+      break;
+    }
+    case TM2CNT_L:
+    case TM2CNT_L + 1: {
+      set_byte(tm2->reload_value, address % 2, value);
+
+      break;
+    }
+    case TM2CNT_H:
+    case TM2CNT_H + 1: {
+      bool stopped = tm2->ctrl.timer_start_stop == false;
+      set_byte(tm2->ctrl.v, address % 2, value);
+      bool started = tm2->ctrl.timer_start_stop;
+      // tm2->ctrl.v &= 0x7F;
+
+      if (stopped && started) {
+        tm2->reload_counter();
+        // Scheduler::Schedule(Scheduler::EventType::TIMER2_START, cycles_elapsed + 2);
+      }
+      break;
+    }
+    case TM3CNT_L:
+    case TM3CNT_L + 1: {
+      set_byte(tm3->reload_value, address % 2, value);
+      break;
+    }
+    case TM3CNT_H:
+    case TM3CNT_H + 1: {
+      bool stopped = tm3->ctrl.timer_start_stop == false;
+      set_byte(tm3->ctrl.v, address % 2, value);
+      bool started = tm3->ctrl.timer_start_stop;
+
+      if (stopped && started) {
+        tm3->reload_counter();
+        // tm3->ctrl.v &= 0x7F;
+
+        // Scheduler::Schedule(Scheduler::EventType::TIMER3_START, cycles_elapsed + 2);
+      }
+
+      break;
+    }
     case SIODATA32: bus_logger->debug("WRITING TO SIODATA32 UNIMPL"); break;
     case SIOMULTI1: bus_logger->debug("WRITING TO SIOMULTI1 UNIMPL"); break;
     case SIOMULTI2: bus_logger->debug("WRITING TO SIOMULTI2 UNIMPL"); break;
@@ -1478,4 +1584,71 @@ void Bus::io_write(u32 address, u8 value) {
       bus_logger->debug("misaligned write: {:#010x}", address);
     }
   }
+#endif
+}
+u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTATE ws) {
+  switch (access_type) {
+    case ACCESS_TYPE::SEQUENTIAL: {
+      switch (ws) {
+        case WAITSTATE::WS0: {
+          switch (system_control.WAITCNT.WS0_SECOND_ACCESS) {
+            case 0: return 2;
+            case 1: return 1;
+          }
+          break;
+        }
+        case WAITSTATE::WS1: {
+          switch (system_control.WAITCNT.WS1_SECOND_ACCESS) {
+            case 0: return 4;
+            case 1: return 1;
+          }
+          break;
+        }
+        case WAITSTATE::WS2: {
+          switch (system_control.WAITCNT.WS2_SECOND_ACCESS) {
+            case 0: return 8;
+            case 1: return 1;
+          }
+          break;
+        }
+      }
+      break;
+    }
+    case ACCESS_TYPE::NON_SEQUENTIAL: {
+      switch (ws) {
+        case WAITSTATE::WS0: {
+          switch (system_control.WAITCNT.WS0_FIRST_ACCESS) {
+            case 0: return 4;
+            case 1: return 3;
+            case 2: return 2;
+            case 3: return 8;
+          }
+          break;
+        }
+        case WAITSTATE::WS1: {
+          switch (system_control.WAITCNT.WS1_FIRST_ACCESS) {
+            case 0: return 4;
+            case 1: return 3;
+            case 2: return 2;
+            case 3: return 8;
+          }
+          break;
+        }
+        case WAITSTATE::WS2: {
+          switch (system_control.WAITCNT.WS2_FIRST_ACCESS) {
+            case 0: return 4;
+            case 1: return 3;
+            case 2: return 2;
+            case 3: return 8;
+          }
+          break;
+        }
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+  return 255;
 }
