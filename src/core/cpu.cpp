@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 
+#include "agb.hpp"
 #include "capstone/arm.h"
 #include "capstone/capstone.h"
 #include "registers.hpp"
@@ -96,7 +97,10 @@ inline void ARM7TDMI::handle_interrupts() {
   };
 }
 
-u16 ARM7TDMI::step() {
+u64 ARM7TDMI::step() {
+  u8 tmp = 0;
+  // cycles_this_step = 1;
+  // bus->step_cyc = 0;
   // fmt::println("R0:{:08X} R1:{:08X} R2:{:08X} R3:{:08X} R4:{:08X} R5:{:08X} R6:{:08X} R7:{:08X} R8:{:08X} R9:{:08X} R10:{:08X} R11:{:08X} R12:{:08X} R13:{:08X} R14:{:08X} R15:{:08X}",
   // regs.get_reg(0),
   //              regs.get_reg(1), regs.get_reg(2), regs.get_reg(3), regs.get_reg(4), regs.get_reg(5), regs.get_reg(6), regs.get_reg(7), regs.get_reg(8), regs.get_reg(9), regs.get_reg(10),
@@ -120,7 +124,8 @@ u16 ARM7TDMI::step() {
   // flushed_pipeline = false;
 
   // print_pipeline();
-  bus->cycles_elapsed += 1;
+  // cycles_elapsed += 1;
+  // cycles_this_step += 1;
 
   pipeline.fetch = fetch(regs.r[15]);
 
@@ -128,9 +133,10 @@ u16 ARM7TDMI::step() {
 
   regs.r[15] += regs.CPSR.STATE_BIT == THUMB_MODE ? 2 : 4;
 
-  return 0;
+  tmp              = cycles_this_step;
+  cycles_this_step = 0;
+  return tmp;
 }
-
 void ARM7TDMI::print_pipeline() const {
   fmt::println("============ PIPELINE ============");
   fmt::println("Fetch:  {:#010X}", this->pipeline.fetch);
@@ -146,7 +152,7 @@ void ARM7TDMI::execute(u32 opcode) {
   FuncPtr func = nullptr;
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
     // fmt::println("ARM OPCODE: {:08X}", opcode);
-    shifted_opcode = (u16)(((opcode & 0xff00000) >> 16) | ((opcode & 0b11110000) >> 4));
+    shifted_opcode = static_cast<u16>((opcode & 0xff00000) >> 16 | (opcode & 0b11110000) >> 4);
     func           = arm_funcs[shifted_opcode];
   } else {
     // fmt::println("THUMB OPCODE: {:#08X}", opcode);

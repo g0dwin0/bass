@@ -1,15 +1,14 @@
 #include "instructions/arm.hpp"
+
+#include <cassert>
 #include <stdexcept>
 
 #include "common/align.hpp"
+#include "common/defs.hpp"
+#include "cpu.hpp"
 #include "enums.hpp"
 #include "registers.hpp"
 #include "spdlog/fmt/bundled/base.h"
-#undef NDEBUG
-#include <cassert>
-
-#include "common/defs.hpp"
-#include "cpu.hpp"
 inline bool is_negative(u32 v) { return v >= 0x80000000; }
 inline bool is_zero(u32 v) { return v == 0; }
 
@@ -180,7 +179,9 @@ void THUMB_LOAD_STORE_SP_REL(ARM7TDMI* cpu, u32 opcode) {
 
   if (load) {
     // fmt::println("[LDR] read result {:#010X}", cpu->bus->read32(cpu->regs.get_reg(13) + nn));
-    cpu->regs.get_reg(Rd) = cpu->bus->read32(cpu->regs.get_reg(13) + nn);
+    u32 v                 = cpu->bus->read32(cpu->regs.get_reg(13) + nn);
+    cpu->regs.get_reg(Rd) = std::rotr(v, (cpu->regs.get_reg(13) + nn) & 3);
+    // if()
   } else {
     u32 r = cpu->regs.get_reg(13) + nn;
     // fmt::println("[STR] read result {:#010X} -> {:#010x}", cpu->regs.get_reg(13) + nn, r);
@@ -225,8 +226,8 @@ void THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
       // LDRH
       // fmt::println("LDRH");
       address += register_offset;
-      u32 value = cpu->bus->read16(align(address, HALFWORD));
-      if(address == 0x030000b1) fmt::println("address: {:#010x} - value: {:#010x} - {:#010x}", address, value, std::rotr(value, (address & 1) * 8));
+      u32 value = cpu->bus->read16(address);
+      if (address == 0x030000b1) fmt::println("address: {:#010x} - value: {:#010x} - {:#010x}", address, value, std::rotr(value, (address & 1) * 8));
 
       cpu->regs.get_reg(Rd) = std::rotr(value, (address & 1) * 8);
       break;
@@ -236,7 +237,7 @@ void THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
       address += register_offset;
       // fmt::println("{:#010X}", address);
       u32 value = cpu->bus->read16(address);
-      if ((address & 1) == 0) { // aligned addr
+      if ((address & 1) == 0) {  // aligned addr
 
         if (value & (1 << 15)) value |= 0xFFFF0000;
 
@@ -274,7 +275,7 @@ void THUMB_HALFWORD_IMM_OFFSET(ARM7TDMI* cpu, u32 opcode) {
       // LDRH
       // fmt::println("LDRH");
       address += offset;
-      u32 value             = cpu->bus->read16(align(address, HALFWORD));
+      u32 value             = cpu->bus->read16(address);
       cpu->regs.get_reg(Rd) = std::rotr(value, (address & 1) * 8);
       break;
     }
@@ -298,31 +299,25 @@ void THUMB_WORD_BYTE_IMM_OFFSET(ARM7TDMI* cpu, u32 opcode) {
   switch (op) {
     case 0: {
       // STR
-      // fmt::println("STR");
-
       address += (offset * 4);
       cpu->bus->write32(address, value);
       break;
     }
     case 1: {
       // LDR
-      // fmt::println("LDR");
       address += (offset * 4);
-      cpu->regs.get_reg(Rd) = cpu->bus->read32(address);
+      u32 v                 = cpu->bus->read32(address);
+      cpu->regs.get_reg(Rd) = std::rotr(v, (address & 3) * 8);
       break;
     }
     case 2: {
       // STRB
-      // fmt::println("STRB");
       address += offset;
-      // fmt::println("address: {:#010x}", address);
-
       cpu->bus->write8(address, (u8)value);
       break;
     }
     case 3: {
       // LDRB
-      // fmt::println("LDRB");
       address += offset;
       cpu->regs.get_reg(Rd) = cpu->bus->read8(address);
       break;
@@ -335,7 +330,6 @@ void THUMB_WORD_BYTE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
   // 1: LDR  Rd,[Rb,#nn]  ;load  32bit data   Rd = WORD[Rb+nn]
   // 2: STRB Rd,[Rb,#nn]  ;store  8bit data   BYTE[Rb+nn] = Rd
   // 3: LDRB Rd,[Rb,#nn]  ;load   8bit data   Rd = BYTE[Rb+nn]
-  // fmt::println("REG OFFSET");
   u8 op               = (opcode >> 10) & 0b11;
   u8 Rd               = opcode & 0b111;
   u8 Rn               = (opcode >> 3) & 0b111;  // Rb
@@ -347,27 +341,21 @@ void THUMB_WORD_BYTE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
   switch (op) {
     case 0: {
       // STR
-      // fmt::println("STR");
       cpu->bus->write32(address, value);
       break;
     }
     case 1: {
       // STRB
-      // fmt::println("STRB");
-      // fmt::println("address: {:#010x}", address);
-
       cpu->bus->write8(address, (u8)value);
       break;
     }
     case 2: {
       // LDR
-      // fmt::println("LDR");
       cpu->regs.get_reg(Rd) = cpu->bus->read32(address);
       break;
     }
     case 3: {
       // LDRB
-      // fmt::println("LDRB");
       cpu->regs.get_reg(Rd) = cpu->bus->read8(address);
       break;
     }
@@ -390,26 +378,20 @@ void THUMB_ADD_SP_PC(ARM7TDMI* cpu, u32 opcode) {  // THUMB 12
   u16 offset = (opcode & 0xFF) * 4;
   u8 op      = (opcode & (1 << 11)) >> 11;
 
-
   switch (op) {
     case 0: {
-      // fmt::println("IS PC");
       cpu->regs.get_reg(Rd) = (cpu->regs.r[15] & ~2) + offset;
       break;
     }
 
     case 1: {
-      // fmt::println("IS SP");
       cpu->regs.get_reg(Rd) = cpu->regs.get_reg(13) + offset;
       break;
     }
   }
 }
 
-void THUMB_BLX_PREFIX(ARM7TDMI* cpu, u32 opcode) {
-  // fmt::println("PREFIX");
-  BLL(cpu, opcode & 0b11111111111);
-};
+void THUMB_BLX_PREFIX(ARM7TDMI* cpu, u32 opcode) { BLL(cpu, opcode & 0b11111111111); };
 void THUMB_BL_SUFFIX(ARM7TDMI* cpu, u32 opcode) { BLH(cpu, opcode & 0b11111111111); };  // BLH
 
 void ARM_BRANCH_EXCHANGE(ARM7TDMI* cpu, u32 x) {
@@ -445,7 +427,7 @@ void ARM_PSR_TRANSFER(ARM7TDMI* cpu, u32 x) {
 
       cpu->regs.get_reg(Rd) = psr;
 
-      if(Rd == 15) cpu->flush_pipeline();
+      if (Rd == 15) cpu->flush_pipeline();
 
       break;
     }
@@ -484,7 +466,7 @@ void ARM_MULTIPLY(ARM7TDMI* cpu, u32 x) {
         cpu->reset_carry();
       }
       cpu->regs.get_reg(Rd) = result;
-      if(Rd == 15) cpu->flush_pipeline();
+      if (Rd == 15) cpu->flush_pipeline();
       break;
     }
     case 0x1: {  // MLA
@@ -504,7 +486,7 @@ void ARM_MULTIPLY(ARM7TDMI* cpu, u32 x) {
       }
 
       cpu->regs.get_reg(Rd) = result;
-      if(Rd == 15) cpu->flush_pipeline();
+      if (Rd == 15) cpu->flush_pipeline();
       break;
     }
     case 0x2: {
@@ -514,7 +496,9 @@ void ARM_MULTIPLY(ARM7TDMI* cpu, u32 x) {
       assert(0);
       break;
     }
-    case 0x3: { throw std::runtime_error("I'm not documentd"); }
+    case 0x3: {
+      throw std::runtime_error("I'm not documentd");
+    }
     case 0x4: {  // UMULL
       u64 res = static_cast<uint64_t>(cpu->regs.get_reg(Rm)) * cpu->regs.get_reg(Rs);
 
@@ -530,7 +514,7 @@ void ARM_MULTIPLY(ARM7TDMI* cpu, u32 x) {
       break;
     }
     case 0x5: {  // UMLAL
-      fmt::println("UMLAL");
+      // fmt::println("UMLAL");
       u64 big_number = (static_cast<u64>(cpu->regs.get_reg(Rd)) << 32) + cpu->regs.get_reg(Rn);
       u64 res        = big_number + (static_cast<u64>(cpu->regs.get_reg(Rm)) * static_cast<u64>(cpu->regs.r[Rs]));
 
@@ -602,7 +586,6 @@ void ARM_MULTIPLY(ARM7TDMI* cpu, u32 x) {
 }
 
 void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
-  
   bool P    = x & (1 << 24);
   bool U    = x & (1 << 23);
   bool I    = x & (1 << 22);
@@ -629,7 +612,7 @@ void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
     u32 register_offset      = cpu->regs.get_reg(Rm);
     u8 added_writeback_value = 0;
     if (Rn == 15) added_writeback_value += 4;
-    
+
     // On ARM7 aka ARMv4 aka NDS7/GBA:
 
     // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
@@ -641,7 +624,8 @@ void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
 
       if ((address & 1) != 0) misaligned_load_rotate_value = 8;
 
-      u32 value = cpu->bus->read16(align(address, HALFWORD));
+      // fmt::println("{:#010x}", address);
+      u32 value = cpu->bus->read16(address);
 
       value                 = std::rotr(value, misaligned_load_rotate_value);
       cpu->regs.get_reg(Rd) = value;
@@ -662,7 +646,7 @@ void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
 
       if ((address & 1) != 0) misaligned_load_rotate_value = 8;
 
-      u32 value = cpu->bus->read16(align(address, HALFWORD));
+      u32 value = cpu->bus->read16(address);
 
       value                 = std::rotr(value, misaligned_load_rotate_value);
       cpu->regs.get_reg(Rd) = value;
@@ -687,7 +671,7 @@ void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
         cpu->flush_pipeline();
       }
     }
-  } else { // Store
+  } else {  // Store
     u32 value                = cpu->regs.get_reg(Rd);
     u32 address              = cpu->regs.get_reg(Rn);
     u8 immediate_offset      = imm;
@@ -700,7 +684,7 @@ void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
 
     if (P == 0) {  // P == 0
 
-      cpu->bus->write16(address & ~1, (u16)value);
+      cpu->bus->write16(address, (u16)value);
 
       if (U) {
         address += (I ? immediate_offset : register_offset);
@@ -716,7 +700,7 @@ void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
         address -= (I ? immediate_offset : register_offset);
       }
 
-      cpu->bus->write16(address & ~1, (u16)value);
+      cpu->bus->write16(address, (u16)value);
     }
 
     if (P == 0 || (P == 1 && W)) {
@@ -735,10 +719,6 @@ void ARM_HALFWORD_LOAD_STORE(ARM7TDMI* cpu, u32 x) {
 }
 
 void ARM_SWAP(ARM7TDMI* cpu, u32 x) {
-  // x.opcode;
-  // (void)(x);
-  // (void)(cpu);
-
   bool B = x & (1 << 22);
   u8 Rn  = (x >> 16) & 0xF;
   u8 Rd  = (x >> 12) & 0xF;
@@ -756,7 +736,7 @@ void ARM_SWAP(ARM7TDMI* cpu, u32 x) {
     cpu->regs.get_reg(Rd) = byte_at_loc;
     cpu->bus->write8(address, (u8)swap_value);
   } else {
-    u32 data              = cpu->bus->read32(align(address, WORD));
+    u32 data              = cpu->bus->read32(address);
     cpu->regs.get_reg(Rd) = std::rotr(data, (address & 3) * 8);
     cpu->bus->write32(address, swap_value);
   }
@@ -781,7 +761,6 @@ void ARM_SOFTWARE_INTERRUPT(ARM7TDMI* cpu, u32 x) {
   cpu->regs.r[15] = 0x00000008;
 
   cpu->flush_pipeline();
-  return;
 }
 
 void ARM_DATA_PROCESSING(ARM7TDMI* cpu, u32 x) {
@@ -1720,51 +1699,6 @@ void TST(ARM7TDMI* cpu, u32 opcode) {
   }
 }
 
-// void THUMB_ADD_SUB(ARM7TDMI* c, u16 opcode) {
-
-// };
-// void ARM::Instructions::STRH(ARM7TDMI* cpu, u32 opcode) {
-//   u32 value                = cpu->regs.get_reg(instr.Rd);
-//   u32 address              = cpu->regs.get_reg(instr.Rn);
-//   u8 immediate_offset      = instr.offset;
-//   u32 register_offset      = cpu->regs.get_reg(instr.Rm);
-//   u8 added_writeback_value = 0;
-//   if (instr.Rn == 15) added_writeback_value += 4;
-//   if (instr.Rd == 15) value += 4;
-
-//   // instr.print_params();
-
-//   // fmt::println("addr: {:#010x}", address);
-
-//   // u32 offset = instr.I == 1 ? immediate_offset : register_offset;
-//   // u32 register_offset = cpu->shift((ARM7TDMI::SHIFT_MODE)instr.shift_type, cpu->regs.get_reg(instr.Rm), instr.shift_amount, true, false, false);
-//   // u8 rotate_by        = 0;
-
-//   if (instr.P == 0) {  // P == 0
-
-//     cpu->bus->write16(address & ~1, value);
-
-//     if (instr.U) {
-//       address += (instr.I ? immediate_offset : register_offset);
-//     } else {
-//       address -= (instr.I ? immediate_offset : register_offset);
-//     }
-
-//   } else {  // P == 1
-
-//     if (instr.U) {
-//       address += (instr.I ? immediate_offset : register_offset);
-//     } else {
-//       address -= (instr.I ? immediate_offset : register_offset);
-//     }
-
-//     cpu->bus->write16(address & ~1, value);
-//   }
-
-//   InstructionInfo _instr = instr;
-//   single_data_transfer_writeback_str(c, _instr, address, added_writeback_value);
-// }
-
 void STR(ARM7TDMI* cpu, u32 opcode) {
   bool I = opcode & (1 << 25);
   bool P = opcode & (1 << 24);
@@ -1832,7 +1766,6 @@ void STR(ARM7TDMI* cpu, u32 opcode) {
 
   single_data_transfer_writeback_str(cpu, Rn, address, added_writeback_value, P, W);
 }
-
 
 void single_data_transfer_writeback_str(ARM7TDMI* cpu, u8 Rn, u32 address, u8 added_writeback_value, bool P, bool W) {
   // Write-back is optional when P=1, forced when P=0
@@ -1968,16 +1901,16 @@ void RSC(ARM7TDMI* cpu, u32 opcode) {
   }
 }
 void LDR(ARM7TDMI* cpu, u32 opcode, bool pc_relative) {
-  bool I = opcode & (1 << 25);
-  bool P = opcode & (1 << 24);
-  bool U = opcode & (1 << 23);
-  bool B = opcode & (1 << 22);
-  bool W = opcode & (1 << 21);
+  bool I                   = opcode & (1 << 25);
+  bool P                   = opcode & (1 << 24);
+  bool U                   = opcode & (1 << 23);
+  bool B                   = opcode & (1 << 22);
+  bool W                   = opcode & (1 << 21);
   u8 added_writeback_value = 0;
-  u8 Rn      = (opcode & 0xf0000) >> 16;
-  u8 Rd      = (opcode & 0xf000) >> 12;
-  u32 offset = (opcode & 0xfff);
-  u8 Rm      = opcode & 0xf;
+  u8 Rn                    = (opcode & 0xf0000) >> 16;
+  u8 Rd                    = (opcode & 0xf000) >> 12;
+  u32 offset               = (opcode & 0xfff);
+  u8 Rm                    = opcode & 0xf;
 
   if (pc_relative) {
     Rd     = (opcode >> 8) & 0b111;
@@ -1992,16 +1925,18 @@ void LDR(ARM7TDMI* cpu, u32 opcode, bool pc_relative) {
   u32 address = cpu->regs.get_reg(Rn);
 
   u32 offset_from_reg = cpu->shift((ARM7TDMI::SHIFT_MODE)shift_type, cpu->regs.get_reg(Rm), shift_amount, true, false, false);
-
   if (Rn == 15) added_writeback_value += 4;
+  u8 misaligned_by = 0;
 
   if (P == 0) {  // P - Pre/Post (0=post; add offset after transfer, 1=pre; before trans.)
 
+    misaligned_by = (address & 3) * 8;
 
     if (B) {
       cpu->regs.get_reg(Rd) = cpu->bus->read8(address);
     } else {
-      cpu->regs.get_reg(Rd) = cpu->bus->read32(address);  // Rotate new contents if address was misaligned
+      u32 v                 = cpu->bus->read32(address);
+      cpu->regs.get_reg(Rd) = std::rotr(v, misaligned_by);
     }
 
     if (U) {  // U - Up/Down Bit (0=down; subtract offset from base, 1=up; add to base)
@@ -2017,10 +1952,14 @@ void LDR(ARM7TDMI* cpu, u32 opcode, bool pc_relative) {
       address -= (I == 0 ? offset : offset_from_reg);
     }
 
+    misaligned_by = (address & 3) * 8;
+
     if (B) {
       cpu->regs.get_reg(Rd) = cpu->bus->read8(address);
     } else {
-      cpu->regs.get_reg(Rd) = cpu->bus->read32(address);  // Rotate new contents if address was misaligned
+      // cpu->regs.get_reg(Rd) = cpu->bus->read32(address);
+      u32 v                 = cpu->bus->read32(address);
+      cpu->regs.get_reg(Rd) = std::rotr(v, misaligned_by);
     }
   }
 
@@ -2044,10 +1983,8 @@ void LDRSB(ARM7TDMI* cpu, u32 opcode) {  // TODO: Re-write this, too long and un
   u8 added_writeback_value = 0;
   if (Rn == 15) added_writeback_value += 4;
 
-
   // On ARM7 aka ARMv4 aka NDS7/GBA:
 
-  // LDRH Rd,[odd]   -->  LDRH Rd,[odd-1] ROR 8  ;read to bit0-7 and bit24-31
   // LDRSH Rd,[odd]  -->  LDRSB Rd,[odd]         ;sign-expand BYTE value
 
   // u8 misaligned_load_rotate_value = 0;
@@ -2110,8 +2047,8 @@ void LDRSH(ARM7TDMI* cpu, u32 opcode) {
 
   // u8 misaligned_load_rotate_value = 0;
 
-  if (P == 0) {  // P == 0
-    if ((address & 1) != 0) { // unaligned
+  if (P == 0) {                // P == 0
+    if ((address & 1) != 0) {  // unaligned
       u32 value = cpu->bus->read8(address);
       if (value & (1 << 7)) value |= 0xffffff00;
       cpu->regs.get_reg(Rd) = value;
@@ -2191,9 +2128,7 @@ void LDRH(ARM7TDMI* cpu, u32 opcode) {  // TODO: implement writeback logic
     if ((address & 1) != 0) misaligned_load_rotate_value = 8;
     // fmt::println("aligned?: {}", (address & 1) == 0);
 
-    fmt::println("HI");
-    u32 value = cpu->bus->read16(align(address, HALFWORD));
-    fmt::println("BYE");
+    u32 value = cpu->bus->read16(address);
     // fmt::println("value read: {:#010x}", value);
     value                 = std::rotr(value, misaligned_load_rotate_value);
     cpu->regs.get_reg(Rd) = value;
@@ -2217,11 +2152,9 @@ void LDRH(ARM7TDMI* cpu, u32 opcode) {  // TODO: implement writeback logic
     if ((address & 1) != 0) misaligned_load_rotate_value = 8;
     // fmt::println("aligned?: {}", (address & 1) == 0);
 
-    fmt::println("HI");
-    u32 value = cpu->bus->read16(align(address, HALFWORD));
-    fmt::println("BYE");
+    u32 value = cpu->bus->read16(address);
     // fmt::println("value read: {:#010x}", value);
-    // value                 = std::rotr(value, misaligned_load_rotate_value);
+    value                 = std::rotr(value, misaligned_load_rotate_value);
     cpu->regs.get_reg(Rd) = value;
 
     // fmt::println("value after shift: {:#010x}", cpu->regs.get_reg(Rd));
@@ -2300,21 +2233,6 @@ void ORR(ARM7TDMI* cpu, u32 opcode) {
     cpu->flush_pipeline();
   }
 }
-// void ARM::Instructions::MRS(ARM7TDMI* cpu, u32 opcode) {
-//   u32 psr = 0;
-
-//   if (instr.P == 0) {  // P(sr) (0=CPSR, 1=SPSR_<current_mode>)
-//     psr = cpu->regs.CPSR.value;
-//   } else {
-//     psr = cpu->regs.get_spsr(cpu->regs.CPSR.MODE_BIT);
-//   }
-
-//   cpu->regs.get_reg(instr.Rd) = psr;
-// }
-
-// void ARM::Instructions::SWI(ARM7TDMI* cpu, [[gnu::unused]] InstructionInfo& instr) {
-
-// }
 
 void OP_MSR(ARM7TDMI* cpu, u32 opcode) {
   // TODO: refactor, this is some 4AM code
@@ -2897,7 +2815,7 @@ void LDM(ARM7TDMI* cpu, u32 opcode, bool lr_bit, bool thumb_load_store) {
   u32 address           = cpu->regs.get_reg(Rn);  // Base
   u32 operating_address = address;
 
-  operating_address = align(operating_address, WORD);
+  // operating_address = align(operating_address, WORD);
 
   std::vector<u8> Rlist_vec;
 
@@ -2949,7 +2867,6 @@ void LDM(ARM7TDMI* cpu, u32 opcode, bool lr_bit, bool thumb_load_store) {
 
   // Transfer
   for (const auto& r_num : Rlist_vec) {
-
     if (use_userbanks) {
       // fmt::println("using userbanks....");
       cpu->regs.r[r_num] = cpu->bus->read32(operating_address + (pass * 4));
