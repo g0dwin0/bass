@@ -6,7 +6,6 @@
 #include "enums.hpp"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
-
 enum struct FLASH_COMMAND : u8 {
   ENTER_CHIP_ID_MODE           = 0x90,
   EXIT_CHIP_ID_MODE            = 0xF0,
@@ -17,15 +16,16 @@ enum struct FLASH_COMMAND : u8 {
   SET_MEMORY_BANK              = 0xB0,
 };
 
-enum FLASH_MODE : u8 { CHIP_ID, READY, CMD_1, CMD_2, PREPARE_BYTE_WRITE, PREPARE_TO_ERASE, SET_MEM_BANK };
-struct FlashController {
+enum struct FLASH_MODE : u8 { CHIP_ID, NONE, PREPARE_BYTE_WRITE, PREPARE_TO_ERASE, SET_MEM_BANK };
+enum struct FLASH_STEP : u8 { READY, CMD_1, CMD_2 };
 
-  FLASH_MODE mode = READY;
+struct FlashController {
+  FLASH_MODE mode = FLASH_MODE::NONE;   // the flash command to be processed
+  FLASH_STEP step = FLASH_STEP::READY;  // the step of the user (e.g. READY -> CMD_1 -> CMD_2)
+
   u8 device_id;
   u8 manufacturer_id;
   u8 mem_bank = 0;
-
-  CartridgeType flash_type;
 
   std::vector<u8> *SRAM;
   void print_flash_info();

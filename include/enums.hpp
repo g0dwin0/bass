@@ -23,3 +23,4 @@ enum class INTERRUPT_TYPE : u8 {
 };
 
 enum CartridgeType { EEPROM, SRAM, FLASH, FLASH512, FLASH1M, UNKNOWN };
+enum struct COLOR_DEPTH : u8 { BPP4 = 0, BPP8 = 1 };
