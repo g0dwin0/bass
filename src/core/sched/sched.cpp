@@ -6,9 +6,11 @@
 
 void Scheduler::schedule(EventType e, u64 when) { event_queue.push({e, when}); }
 
-i64 Scheduler::get_diff_adjusted_timestamp(const Event& e, const u64 current_timestamp, const u64 target_timestamp) { return (current_timestamp + (e.timestamp - current_timestamp) + target_timestamp); }
-
-void Scheduler::step(AGB& agb) {
+i64 Scheduler::get_diff_adjusted_timestamp(const Event& e, const u64 current_timestamp, const u64 target_timestamp) {
+  return (current_timestamp + (e.timestamp - current_timestamp) + target_timestamp);
+}
+void Scheduler::step(AGB& agb, u32 cycles) {
+  cycles_elapsed += cycles;
   while (cycles_elapsed >= event_queue.top().timestamp) {
     const Event& event = event_queue.top();
     switch (event.type) {
@@ -18,7 +20,6 @@ void Scheduler::step(AGB& agb) {
         agb.ppu.reset_sprite_layer();
         Stopwatch::end();
         Stopwatch::start();
-        
 
         if (agb.bus.display_fields.DISPSTAT.VBLANK_IRQ_ENABLE) {
           agb.bus.request_interrupt(INTERRUPT_TYPE::LCD_VBLANK);
@@ -60,6 +61,12 @@ void Scheduler::step(AGB& agb) {
         }
 
         schedule(EventType::HBLANK_START, get_diff_adjusted_timestamp(event, cycles_elapsed, 1232));
+        break;
+      }
+      case EventType::TIMER0_START: {
+        agb.timers[0].ctrl.timer_irq_enable = true;
+        agb.timers[0].counter               = agb.timers[0].reload_value;
+        // agb.timers
         break;
       }
     }

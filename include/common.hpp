@@ -12,9 +12,8 @@
 #include <iterator>
 #include <vector>
 
-#include "spdlog/spdlog.h"
 #include "common/defs.hpp"
-
+#include "spdlog/spdlog.h"
 
 inline std::vector<u8> read_file(std::string filename) {
   std::ifstream file(filename.data(), std::ios::binary);
