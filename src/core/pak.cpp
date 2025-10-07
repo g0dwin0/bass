@@ -2,8 +2,8 @@
 
 #include <regex>
 
-#include "../../include/core/flash.hpp"
 #include "common.hpp"
+#include "flash.hpp"
 
 void Pak::load_data(std::vector<u8>& file_vector) {
   std::memcpy(data.data(), file_vector.data(), file_vector.size());
@@ -14,12 +14,12 @@ void Pak::load_data(std::vector<u8>& file_vector) {
 
   info.cartridge_save_type = get_cartridge_type();
 
-  if (info.cartridge_save_type == FLASH512) {
+  if (info.cartridge_save_type == CartridgeType::FLASH512) {
     flash_controller.manufacturer_id = 0x32;
     flash_controller.device_id       = 0x1B;
     info.uses_flash                  = true;
   }
-  if (info.cartridge_save_type == FLASH1M) {
+  if (info.cartridge_save_type == CartridgeType::FLASH1M) {
     flash_controller.manufacturer_id = 0x62;
     flash_controller.device_id       = 0x13;
     info.uses_flash                  = true;
@@ -31,15 +31,15 @@ void Pak::load_data(std::vector<u8>& file_vector) {
 };
 
 CartridgeType Pak::get_cartridge_type() const {
-  std::string rom_str(reinterpret_cast<const char*>(data.data()), data.size());
+  const std::string rom_str(reinterpret_cast<const char*>(data.data()), data.size());
 
   for (const auto& [type, regex] : cart_type_lookup_regex_map) {
     if (std::regex_search(rom_str, regex)) {
       return type;
-    };
+    }
   }
 
-  return UNKNOWN;
+  return CartridgeType::UNKNOWN;
 }
 
 void Pak::log_cart_info() const {
@@ -58,7 +58,7 @@ void Pak::load_save() {
 
     auto save_vec = read_file(save_path);
 
-    std::copy(save_vec.begin(), save_vec.end(), SRAM.begin());
+    std::ranges::copy(save_vec, SRAM.begin());
     spdlog::info("save file loaded");
   } else {
     spdlog::info("no save file found");
