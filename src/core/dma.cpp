@@ -11,6 +11,7 @@ void DMAContext::print_dma_info() {
   dma_logger->info("timing: {}", TIMING_MAP.at(static_cast<DMA_START_TIMING>(dmacnt_h.start_timing)));
   dma_logger->info("word count: {:#010x}", dmacnt_l.word_count);
   dma_logger->info("word size: {}", dmacnt_h.transfer_type == TRANSFER_TYPE::HALFWORD ? "16bits" : "32bits");
+  // dma_logger->info("repeating?: {}", dmacnt_h.dma_repeat ? "Yes" : "No");
   dma_logger->info("===================================");
 }
 
