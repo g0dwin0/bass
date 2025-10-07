@@ -17,25 +17,25 @@ static constexpr u32 MAX_ROM_SIZE     = 32 * 1024 * 1024;
 
 // https://dillonbeliveau.com/2020/06/05/GBA-FLASH.html
 const std::unordered_map<CartridgeType, std::regex> cart_type_lookup_regex_map = {
-    {  EEPROM,   std::regex("EEPROM_V")},
-    {    SRAM,     std::regex("SRAM_V")},
-    {   FLASH,    std::regex("FLASH_V")},
-    {FLASH512, std::regex("FLASH512_V")},
-    { FLASH1M,  std::regex("FLASH1M_V")},
+    {  CartridgeType::EEPROM,   std::regex("EEPROM_V")},
+    {    CartridgeType::SRAM,     std::regex("SRAM_V")},
+    {   CartridgeType::FLASH,    std::regex("FLASH_V")},
+    {CartridgeType::FLASH512, std::regex("FLASH512_V")},
+    { CartridgeType::FLASH1M,  std::regex("FLASH1M_V")},
 };
 
 const std::unordered_map<CartridgeType, std::string> cart_type_lookup_map = {
-    {  EEPROM,       "EEPROM"},
-    {    SRAM,         "SRAM"},
-    {   FLASH,        "FLASH"},
-    {FLASH512,     "FLASH512"},
-    { FLASH1M,      "FLASH1M"},
-    { UNKNOWN, "UNKNOWN/NONE"},
+    {  CartridgeType::EEPROM,       "EEPROM"},
+    {    CartridgeType::SRAM,         "SRAM"},
+    {   CartridgeType::FLASH,        "FLASH"},
+    {CartridgeType::FLASH512,     "FLASH512"},
+    { CartridgeType::FLASH1M,      "FLASH1M"},
+    { CartridgeType::UNKNOWN, "UNKNOWN/NONE"},
 };
 
 struct Pak {
   Pak() : data(MAX_ROM_SIZE), SRAM(0x20000) {
-    std::fill(SRAM.begin(), SRAM.end(), 0xFF);
+    std::ranges::fill(SRAM, 0xFF);
 
     u32 addr = 0x08000000;
     for (size_t i = 0; i < MAX_ROM_SIZE; i += 2) {
@@ -50,10 +50,12 @@ struct Pak {
       }
     }
 
+    if (info.cartridge_save_type == CartridgeType::UNKNOWN) return;
+
     std::ofstream save(fmt::format("saves/{:.4}.sav", info.game_code), std::ios::binary | std::ios::trunc);
 
     std::ostream_iterator<u8> output_iterator(save);
-    std::copy(SRAM.begin(), SRAM.end(), output_iterator);
+    std::ranges::copy(SRAM, output_iterator);
 
     save.close();
   }
@@ -64,6 +66,7 @@ struct Pak {
   std::vector<u8> SRAM;
 
   FlashController flash_controller;
+
   struct {
     union {
       u8 header_bytes[192];
@@ -98,12 +101,12 @@ struct Pak {
       };
     };
 
-    CartridgeType cartridge_save_type = UNKNOWN;
+    CartridgeType cartridge_save_type = CartridgeType::UNKNOWN;
     bool uses_flash                   = false;
   } info;
 
   void load_data(std::vector<u8>&);
   void log_cart_info() const;
   void load_save();
-  CartridgeType get_cartridge_type() const;
+  [[nodiscard]] CartridgeType get_cartridge_type() const;
 };
