@@ -6,7 +6,7 @@ struct Bus;
 
 enum class SRC_CONTROL : u16 { INCREMENT = 0, DECREMENT, FIXED, PROHIBITED };
 enum class DST_CONTROL : u16 { INCREMENT = 0, DECREMENT, FIXED, INCREMENT_RELOAD };
-enum class TRANSFER_TYPE : u16 { HALFWORD = 0, WORD };
+enum class TRANSFER_SIZE : u16 { HALFWORD = 0, WORD };
 enum class DMA_START_TIMING : u16 { IMMEDIATELY = 0, VBLANK, HBLANK, SPECIAL };
 
 const std::unordered_map<DMA_START_TIMING, std::string> TIMING_MAP = {
@@ -30,6 +30,13 @@ const std::unordered_map<DST_CONTROL, std::string> DST_CTRL_MAP = {
     {DST_CONTROL::INCREMENT_RELOAD, "INCREMENT RELOAD"},
 };
 
+const std::unordered_map<u8, std::string> SPECIAL_COND_MAP = {
+    {0,    "Prohibited"},
+    {1,    "Sound FIFO"},
+    {2,    "Sound FIFO"},
+    {3, "Video Capture"},
+};
+
 union DMACNT_L {
   u32 v = 0;
   struct {
@@ -44,7 +51,7 @@ union DMACNT_H {
     DST_CONTROL dst_control       : 2;
     SRC_CONTROL src_control       : 2;
     bool dma_repeat               : 1;
-    TRANSFER_TYPE transfer_type   : 1;
+    TRANSFER_SIZE transfer_type   : 1;
     bool game_pak_drq             : 1;
     DMA_START_TIMING start_timing : 2;
     bool irq_at_end               : 1;
@@ -59,11 +66,12 @@ struct DMAContext {
   Bus* bus         = nullptr;
   u32 dma_open_bus = 0;
   enum class OPEN_BUS_WIDTH { HALFWORD, WORD } open_bus_size;
-  u32 src = 0;  // DMASAD - forward facing
-  u32 dst = 0;  // DMADAD - forward facing
+  u32 src = 0;  // DMASAD - forward facing (this value gets loaded into internal)
+  u32 dst = 0;  // DMADAD - forward facing (this value gets loaded into internal)
 
-  u32 internal_src = 0;  // internal -- reload depending on addr control bit
-  u32 internal_dst = 0;  // internal -- reload depending on addr control bit
+  u32 internal_src       = 0;  // internal -- reload depending on addr control bit
+  u32 internal_dst       = 0;  // internal -- reload depending on addr control bit
+  u32 internal_word_size = 0;
 
   DMACNT_L dmacnt_l = {};
   DMACNT_H dmacnt_h = {};
