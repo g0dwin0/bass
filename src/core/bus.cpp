@@ -63,6 +63,7 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
     }
 
     case REGION::EWRAM: {
+      cpu->cycles_this_step += get_wram_waitstates();
       v = EWRAM.at(address % 0x40000);
       break;
     }
@@ -218,18 +219,19 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
           }
         }
       } else {
-        v = *(uint16_t*)(&BIOS[address]);
+        v = *(u16*)(&BIOS[address]);
       }
       break;
     }
 
     case REGION::EWRAM: {
-      v = *(uint16_t*)(&EWRAM[address % 0x40000]);
+      cpu->cycles_this_step += 2;  // 3/3/6 -- mem access already accounts for 1
+      v = *(u16*)(&EWRAM[address % 0x40000]);
       break;
     }
 
     case REGION::IWRAM: {
-      v = *(uint16_t*)(&IWRAM[address % 0x8000]);
+      v = *(u16*)(&IWRAM[address % 0x8000]);
       break;
     }
 
@@ -342,7 +344,7 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case REGION::EWRAM: {
-      cpu->cycles_this_step += 5;
+      cpu->cycles_this_step += 4;
       v = *(uint32_t*)(&EWRAM[address % 0x40000]);
       break;
     }
@@ -380,7 +382,6 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
     case REGION::PAK_WS0_0:
     case REGION::PAK_WS0_1: {
-      // fmt::println("calculated WS0 access: {}", get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0));
       cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0);
       cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0);
 
@@ -390,16 +391,17 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
     case REGION::PAK_WS1_0:
     case REGION::PAK_WS1_1: {
-      // fmt::println("calculated WS1 access: {}", get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1));
-      // cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS1);
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS1);
+
       v = *(uint32_t*)(&pak->data[address - 0x0A000000]);
       break;
     }
 
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
-      // fmt::println("calculated WS2 access: {}", get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2));
-      // cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS2);
+      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS2);
       v = *(uint32_t*)(&pak->data[address - 0x0C000000]);
       break;
     }
@@ -738,7 +740,7 @@ u8 Bus::io_read(u32 address) {
 
     case SOUND1CNT_L:
     case SOUND1CNT_L + 1: {
-      retval = read_byte(sound_registers.SOUND1CNT_L.v, address % 0x2);
+      retval = read_byte(apu->sound_registers.SOUND1CNT_L.v, address % 0x2);
       break;
     }
 
@@ -746,43 +748,43 @@ u8 Bus::io_read(u32 address) {
     case SOUND1CNT_X + 1:
     case SOUND1CNT_X + 2:
     case SOUND1CNT_X + 3: {
-      retval = read_byte(sound_registers.SOUND1CNT_X.v, address % 0x4);
+      retval = read_byte(apu->sound_registers.SOUND1CNT_X.v, address % 0x4);
       break;
     }
 
     case SOUND2CNT_L:
     case SOUND2CNT_L + 1: {
-      retval = read_byte(sound_registers.SOUND2CNT_L.v, address % 0x2);
+      retval = read_byte(apu->sound_registers.SOUND2CNT_L.v, address % 0x2);
       break;
     }
 
     case SOUND3CNT_L:
     case SOUND3CNT_L + 1: {
-      retval = read_byte(sound_registers.SOUND3CNT_L.v, address % 0x2);
+      retval = read_byte(apu->sound_registers.SOUND3CNT_L.v, address % 0x2);
       break;
     }
 
     case SOUND1CNT_H:
     case SOUND1CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND1CNT_H.v, address % 2);
+      retval = read_byte(apu->sound_registers.SOUND1CNT_H.v, address % 2);
       break;
     }
 
     case SOUND2CNT_H:
     case SOUND2CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND2CNT_H.v, address % 2);
+      retval = read_byte(apu->sound_registers.SOUND2CNT_H.v, address % 2);
       break;
     }
 
     case SOUND3CNT_H:
     case SOUND3CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND3CNT_H.v, address % 2);
+      retval = read_byte(apu->sound_registers.SOUND3CNT_H.v, address % 2);
       break;
     }
 
     case SOUND3CNT_X:
     case SOUND3CNT_X + 1: {
-      retval = read_byte(sound_registers.SOUND3CNT_X.v, address % 2);
+      retval = read_byte(apu->sound_registers.SOUND3CNT_X.v, address % 2);
       break;
     }
 
@@ -790,25 +792,25 @@ u8 Bus::io_read(u32 address) {
     case SOUND4CNT_L + 1:
     case SOUND4CNT_L + 2:
     case SOUND4CNT_L + 3: {
-      retval = read_byte(sound_registers.SOUND4CNT_L.v, address % 4);
+      retval = read_byte(apu->sound_registers.SOUND4CNT_L.v, address % 4);
       break;
     }
 
     case SOUND4CNT_H:
     case SOUND4CNT_H + 1: {
-      retval = read_byte(sound_registers.SOUND4CNT_H.v, address % 2);
+      retval = read_byte(apu->sound_registers.SOUND4CNT_H.v, address % 2);
       break;
     }
 
     case SOUNDCNT_L:
     case SOUNDCNT_L + 1: {
-      retval = read_byte(sound_registers.SOUNDCNT_L.v, address % 2);
+      retval = read_byte(apu->sound_registers.SOUNDCNT_L.v, address % 2);
       break;
     }
 
     case SOUNDCNT_H:
     case SOUNDCNT_H + 1: {
-      retval = read_byte(sound_registers.SOUNDCNT_H.v, address % 2);
+      retval = read_byte(apu->sound_registers.SOUNDCNT_H.v, address % 2);
       break;
     }
 
@@ -816,7 +818,7 @@ u8 Bus::io_read(u32 address) {
     case SOUNDCNT_X + 1:
     case SOUNDCNT_X + 2:
     case SOUNDCNT_X + 3: {
-      retval = read_byte(sound_registers.SOUNDCNT_X.v, address % 4);
+      retval = read_byte(apu->sound_registers.SOUNDCNT_X.v, address % 4);
       break;
     }
 
@@ -888,7 +890,7 @@ u8 Bus::io_read(u32 address) {
 
     case TM0CNT_L:
     case TM0CNT_L + 1: {
-      u32 ticks = ((cycles_elapsed + cpu->cycles_this_step) - tm0->start_time) / tm0->get_divider_val();
+      u32 ticks = ((cycles_elapsed + cpu->cycles_this_step) - tm0->start_time) + tm0->start_value;
 
       if (tm0->ctrl.timer_start_stop) tm0->counter = tm0->counter + ticks;
       retval = read_byte(tm0->counter, address % 2);
@@ -906,8 +908,8 @@ u8 Bus::io_read(u32 address) {
 
       // u16 ticks = (cycles_elapsed - tm1->start_time + cpu->cycles_this_step) / tm1->get_divider_val();
 
-      tm1->counter = 0;
-      retval       = read_byte(tm1->counter, address % 2);
+      // tm1->counter = 0;
+      retval = read_byte(tm1->counter, address % 2);
       break;
     }
     case TM1CNT_H:
@@ -1010,8 +1012,10 @@ u8 Bus::io_read(u32 address) {
     case UNKNOWN302:
     case UNKNOWN302 + 1: return 0x00;
 
-    case POSTFLG: break;
-    // case HALTCNT: break;
+    case POSTFLG:
+      break;
+      // case HALTCNT: break;
+
     default: {
       // fmt::println("misaligned/partial read {:#08x} - [{}]", address, get_label(address));
       // assert(0);
@@ -1259,17 +1263,17 @@ void Bus::io_write(u32 address, u8 value) {
     }
     case SOUND1CNT_L:
     case SOUND1CNT_L + 1: {
-      set_byte(sound_registers.SOUND1CNT_L.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUND1CNT_L.v, address % 2, value);
 
-      sound_registers.SOUND1CNT_L.v &= 0x7f;
+      apu->sound_registers.SOUND1CNT_L.v &= 0x7f;
       break;
     }
     case SOUND1CNT_H:
     case SOUND1CNT_H + 1: {
-      set_byte(sound_registers.SOUND1CNT_H.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUND1CNT_H.v, address % 2, value);
       // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
 
-      sound_registers.SOUND1CNT_H.v &= ~0b111111;
+      apu->sound_registers.SOUND1CNT_H.v &= ~0b111111;
       break;
     }
 
@@ -1277,43 +1281,43 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUND1CNT_X + 1:
     case SOUND1CNT_X + 2:
     case SOUND1CNT_X + 3: {
-      set_byte(sound_registers.SOUND1CNT_X.v, address % 4, value);
+      set_byte(apu->sound_registers.SOUND1CNT_X.v, address % 4, value);
 
-      sound_registers.SOUND1CNT_X.v &= (1 << 14);
+      apu->sound_registers.SOUND1CNT_X.v &= (1 << 14);
       break;
     }
 
     case SOUND2CNT_L:
     case SOUND2CNT_L + 1: {
-      set_byte(sound_registers.SOUND2CNT_L.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUND2CNT_L.v, address % 2, value);
 
-      sound_registers.SOUND2CNT_L.v &= 0xFFC0;
+      apu->sound_registers.SOUND2CNT_L.v &= 0xFFC0;
       break;
     }
 
     case SOUND2CNT_H:
     case SOUND2CNT_H + 1: {
-      set_byte(sound_registers.SOUND2CNT_H.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUND2CNT_H.v, address % 2, value);
       // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
 
-      sound_registers.SOUND2CNT_H.v &= 0X4000;
+      apu->sound_registers.SOUND2CNT_H.v &= 0X4000;
 
       break;
     }
 
     case SOUND3CNT_L:
     case SOUND3CNT_L + 1: {
-      set_byte(sound_registers.SOUND3CNT_L.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUND3CNT_L.v, address % 2, value);
 
-      sound_registers.SOUND3CNT_L.v &= 0XE0;
+      apu->sound_registers.SOUND3CNT_L.v &= 0XE0;
       break;
     }
 
     case SOUND3CNT_H:
     case SOUND3CNT_H + 1: {
-      set_byte(sound_registers.SOUND3CNT_H.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUND3CNT_H.v, address % 2, value);
 
-      sound_registers.SOUND3CNT_H.v &= 0b1110000000000000;
+      apu->sound_registers.SOUND3CNT_H.v &= 0b1110000000000000;
       break;
     }
 
@@ -1321,9 +1325,9 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUND3CNT_X + 1:
     case SOUND3CNT_X + 2:
     case SOUND3CNT_X + 3: {
-      set_byte(sound_registers.SOUND3CNT_X.v, address % 4, value);
+      set_byte(apu->sound_registers.SOUND3CNT_X.v, address % 4, value);
 
-      sound_registers.SOUND3CNT_X.v &= (1 << 14);
+      apu->sound_registers.SOUND3CNT_X.v &= (1 << 14);
       break;
     };
 
@@ -1331,9 +1335,9 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUND4CNT_L + 1:
     case SOUND4CNT_L + 2:
     case SOUND4CNT_L + 3: {
-      set_byte(sound_registers.SOUND4CNT_L.v, address % 4, value);
+      set_byte(apu->sound_registers.SOUND4CNT_L.v, address % 4, value);
 
-      sound_registers.SOUND4CNT_L.v &= 0xFF00;
+      apu->sound_registers.SOUND4CNT_L.v &= 0xFF00;
       break;
     }
 
@@ -1341,23 +1345,23 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUND4CNT_H + 1:
     case SOUND4CNT_H + 2:
     case SOUND4CNT_H + 3: {
-      set_byte(sound_registers.SOUND4CNT_H.v, address % 4, value);
-      sound_registers.SOUND4CNT_H.v &= 0x40FF;
+      set_byte(apu->sound_registers.SOUND4CNT_H.v, address % 4, value);
+      apu->sound_registers.SOUND4CNT_H.v &= 0x40FF;
 
       break;
     }
     case SOUNDCNT_L: {
-      set_byte(sound_registers.SOUNDCNT_L.v, address % 2, value & 0b01110111);
+      set_byte(apu->sound_registers.SOUNDCNT_L.v, address % 2, value & 0b01110111);
       break;
     }
     case SOUNDCNT_L + 1: {
-      set_byte(sound_registers.SOUNDCNT_L.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUNDCNT_L.v, address % 2, value);
       break;
     }
 
     case SOUNDCNT_H:
     case SOUNDCNT_H + 1: {
-      set_byte(sound_registers.SOUNDCNT_H.v, address % 2, value);
+      set_byte(apu->sound_registers.SOUNDCNT_H.v, address % 2, value);
 
       if (value & (1 << 4) && ((address % 2) == 1)) {  // reset
         bus_logger->info("resetting FIFO A");
@@ -1369,7 +1373,7 @@ void Bus::io_write(u32 address, u8 value) {
         apu->FIFO_B = {};
       }
 
-      sound_registers.SOUNDCNT_H.v &= 0X770F;
+      apu->sound_registers.SOUNDCNT_H.v &= 0X770F;
       break;
     }
 
@@ -1379,7 +1383,7 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUNDCNT_X + 3: {
       if (address != SOUNDCNT_X) break;
 
-      set_byte(sound_registers.SOUNDCNT_X.v, address % 4, value & (1 << 7));
+      set_byte(apu->sound_registers.SOUNDCNT_X.v, address % 4, value & (1 << 7));
       break;
     }
 
@@ -1425,6 +1429,7 @@ void Bus::io_write(u32 address, u8 value) {
     case FIFO_A + 1:
     case FIFO_A + 2:
     case FIFO_A + 3: {
+      if (apu->FIFO_A.size() == 32) return;
       apu->FIFO_A.push(value);
       break;
     }
@@ -1433,6 +1438,7 @@ void Bus::io_write(u32 address, u8 value) {
     case FIFO_B + 1:
     case FIFO_B + 2:
     case FIFO_B + 3: {
+      if (apu->FIFO_B.size() == 32) return;
       apu->FIFO_B.push(value);
       break;
     }
@@ -1567,17 +1573,16 @@ void Bus::io_write(u32 address, u8 value) {
       bool started = tm0->ctrl.timer_start_stop;
 
       if (stopped && started) {
-        // tm0->ctrl.v &= 0x7F;
-        // tm0->ctrl.timer_start_stop = false;
-        // tm0->reload_divider();
         tm0->reload_counter();
 
-        tm0->start_time      = cycles_elapsed + cpu->cycles_this_step + 2;
-        tm0->start_value     = tm0->reload_value;
-        u64 diff_to_overflow = 0x10000 - tm0->start_value;
+        tm0->start_time  = cycles_elapsed + cpu->cycles_this_step + 2;
+        tm0->start_value = tm0->reload_value;
 
-        diff_to_overflow = tm0->get_divider_val() * diff_to_overflow;
+        // if (tm0->ctrl.timer_irq_enable) {
+        u64 diff_to_overflow = 0x10000 - tm0->start_value;
+        diff_to_overflow     = tm0->get_divider_val() * diff_to_overflow;
         Scheduler::schedule(Scheduler::EventType::TIMER0_OVERFLOW, (cycles_elapsed + cpu->cycles_this_step + 2) + diff_to_overflow);
+        // }
       }
       break;
     }
@@ -1685,6 +1690,14 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
+    case 0x4000800:
+    case 0x4000800 + 1:
+    case 0x4000800 + 2:
+    case 0x4000800 + 3: {
+      set_byte(system_control.IMC, address % 4, value);
+      break;
+    }
+
     default: {
       bus_logger->debug("misaligned write: {:#010x}", address);
     }
@@ -1757,4 +1770,4 @@ u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTA
   }
   return 255;
 }
-u8 Bus::get_wram_waitstates() { return 255; }
+u8 Bus::get_wram_waitstates() { return 1 + (15 - system_control.wait_control_wram); }
