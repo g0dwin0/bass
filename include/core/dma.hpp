@@ -86,7 +86,7 @@ struct DMAContext {
 
   void print_dma_info();
   void process();
-  bool enabled();
+  bool enabled() const;
 
   void transfer16(u32 src, u32 dst, u32 word_count);
   void transfer32(u32 src, u32 dst, u32 word_count);

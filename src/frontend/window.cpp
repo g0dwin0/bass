@@ -3,10 +3,8 @@
 #include <spdlog/common.h>
 
 #include <atomic>
-#include <mutex>
 
 #include "SDL3/SDL_dialog.h"
-#include "SDL3/SDL_oldnames.h"
 #include "SDL3/SDL_render.h"
 #include "common/stopwatch.hpp"
 #include "cpu.hpp"
@@ -14,7 +12,6 @@
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
 #include "imgui_memory_edit.h"
-#include "ppu.hpp"
 
 static MemoryEditor editor_instance;
 
@@ -115,7 +112,7 @@ void Frontend::show_memory_viewer() {
       &agb->bus.IWRAM,
       // &agb->bus.IO,
       &agb->bus.PALETTE_RAM,
-      &agb->bus.VRAM,
+      &agb->bus.ppu->VRAM,
       &agb->bus.OAM,
       &agb->pak.data,
       &agb->pak.SRAM,
@@ -132,7 +129,7 @@ void Frontend::show_memory_viewer() {
 
   if (SelectedItem == 8) {
     // agb->ppu.tile_map_texture_buffer_1,
-    editor_instance.DrawContents((void*)agb->ppu.tile_map_texture_buffer_1, sizeof(u32) * 512 * 512);
+    editor_instance.DrawContents((void*)agb->ppu.tile_map_texture_buffer_arr[0].data(), sizeof(u32) * 512 * 512);
   } else {
     editor_instance.DrawContents((void*)memory_partitions[SelectedItem]->data(), memory_partitions[SelectedItem]->size());
   }
@@ -196,11 +193,9 @@ void Frontend::show_timer_window() {
   // =========================
 
   ImGui::SeparatorText("Timer 1");
-  bool enabled_1     = agb->timers[1].ctrl.timer_start_stop;
-  bool irq_enabled_1 = agb->timers[1].ctrl.timer_irq_enable;
 
-  ImGui::Checkbox("Ticking Enabled##l1", &enabled_1);
-  ImGui::Checkbox("IRQ Enabled##il1", &irq_enabled_1);
+  ImGui::Text("Ticking Enabled: %d", agb->timers[1].ctrl.timer_start_stop);
+  ImGui::Text("IRQ Enabled: %d", agb->timers[1].ctrl.timer_irq_enable);
   ImGui::Text("Counter: %d", agb->timers[1].counter);
   ImGui::Text("Prescaler: %s", agb->timers[1].get_prescaler_string().c_str());
 
@@ -233,9 +228,52 @@ void Frontend::show_viewport() {
 
   ImGui::End();
 }
+void Frontend::show_audio_info() {
+  ImGui::Begin("Audio", &state.apu_window_open, 0);
+  ImGui::Text("Write position: %d", agb->apu.write_pos);
+  ImGui::Text("FIFO A size: %lu", agb->apu.FIFO_A.size());
+  ImGui::Text("FIFO B size: %lu", agb->apu.FIFO_B.size());
+
+  ImGui::End();
+}
+void Frontend::show_dma_info() {
+  ImGui::Begin("DMA Info");
+
+  ImGui::SeparatorText("DMA0");
+  auto& ch0 = agb->dma_channels[0];
+  ImGui::Text("SRC: %08X", ch0->src);
+  ImGui::Text("DST: %08X", ch0->dst);
+  ImGui::Text("INT SRC: %08X", ch0->internal_src);
+  ImGui::Text("INT DST: %08X", ch0->internal_dst);
+  ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
+  ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
+              ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
+  ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
+  ImGui::SeparatorText("DMA1");
+  ch0 = agb->dma_channels[1];
+  ImGui::Text("SRC: %08X", ch0->src);
+  ImGui::Text("DST: %08X", ch0->dst);
+  ImGui::Text("INT SRC: %08X", ch0->internal_src);
+  ImGui::Text("INT DST: %08X", ch0->internal_dst);
+  ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
+  ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
+              ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
+  ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
+  ImGui::SeparatorText("DMA2");
+  ch0 = agb->dma_channels[2];
+  ImGui::Text("SRC: %08X", ch0->src);
+  ImGui::Text("DST: %08X", ch0->dst);
+  ImGui::Text("INT SRC: %08X", ch0->internal_src);
+  ImGui::Text("INT DST: %08X", ch0->internal_dst);
+  ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
+  ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
+              ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
+  ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
+  ImGui::End();
+}
 void Frontend::show_backgrounds() {
   ImGui::Begin("Backgrounds", &state.backgrounds_window_open, 0);
-  const char* backgrounds[] = {"BG0", "BG1", "BG2", "BG3", "viewport", "backdrop"};
+  const char* backgrounds[] = {"BG0", "BG1", "BG2", "BG3", "viewport", "backdrop", "BG2 (rot scal)"};
 
   static int SelectedItem = 0;
   ImGui::Text("Enabled BG(s)");
@@ -260,6 +298,10 @@ void Frontend::show_backgrounds() {
     }
     case 5: {
       ImGui::Image(state.backdrop, {512, 512});
+      break;
+    }
+    case 6: {
+      ImGui::Image(state.background_affine_textures[2], {1024, 1024});
       break;
     }
   }
@@ -338,10 +380,10 @@ void Frontend::show_cpu_info() {
   // if (ImGui::Button("FORCE NEW TILE LOAD")) {
   //   // agb->ppu.repopulate_objs();
   //
-  //   agb->ppu.load_tiles(0, agb->bus.display_fields.BG0CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-  //   agb->ppu.load_tiles(1, agb->bus.display_fields.BG1CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-  //   agb->ppu.load_tiles(2, agb->bus.display_fields.BG2CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
-  //   agb->ppu.load_tiles(3, agb->bus.display_fields.BG3CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  //   agb->ppu.load_tiles(0, agb->ppu.display_fields.BG0CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  //   agb->ppu.load_tiles(1, agb->ppu.display_fields.BG1CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  //   agb->ppu.load_tiles(2, agb->ppu.display_fields.BG2CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
+  //   agb->ppu.load_tiles(3, agb->ppu.display_fields.BG3CNT.COLOR_MODE);  // only gets called when dispstat corresponding to bg changes
   // }
 
   ImGui::End();
@@ -349,23 +391,44 @@ void Frontend::show_cpu_info() {
 
 void Frontend::show_window_info() {
   ImGui::Begin("PPU INFO", &state.window_info_open, 0);
-  ImGui::Text("WINDOW 0 ENABLED: %d", agb->bus.display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG);
-  ImGui::Text("WINDOW 1 ENABLED: %d", agb->bus.display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG);
-  ImGui::Text("OBJ WINDOW ENABLED: %d", agb->bus.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
+  ImGui::Text("WINDOW 0 ENABLED: %d", agb->ppu.display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG);
+  ImGui::Text("WINDOW 1 ENABLED: %d", agb->ppu.display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG);
+  ImGui::Text("OBJ WINDOW ENABLED: %d", agb->ppu.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
 
-  ImGui::Text("WINDOW 0: X2: %d", agb->bus.display_fields.WIN0H.X2);
-  ImGui::Text("WINDOW 0: Y2: %d", agb->bus.display_fields.WIN0V.Y2);
+  ImGui::Text("WINDOW 0: X2: %d", agb->ppu.display_fields.WIN0H.X2);
+  ImGui::Text("WINDOW 0: Y2: %d", agb->ppu.display_fields.WIN0V.Y2);
 
-  ImGui::Text("WINDOW 1: X2: %d", agb->bus.display_fields.WIN1H.X2);
-  ImGui::Text("WINDOW 1: Y2: %d", agb->bus.display_fields.WIN1V.Y2);
+  ImGui::Text("WINDOW 1: X2: %d", agb->ppu.display_fields.WIN1H.X2);
+  ImGui::Text("WINDOW 1: Y2: %d", agb->ppu.display_fields.WIN1V.Y2);
 
   ImGui::SeparatorText("WININ");
-  ImGui::Text("W0 BG0 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS & 1);
-  ImGui::Text("W0 BG1 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 1 & 1);
-  ImGui::Text("W0 BG2 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 2 & 1);
-  ImGui::Text("W0 BG3 ENABLED: %d", agb->bus.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 3 & 1);
+  ImGui::Text("W0 BG0 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS & 1);
+  ImGui::Text("W0 BG1 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 1 & 1);
+  ImGui::Text("W0 BG2 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 2 & 1);
+  ImGui::Text("W0 BG3 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 3 & 1);
 
   ImGui::SeparatorText("WINOUT");
+
+  ImGui::End();
+}
+void Frontend::show_blend_info() {
+  ImGui::Begin("BLEND INFO", &state.blend_info_open, 0);
+  ImGui::Text("COLOR SPECIAL FX: %s", agb->ppu.special_fx_str_map.at(agb->ppu.display_fields.BLDCNT.COLOR_SPECIAL_FX).c_str());
+
+  ImGui::Text("BG0 1ST TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG0_1ST_TARGET_PIXEL);
+  ImGui::Text("BG1 1ST TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG1_1ST_TARGET_PIXEL);
+  ImGui::Text("BG2 1ST TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG2_1ST_TARGET_PIXEL);
+  ImGui::Text("BG3 1ST TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG3_1ST_TARGET_PIXEL);
+  ImGui::Text("OBJ 1ST TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.OBJ_1ST_TARGET_PIXEL);
+  ImGui::Text("BD 1ST TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BD_1ST_TARGET_PIXEL);
+  // ImGui::Text("COLOR SPECIAL FX: %d", agb->ppu.display_fields.BLDCNT.COLOR_SPECIAL_FX);
+  ImGui::Separator();
+  ImGui::Text("BG0 2ND TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG0_2ND_TARGET_PIXEL);
+  ImGui::Text("BG1 2ND TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG1_2ND_TARGET_PIXEL);
+  ImGui::Text("BG2 2ND TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG2_2ND_TARGET_PIXEL);
+  ImGui::Text("BG3 2ND TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BG3_2ND_TARGET_PIXEL);
+  ImGui::Text("OBJ 2ND TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.OBJ_2ND_TARGET_PIXEL);
+  ImGui::Text("BD 2ND TARGET PIXEL: %d", agb->ppu.display_fields.BLDCNT.BD_2ND_TARGET_PIXEL);
 
   ImGui::End();
 }
@@ -374,56 +437,63 @@ void Frontend::show_ppu_info() {
 
   // ImGui::Text("FPS: %.2f", (1 / agb->stopwatch.duration.count()) * 1000.0f);
 
-  ImGui::Text("BG0 PRIORITY: %d", agb->bus.display_fields.BG0CNT.BG_PRIORITY);
-  ImGui::Text("BG0 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG0CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG0 MOSAIC: %d", agb->bus.display_fields.BG0CNT.MOSAIC);
-  ImGui::Text("BG0 COLOR MODE: %s", agb->bus.display_fields.BG0CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG0 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG0CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG0CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG0CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG0 PRIORITY: %d", agb->ppu.display_fields.BG0CNT.BG_PRIORITY);
+  ImGui::Text("BG0 CHAR_BASE_BLOCK: %d", agb->ppu.display_fields.BG0CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG0 MOSAIC: %d", agb->ppu.display_fields.BG0CNT.MOSAIC);
+  ImGui::Text("BG0 COLOR MODE: %s", agb->ppu.display_fields.BG0CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG0 SCREEN_BASE_BLOCK: %d", agb->ppu.display_fields.BG0CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG0 SCREEN_SIZE: %d (%s)", agb->ppu.display_fields.BG0CNT.SCREEN_SIZE, agb->ppu.screen_sizes_str_map.at(+agb->ppu.display_fields.BG0CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG1 PRIORITY: %d", agb->bus.display_fields.BG1CNT.BG_PRIORITY);
-  ImGui::Text("BG1 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG1CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG1 MOSAIC: %d", agb->bus.display_fields.BG1CNT.MOSAIC);
-  ImGui::Text("BG1 COLOR MODE: %s", agb->bus.display_fields.BG1CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG1CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG1CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG1 PRIORITY: %d", agb->ppu.display_fields.BG1CNT.BG_PRIORITY);
+  ImGui::Text("BG1 CHAR_BASE_BLOCK: %d", agb->ppu.display_fields.BG1CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG1 MOSAIC: %d", agb->ppu.display_fields.BG1CNT.MOSAIC);
+  ImGui::Text("BG1 COLOR MODE: %s", agb->ppu.display_fields.BG1CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG1 SCREEN_BASE_BLOCK: %d", agb->ppu.display_fields.BG1CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG1 SCREEN_SIZE: %d (%s)", agb->ppu.display_fields.BG1CNT.SCREEN_SIZE, agb->ppu.screen_sizes_str_map.at(+agb->ppu.display_fields.BG1CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG2 PRIORITY: %d", agb->bus.display_fields.BG2CNT.BG_PRIORITY);
-  ImGui::Text("BG2 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG2CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG2 MOSAIC: %d", agb->bus.display_fields.BG2CNT.MOSAIC);
-  ImGui::Text("BG2 COLOR MODE: %s", agb->bus.display_fields.BG2CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG2 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG2CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG2CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG2CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG2 PRIORITY: %d", agb->ppu.display_fields.BG2CNT.BG_PRIORITY);
+  ImGui::Text("BG2 CHAR_BASE_BLOCK: %d", agb->ppu.display_fields.BG2CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG2 MOSAIC: %d", agb->ppu.display_fields.BG2CNT.MOSAIC);
+  ImGui::Text("BG2 COLOR MODE: %s", agb->ppu.display_fields.BG2CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG2 SCREEN_BASE_BLOCK: %d", agb->ppu.display_fields.BG2CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG2 SCREEN_SIZE: %d (%s)", agb->ppu.display_fields.BG2CNT.SCREEN_SIZE, agb->ppu.screen_sizes_str_map.at(+agb->ppu.display_fields.BG2CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG3 PRIORITY: %d", agb->bus.display_fields.BG3CNT.BG_PRIORITY);
-  ImGui::Text("BG3 CHAR_BASE_BLOCK: %d", agb->bus.display_fields.BG3CNT.CHAR_BASE_BLOCK);
-  ImGui::Text("BG3 MOSAIC: %d", agb->bus.display_fields.BG3CNT.MOSAIC);
-  ImGui::Text("BG3 COLOR MODE: %s", agb->bus.display_fields.BG3CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
-  ImGui::Text("BG3 SCREEN_BASE_BLOCK: %d", agb->bus.display_fields.BG3CNT.SCREEN_BASE_BLOCK);
-  ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", agb->bus.display_fields.BG3CNT.SCREEN_SIZE, agb->ppu.screen_sizes.at(+agb->bus.display_fields.BG3CNT.SCREEN_SIZE).data());
+  ImGui::Text("BG3 PRIORITY: %d", agb->ppu.display_fields.BG3CNT.BG_PRIORITY);
+  ImGui::Text("BG3 CHAR_BASE_BLOCK: %d", agb->ppu.display_fields.BG3CNT.CHAR_BASE_BLOCK);
+  ImGui::Text("BG3 MOSAIC: %d", agb->ppu.display_fields.BG3CNT.MOSAIC);
+  ImGui::Text("BG3 COLOR MODE: %s", agb->ppu.display_fields.BG3CNT.color_depth == COLOR_DEPTH::BPP8 ? "8bpp (256 colors)" : "4bpp (16 colors)");
+  ImGui::Text("BG3 SCREEN_BASE_BLOCK: %d", agb->ppu.display_fields.BG3CNT.SCREEN_BASE_BLOCK);
+  ImGui::Text("BG3 SCREEN_SIZE: %d (%s)", agb->ppu.display_fields.BG3CNT.SCREEN_SIZE, agb->ppu.screen_sizes_str_map.at(+agb->ppu.display_fields.BG3CNT.SCREEN_SIZE).data());
 
-  ImGui::Text("BG0HOFS: %d", agb->bus.display_fields.BG0HOFS.OFFSET);
-  ImGui::Text("BG0VOFS: %d", agb->bus.display_fields.BG0VOFS.OFFSET);
+  ImGui::Text("BG0HOFS: %d", agb->ppu.display_fields.BG0HOFS.OFFSET);
+  ImGui::Text("BG0VOFS: %d", agb->ppu.display_fields.BG0VOFS.OFFSET);
+  ImGui::Text("BG1HOFS: %d", agb->ppu.display_fields.BG1HOFS.OFFSET);
+  ImGui::Text("BG1VOFS: %d", agb->ppu.display_fields.BG1VOFS.OFFSET);
+  ImGui::Text("BG2HOFS: %d", agb->ppu.display_fields.BG2HOFS.OFFSET);
+  ImGui::Text("BG2VOFS: %d", agb->ppu.display_fields.BG2VOFS.OFFSET);
+  ImGui::Text("BG3HOFS: %d", agb->ppu.display_fields.BG3HOFS.OFFSET);
+  ImGui::Text("BG3VOFS: %d", agb->ppu.display_fields.BG3VOFS.OFFSET);
 
-  ImGui::Text("BG1HOFS: %d", agb->bus.display_fields.BG1HOFS.OFFSET);
-  ImGui::Text("BG1VOFS: %d", agb->bus.display_fields.BG1VOFS.OFFSET);
+  ImGui::Text("BG2X: %d", agb->ppu.display_fields.BG2HOFS.OFFSET);
+  ImGui::Text("BG2VOFS: %d", agb->ppu.display_fields.BG2VOFS.OFFSET);
+  ImGui::Text("BG3HOFS: %d", agb->ppu.display_fields.BG3HOFS.OFFSET);
+  ImGui::Text("BG3VOFS: %d", agb->ppu.display_fields.BG3VOFS.OFFSET);
 
-  ImGui::Text("LY: %d", agb->bus.display_fields.VCOUNT.LY);
+  ImGui::Text("LY: %d", agb->ppu.display_fields.VCOUNT.LY);
   // ImGui::Text("Scanline Cycle: %d", agb->ppu.scanline_cycle);
-
   ImGui::Separator();
 
-  ImGui::Text("BG MODE: %#02x", agb->bus.display_fields.DISPCNT.BG_MODE);
-  ImGui::Text("OBJ DRAW: %#02x", agb->bus.display_fields.DISPCNT.SCREEN_DISPLAY_OBJ);
+  ImGui::Text("BG MODE: %#02x", agb->ppu.display_fields.DISPCNT.BG_MODE);
+  ImGui::Text("OBJ DRAW: %#02x", agb->ppu.display_fields.DISPCNT.SCREEN_DISPLAY_OBJ);
 
-  ImGui::Text("OBJ VRAM MAPPING: %s", agb->bus.display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == 0 ? "2D" : "1D");
-  ImGui::Text("OBJ Window: %#010x", agb->bus.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
+  ImGui::Text("OBJ VRAM MAPPING: %s", agb->ppu.display_fields.DISPCNT.OBJ_CHAR_VRAM_MAPPING == 0 ? "2D" : "1D");
+  ImGui::Text("OBJ Window: %#010x", agb->ppu.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
 
   if (ImGui::Button("Set VBLANK")) {
-    agb->bus.display_fields.DISPSTAT.VBLANK_FLAG = 1;
+    agb->ppu.display_fields.DISPSTAT.VBLANK_FLAG = true;
   }
   if (ImGui::Button("Reset VBLANK")) {
-    agb->bus.display_fields.DISPSTAT.VBLANK_FLAG = 0;
+    agb->ppu.display_fields.DISPSTAT.VBLANK_FLAG = false;
   }
   if (ImGui::Button("Draw")) {
     agb->ppu.step();
@@ -537,27 +607,37 @@ void Frontend::render_frame() {
   ImGui::NewFrame();
 
   // show_menu_bar();
-  if (state.cpu_info_open) {
-    show_cpu_info();
-  }
-  if (state.ppu_info_open) {
-    show_ppu_info();
-  }
-  if (state.window_info_open) {
-    show_window_info();
-  }
+  // if (state.cpu_info_open) {
+  //   show_cpu_info();
+  // }
+  // if (state.ppu_info_open) {
+  //   show_ppu_info();
+  // }
+  // if (state.window_info_open) {
+  //   show_window_info();
+  // }
 
-  if (state.memory_viewer_open) {
-    show_memory_viewer();
-  }
-  if (state.timer_window_open) {
-    show_timer_window();
-  }
+  // if (state.apu_window_open) {
+  //   show_audio_info();
+  // }
+  // if (state.memory_viewer_open) {
+  //   show_memory_viewer();
+  // }
 
-  show_irq_status();
-  show_tiles();
-  show_backgrounds();
-  show_viewport();
+  // if (state.show_dma_menu) {
+  //   show_dma_info();
+  // }
+  // if (state.timer_window_open) {
+  //   show_timer_window();
+  // }
+  // if (state.blend_info_open) {
+  //   show_blend_info();
+  // }
+
+  // show_irq_status();
+  // show_tiles();
+  // show_backgrounds();
+  // show_viewport();
 
   SDL_SetWindowTitle(window, fmt::format("{}fps", 1000 / Stopwatch::duration.count()).c_str());
 
@@ -567,13 +647,17 @@ void Frontend::render_frame() {
   SDL_SetRenderTarget(renderer, NULL);
   SDL_RenderClear(renderer);
 
-  SDL_UpdateTexture(state.background_textures[0], nullptr, agb->ppu.tile_map_texture_buffer_0, 512 * 4);
-  SDL_UpdateTexture(state.background_textures[1], nullptr, agb->ppu.tile_map_texture_buffer_1, 512 * 4);
-  SDL_UpdateTexture(state.background_textures[2], nullptr, agb->ppu.tile_map_texture_buffer_2, 512 * 4);
-  SDL_UpdateTexture(state.background_textures[3], nullptr, agb->ppu.tile_map_texture_buffer_3, 512 * 4);
-  SDL_UpdateTexture(state.obj_texture, nullptr, agb->ppu.obj_texture_buffer, 256 * 4);
+  SDL_UpdateTexture(state.background_textures[0], nullptr, agb->ppu.tile_map_texture_buffer_arr[0].data(), 512 * 4);
+  SDL_UpdateTexture(state.background_textures[1], nullptr, agb->ppu.tile_map_texture_buffer_arr[1].data(), 512 * 4);
+  SDL_UpdateTexture(state.background_textures[2], nullptr, agb->ppu.tile_map_texture_buffer_arr[2].data(), 512 * 4);
+  SDL_UpdateTexture(state.background_textures[3], nullptr, agb->ppu.tile_map_texture_buffer_arr[3].data(), 512 * 4);
+  SDL_UpdateTexture(state.background_affine_textures[0], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[0].data(), 1024 * 4);
+  SDL_UpdateTexture(state.background_affine_textures[1], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[1].data(), 1024 * 4);
+  SDL_UpdateTexture(state.background_affine_textures[2], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[2].data(), 1024 * 4);
+  SDL_UpdateTexture(state.background_affine_textures[3], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[3].data(), 1024 * 4);
 
-  SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop, 512 * 4);
+  SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop.data(), 512 * 4);
+
   SDL_UpdateTexture(state.ppu_texture, nullptr, agb->ppu.db.disp_buf, 240 * 4);
   SDL_RenderTexture(renderer, state.ppu_texture, &rect, NULL);
 
@@ -581,32 +665,60 @@ void Frontend::render_frame() {
 
   SDL_RenderPresent(renderer);
 }
-void Frontend::init_sdl() {
-  SPDLOG_DEBUG("constructed frontend with instance pointer");
 
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD)) {
-    fmt::println("ERROR: failed initialize SDL");
+void audio_callback(void* userdata, SDL_AudioStream* stream, int additional_amount, int in_total) {
+  (void)(in_total);
+  assert(userdata != nullptr);
+  u32 samples = ((additional_amount) / sizeof(float));
+  AGB* agb    = (AGB*)userdata;
+
+  if (additional_amount / sizeof(float) < 4096) fmt::println("need more than 4K samples");
+
+  // fmt::println("SDL wants: {} bytes --- {} samples", additional_amount, additional_amount / sizeof(float));
+  // fmt::println("SDL in_total: {} bytes --- {} samples", in_total, in_total / sizeof(float));
+
+  // fmt::println("pre-stream: {}", SDL_GetAudioStreamAvailable(stream));
+  agb->apu.write_pos = 0;
+
+  while (agb->apu.write_pos < samples) {
+    agb->step();
+  }
+
+  // fmt::println("post write pos: {} - samples again: {}", gb->apu.write_pos, samples);
+  if (!SDL_PutAudioStreamData(stream, agb->apu.audio_buf.data(), additional_amount)) {
+    fmt::println("failed to put data");
+    assert(0);
+  }
+  // fmt::println("post-stream: {}", SDL_GetAudioStreamAvailable(stream));
+};
+
+void Frontend::init_sdl() {
+  spdlog::info("initializing SDL");
+
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
+    spdlog::error("ERROR: failed initialize SDL");
+    exit(-1);
   }
 
   auto window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE);
 
   this->window = SDL_CreateWindow("bass", 640, 480, window_flags);
-  if (this->window == NULL) {
-    fmt::println("failed to create window");
+  if (this->window == nullptr) {
+    spdlog::error("failed to create window");
     assert(0);
   }
-  this->renderer = SDL_CreateRenderer(window, NULL);
+  // SDL_SetRenderVSync(renderer, 1);
 
-  if (this->renderer == NULL) {
-    fmt::println("failed to create renderer");
+  this->renderer = SDL_CreateRenderer(window, nullptr);
+  init_audio_device();
+  if (this->renderer == nullptr) {
+    spdlog::error("failed to create renderer");
     assert(0);
   }
 
-  fmt::println("initializing SDL");
-  printf("window ptr: %p\n", this->window);
-  printf("render ptr: %p\n", this->renderer);
+  spdlog::info("window ptr: {}", fmt::ptr(this->window));
+  spdlog::info("render ptr: {}", fmt::ptr(this->renderer));
 
-  // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
@@ -625,10 +737,34 @@ void Frontend::init_sdl() {
   this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
   this->state.backdrop         = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
   this->state.obj_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 256, 256);
+  SDL_SetTextureScaleMode(state.ppu_texture, SDL_SCALEMODE_NEAREST);
 
   for (size_t bg_id = 0; bg_id < 4; bg_id++) {
     this->state.background_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
   }
+  for (size_t bg_id = 0; bg_id < 4; bg_id++) {
+    this->state.background_affine_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 1024, 1024);
+  }
 };
+void Frontend::init_audio_device() {
+  SDL_AudioSpec spec = {};
+  spec.freq          = 48000;
+  spec.format        = SDL_AUDIO_S8;
+  spec.channels      = 2;
+  // stream             = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, agb);
+  stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+
+  if (!stream) {
+    fmt::println("Couldn't create audio stream: {}", SDL_GetError());
+    exit(-1);
+  }
+
+  if (!SDL_ResumeAudioStreamDevice(stream)) {
+    fmt::println("failed to unpause audio device: {}", SDL_GetError());
+    assert(0);
+  }
+
+  spdlog::info("initialized audio device");
+}
 
 Frontend::Frontend(AGB* c) : agb(c) { init_sdl(); }

@@ -22,5 +22,9 @@ enum class INTERRUPT_TYPE : u8 {
   GAMEPAK_EX       = 13
 };
 
-enum CartridgeType { EEPROM, SRAM, FLASH, FLASH512, FLASH1M, UNKNOWN };
+enum struct CartridgeType : u8 { EEPROM, SRAM, FLASH, FLASH512, FLASH1M, UNKNOWN };
 enum struct COLOR_DEPTH : u8 { BPP4 = 0, BPP8 = 1 };
+enum struct COLOR_FX : u8 { NONE, ALPHA_BLENDING, BRIGHTNESS_INCREASE, BRIGHTNESS_DECREASE };
+
+enum struct SELECTED_FIFO_DMA_TIMER : u8 { TIMER0, TIMER1 };
+enum struct FIFO_CHANNEL { FIFO_A, FIFO_B };
