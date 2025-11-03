@@ -12,21 +12,22 @@ struct AGB {
   PPU ppu      = {};
   Bus bus      = {};
   Pak pak      = {};
-  static u64 cycles_elapsed;
+  APU apu      = {};
 
   // Stopwatch stopwatch;
 
-  std::array<DMAContext*, 4> dma_channels;
+  std::array<std::shared_ptr<DMAContext>, 4> dma_channels;
   std::array<Timer, 4> timers;
 
   std::atomic<bool> active = true;
 
   AGB();
-  ~AGB();
+  // ~AGB();
 
   void check_for_dma() const;
   void tick_timers(u64 cycles);
   void system_loop();
+  void step();
 
   bool start_timing_cond_met(DMAContext* ch) const;
 };
