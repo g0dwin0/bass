@@ -1,4 +1,4 @@
-#include "../../include/core/flash.hpp"
+#include "flash.hpp"
 
 #include "spdlog/fmt/bundled/base.h"
 

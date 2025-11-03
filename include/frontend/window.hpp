@@ -9,13 +9,15 @@
 // TODO: add breakpoints in debugger
 
 struct State {
-  SDL_Texture* ppu_texture      = nullptr;
-  SDL_Texture* backdrop         = nullptr;
+  SDL_Texture* ppu_texture = nullptr;
+  SDL_Texture* backdrop    = nullptr;
+
   SDL_Texture* tile_set_texture = nullptr;
   SDL_Texture* tile_map_texture = nullptr;
   SDL_Texture* obj_texture      = nullptr;
 
   std::array<SDL_Texture*, 4> background_textures{};
+  std::array<SDL_Texture*, 4> background_affine_textures{};
 
   const bool* keyboard_state = SDL_GetKeyboardState(nullptr);
   std::atomic<bool> running  = true;
@@ -27,12 +29,14 @@ struct State {
   bool tile_window_open     = true;
   bool window_info_open     = true;
   bool timer_window_open    = true;
+  bool apu_window_open      = true;
+  bool show_dma_menu        = true;
 
   bool backgrounds_window_open = true;
   bool halted                  = false;
   int step_amount              = 0;
-
-  ImGuiIO* io = nullptr;
+  bool blend_info_open         = true;
+  ImGuiIO* io                  = nullptr;
 };
 
 enum KEY { A, B, SELECT, START, RIGHT, LEFT, UP, DOWN, L, R, NONE = 0xFF };
@@ -65,7 +69,7 @@ struct Frontend {
   State state;
   AGB* agb = nullptr;
   std::thread sdlThread;
-
+  SDL_AudioStream* stream = nullptr;
   SDL_FRect rect{0, 0, 240, 160};
 
   constexpr static const SDL_DialogFileFilter filters[] = {
@@ -81,9 +85,12 @@ struct Frontend {
   void show_menu_bar();
   void show_backgrounds();
   void show_viewport();
-  
-  void show_window_info();
+  void show_audio_info();
 
+  void show_dma_info();
+  void show_window_info();
+  void show_blend_info();
+  void init_audio_device();
   void shutdown();
   void show_memory_viewer();
   void show_cpu_info();
@@ -93,7 +100,6 @@ struct Frontend {
   void show_tiles();
   void show_obj();
   void show_timer_window();
-  
 
   explicit Frontend(AGB*);
 
