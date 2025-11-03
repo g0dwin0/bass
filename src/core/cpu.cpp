@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "agb.hpp"
+#include "bus.hpp"
 #include "capstone/arm.h"
 #include "capstone/capstone.h"
 #include "registers.hpp"
@@ -14,6 +15,7 @@
 ARM7TDMI::ARM7TDMI() {
   cpu_logger->set_level(spdlog::level::trace);
   regs.r[15] = 0x08000000;
+  // regs.r[15] = 0;
 }
 void ARM7TDMI::flush_pipeline() {
   // fmt::println("R15 pre-flush: {:#010x}", regs.r[15]);
@@ -22,15 +24,15 @@ void ARM7TDMI::flush_pipeline() {
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
     pipeline = {};
 
-    pipeline.decode = bus->read32(regs.r[15]);
-    pipeline.fetch  = bus->read32(regs.r[15] + 4);
+    pipeline.decode = bus->read32(regs.r[15], ACCESS_TYPE::NON_SEQUENTIAL);
+    pipeline.fetch  = bus->read32(regs.r[15] + 4, ACCESS_TYPE::SEQUENTIAL);
 
     regs.r[15] += 4;
   } else {
     pipeline = {};
 
-    pipeline.decode = bus->read16(regs.r[15]);
-    pipeline.fetch  = bus->read16(regs.r[15] + 2);
+    pipeline.decode = bus->read16(regs.r[15], ACCESS_TYPE::NON_SEQUENTIAL);
+    pipeline.fetch  = bus->read16(regs.r[15] + 2, ACCESS_TYPE::SEQUENTIAL);
 
     regs.r[15] += 2;
   }
@@ -48,12 +50,12 @@ u32 ARM7TDMI::handle_shifts(bool I, bool R, u8 Rm, u8 Rs, u8 shift_type, u32 imm
         add_amount += 4;
       }
 
-      return shift((ARM7TDMI::SHIFT_MODE)shift_type,
+      return shift((SHIFT_MODE)shift_type,
                    regs.get_reg(Rm) + add_amount,  // PC reads as PC+12 (PC already reads
                                                    // +8) when used as shift register
                    regs.get_reg(Rs) & 0xff, false, true, affects_flags);
     } else {
-      return shift((ARM7TDMI::SHIFT_MODE)shift_type, regs.get_reg(Rm), shift_amount, true, false, affects_flags);
+      return shift((SHIFT_MODE)shift_type, regs.get_reg(Rm), shift_amount, true, false, affects_flags);
     }
   }
 
@@ -74,7 +76,7 @@ u32 ARM7TDMI::fetch(u32 address) {
   return opcode;
 }
 
-inline bool ARM7TDMI::interrupt_queued() const { return ((bus->interrupt_control.IE.v & 0x3fff) & (bus->interrupt_control.IF.v & 0x3fff)) != 0; }
+bool ARM7TDMI::interrupt_queued() const { return ((bus->interrupt_control.IE.v & 0x3fff) & (bus->interrupt_control.IF.v & 0x3fff)) != 0; }
 
 inline void ARM7TDMI::handle_interrupts() {
   if (!regs.CPSR.irq_disable && interrupt_queued() && bus->interrupt_control.IME.enabled) {
@@ -97,16 +99,8 @@ inline void ARM7TDMI::handle_interrupts() {
   };
 }
 
-u64 ARM7TDMI::step() {
+u32 ARM7TDMI::step() {
   u8 tmp = 0;
-  // cycles_this_step = 1;
-  // bus->step_cyc = 0;
-  // fmt::println("R0:{:08X} R1:{:08X} R2:{:08X} R3:{:08X} R4:{:08X} R5:{:08X} R6:{:08X} R7:{:08X} R8:{:08X} R9:{:08X} R10:{:08X} R11:{:08X} R12:{:08X} R13:{:08X} R14:{:08X} R15:{:08X}",
-  // regs.get_reg(0),
-  //              regs.get_reg(1), regs.get_reg(2), regs.get_reg(3), regs.get_reg(4), regs.get_reg(5), regs.get_reg(6), regs.get_reg(7), regs.get_reg(8), regs.get_reg(9), regs.get_reg(10),
-  //              regs.get_reg(11),
-  //  regs.get_reg(12), regs.get_reg(13), regs.get_reg(14), regs.get_reg(15));
-  // regs.r[15] &= ~1;
 
   if (regs.r[15] != align_by_current_mode(regs.r[15])) {
     fmt::println("something left PC unaligned -- addr: {:#010x}", regs.r[15]);
@@ -114,18 +108,10 @@ u64 ARM7TDMI::step() {
     assert(0);
   }
 
-  // if (regs.r[15] == 0x134) { fmt::println("branched to IRQ VECTOR -- cycles elapsed: {}", bus->cycles_elapsed); }
-
   pipeline.execute = pipeline.decode;
   pipeline.decode  = pipeline.fetch;
 
   handle_interrupts();
-
-  // flushed_pipeline = false;
-
-  // print_pipeline();
-  // cycles_elapsed += 1;
-  // cycles_this_step += 1;
 
   pipeline.fetch = fetch(regs.r[15]);
 
