@@ -5,6 +5,7 @@
 
 #include "common.hpp"
 #include "common/defs.hpp"
+#include "eeprom.hpp"
 #include "enums.hpp"
 #include "flash.hpp"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -66,7 +67,8 @@ struct Pak {
   std::vector<u8> SRAM;
 
   FlashController flash_controller;
-
+  EEPROMController eeprom;
+  
   struct {
     union {
       u8 header_bytes[192];
