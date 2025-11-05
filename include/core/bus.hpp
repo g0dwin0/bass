@@ -47,14 +47,13 @@ struct Bus {
   std::vector<u8> BIOS;
   std::vector<u8> IWRAM;
   std::vector<u8> EWRAM;
-  std::vector<u8> PALETTE_RAM;
   std::vector<u8> OAM;
   std::vector<u8> WAVE_RAM;
   std::vector<Transaction> transactions;
 
   u32 bios_open_bus = 0;
 
-  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), PALETTE_RAM(0x400), OAM(0x400), WAVE_RAM(0x20) {
+  Bus() : BIOS(0x4000), IWRAM(0x8000), EWRAM(0x40000), OAM(0x400), WAVE_RAM(0x20) {
     if (!std::filesystem::exists("./roms/magic.bin")) {
       spdlog::error("Running this emulator requires a valid GBA BIOS. Rename your BIOS to magic.bin, and place it in the roms/ folder.");
       assert(0);
@@ -74,8 +73,14 @@ struct Bus {
   PPU* ppu      = nullptr;
   std::shared_ptr<DMAContext> ch0, ch1, ch2, ch3;
   Timer *tm0, *tm1, *tm2, *tm3 = nullptr;
+  std::array<Timer, 4>* timers;
   APU* apu = nullptr;
 
+  void tick_timers(u64 cycles) {
+    for (Timer& t : *timers) {
+      t.tick(cycles);
+    }
+  }
   void request_interrupt(INTERRUPT_TYPE type);
 
   [[nodiscard]] u8 read8(u32 address, ACCESS_TYPE access_type = ACCESS_TYPE::NON_SEQUENTIAL);

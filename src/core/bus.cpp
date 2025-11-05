@@ -17,7 +17,8 @@
 void Bus::request_interrupt(INTERRUPT_TYPE type) { interrupt_control.IF.v |= 1 << static_cast<u8>(type); }
 
 u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
-  cpu->cycles_this_step += 1;
+  cycles_elapsed += 1;
+  tick_timers(1);
   // u8 word_alignment_offset = (address & 3);
 #ifdef SST_TEST_MODE
   // TODO: make a separate function for these
@@ -63,7 +64,6 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
     }
 
     case REGION::EWRAM: {
-      cpu->cycles_this_step += get_wram_waitstates();
       v = EWRAM.at(address % 0x40000);
       break;
     }
@@ -80,7 +80,7 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
 
     case REGION::BG_OBJ_PALETTE: {
       // BG/OBJ Palette RAM
-      return PALETTE_RAM.at(address % 0x400);
+      return ppu->PALETTE_RAM.at(address % 0x400);
     }
 
     case REGION::VRAM: {
@@ -101,7 +101,8 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
     case REGION::PAK_WS0_0:
     case REGION::PAK_WS0_1: {
       // game pak read (ws0)
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0);
+      cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0);
+      tick_timers(get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0));
       v = pak->data.at(address - 0x08000000);
       break;
     }
@@ -109,7 +110,8 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
     case REGION::PAK_WS1_0:
     case REGION::PAK_WS1_1: {
       // game pak read (ws1)
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
+      cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
+      tick_timers(get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1));
       v = pak->data.at(address - 0x0A000000);
       break;
     }
@@ -117,8 +119,9 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
       // game pak read (ws2)
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
-      v = pak->data.at(address - 0x0C000000);
+      cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
+      tick_timers(get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2));
+      v = pak->data[address - 0x0C000000];
       break;
     }
 
@@ -127,7 +130,7 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
       if (pak->info.uses_flash) {
         return pak->flash_controller.handle_read(address);
       }
-      v = pak->SRAM.at(address % 0x8000);
+      v = pak->SRAM[address % 0x8000];
 
       break;
     }
@@ -145,7 +148,8 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
 #endif
 };
 u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
-  cpu->cycles_this_step += 1;
+  cycles_elapsed += 1;
+  tick_timers(1);
   u32 _address = address;
   // u8 misaligned_by         = (address & 1) * 8;
   u8 word_alignment_offset = (address & 3);
@@ -225,12 +229,15 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
     }
 
     case REGION::EWRAM: {
-      cpu->cycles_this_step += 2;  // 3/3/6 -- mem access already accounts for 1
+      cycles_elapsed += 2;  // 3/3/6 -- mem access already accounts for 1
+      tick_timers(2);
       v = *(u16*)(&EWRAM[address % 0x40000]);
       break;
     }
 
     case REGION::IWRAM: {
+      cycles_elapsed += 1;
+      tick_timers(1);
       v = *(u16*)(&IWRAM[address % 0x8000]);
       break;
     }
@@ -242,7 +249,7 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
       break;
     }
     case REGION::BG_OBJ_PALETTE: {
-      return *(uint16_t*)(&PALETTE_RAM.at(address % 0x400));
+      return *(uint16_t*)(&ppu->PALETTE_RAM.at(address % 0x400));
     }
 
     case REGION::VRAM: {
@@ -260,7 +267,8 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
     case REGION::PAK_WS0_0:
     case REGION::PAK_WS0_1: {
       // game pak read (ws0)
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0);
+      cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0);
+      tick_timers(get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0));
       v = *(uint16_t*)(&pak->data[address - 0x08000000]);
       break;
     }
@@ -268,22 +276,26 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
     case REGION::PAK_WS1_0:
     case REGION::PAK_WS1_1: {
       // game pak read (ws1)
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
-      v = *(uint16_t*)(&pak->data[address - 0x0A000000]);
+      cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1);
+      tick_timers(get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS1));
+      v = *(u16*)(&pak->data[address - 0x0A000000]);
       break;
     }
 
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
+      if(address >= 0x0d000000 && pak->eeprom.bits_to_read != 0) return pak->eeprom.handle_read();
+
       // game pak read (ws2);
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
-      v = *(uint16_t*)(&pak->data[address - 0x0C000000]);
+      cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
+      tick_timers(get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2));
+      v = *(u16*)(&pak->data[address - 0x0C000000]);
       break;
     }
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      return (pak->SRAM.at(_address % 0x8000) * 0x0101);
+      return pak->SRAM.at(_address % 0x8000) * 0x0101;
       // if(_address >= 0x0E000000) fmt::println("{:#010x}: {:#010x} m: {} -> {:#010x}", _address, v, misaligned_by, std::rotr(v, misaligned_by));
       break;
     }
@@ -301,7 +313,9 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
 #endif
 };
 u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
-  cpu->cycles_this_step += 1;
+  cycles_elapsed += 1;
+  tick_timers(1);
+
   // Scheduler::step(1);
   u32 _address = address;
   (void)_address;
@@ -344,13 +358,15 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case REGION::EWRAM: {
-      cpu->cycles_this_step += 4;
-      v = *(uint32_t*)(&EWRAM[address % 0x40000]);
+      cycles_elapsed += 4;
+      tick_timers(4);
+      // get_wram_waitstates();
+      v = *(u32*)(&EWRAM[address % 0x40000]);
       break;
     }
 
     case REGION::IWRAM: {
-      v = *(uint32_t*)(&IWRAM[address % 0x8000]);
+      v = *(u32*)(&IWRAM[address % 0x8000]);
       break;
     }
 
@@ -362,7 +378,7 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case REGION::BG_OBJ_PALETTE: {
-      v = *(uint32_t*)(&PALETTE_RAM[address % 0x400]);
+      v = *(u32*)(&ppu->PALETTE_RAM[address % 0x400]);
       break;
     }
 
@@ -371,19 +387,21 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
       if (max_addr >= 0x18000) max_addr -= 0x8000u;
 
-      v = *(uint32_t*)(&ppu->VRAM.at(max_addr));
+      v = *(u32*)(&ppu->VRAM.at(max_addr));
       break;
     }
 
     case REGION::OAM: {
-      v = *(uint32_t*)(&OAM[address % 0x400]);
+      v = *(u32*)(&OAM[address % 0x400]);
       break;
     }
 
     case REGION::PAK_WS0_0:
     case REGION::PAK_WS0_1: {
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0);
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0);
+      cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0);
+      cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0);
+      tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0));
+      tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0));
 
       v = *(uint32_t*)(&pak->data[address - 0x08000000]);
       break;
@@ -391,8 +409,11 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
     case REGION::PAK_WS1_0:
     case REGION::PAK_WS1_1: {
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS1);
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS1);
+      cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS1);
+      cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS1);
+
+      tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS1));
+      tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS1));
 
       v = *(uint32_t*)(&pak->data[address - 0x0A000000]);
       break;
@@ -400,9 +421,13 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS2);
-      cpu->cycles_this_step += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS2);
-      v = *(uint32_t*)(&pak->data[address - 0x0C000000]);
+      cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS2);
+      cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS2);
+
+      tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS2));
+      tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS2));
+
+      v = *(u32*)(&pak->data[address - 0x0C000000]);
       break;
     }
 
@@ -434,7 +459,8 @@ void Bus::write8(u32 address, u8 value) {
   }
   return;
 #else
-  cpu->cycles_this_step += 1;
+  cycles_elapsed += 1;
+  tick_timers(1);
   switch ((REGION)(address >> 24)) {
     case REGION::EWRAM: {
       EWRAM.at(address % 0x40000) = value;
@@ -454,7 +480,7 @@ void Bus::write8(u32 address, u8 value) {
 
     case REGION::BG_OBJ_PALETTE: {
       fmt::println("{:#010X} -- {:#010X}", address, value);
-      *(uint16_t*)&PALETTE_RAM.at((address % 0x400) & ~1) = value * 0x101;
+      *(uint16_t*)&ppu->PALETTE_RAM.at((address % 0x400) & ~1) = value * 0x101;
 
       return;
     }
@@ -498,7 +524,8 @@ void Bus::write16(u32 address, u16 value) {
   u32 _address = address;
   (void)_address;
   address = align(address, HALFWORD);
-  cpu->cycles_this_step += 1;
+  cycles_elapsed += 1;
+  tick_timers(1);
 #ifdef SST_TEST_MODE
   bus_logger->debug("write [16] at {:#010x} -> {:#010x}", address, value);
   fmt::println("write [16] at {:#010x} -> {:#010x}", address, value);
@@ -541,7 +568,7 @@ void Bus::write16(u32 address, u16 value) {
 
     case REGION::BG_OBJ_PALETTE: {
       // BG/OBJ Palette RAM
-      *(uint16_t*)(&PALETTE_RAM[address % 0x400]) = value;
+      *(uint16_t*)(&ppu->PALETTE_RAM[address % 0x400]) = value;
       break;
     }
 
@@ -563,11 +590,26 @@ void Bus::write16(u32 address, u16 value) {
       break;
     }
 
-    case REGION::PAK_WS2_0:
-    case REGION::PAK_WS2_1: {
-      // fmt::println("addr:{:#010x} sz: 2 val: {}", address, 0);
+    
+
+        case REGION::PAK_WS0_0:
+    case REGION::PAK_WS0_1: {
+      fmt::println("[ws0] eeprom: {:#010x}", value);
       break;
     }
+        case REGION::PAK_WS1_0:
+    case REGION::PAK_WS1_1: {
+      fmt::println("[ws1] eeprom: {:#010x}", value);
+      break;
+    }
+
+    case REGION::PAK_WS2_0:
+    case REGION::PAK_WS2_1: {
+      fmt::println("[ws2] eeprom: {:#010x}", value & 0b1);
+      pak->eeprom.handle_write(value & 0b1);
+      break;
+    }
+
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
@@ -590,7 +632,8 @@ void Bus::write32(u32 address, u32 value) {
   u32 _address = address;
   (void)_address;
   address = align(address, WORD);
-  cpu->cycles_this_step += 1;
+  cycles_elapsed += 1;
+  tick_timers(1);
 
 #ifdef SST_TEST_MODE
   fmt::println("write [32] at {:#010x} -> {:#010x}", address, value);
@@ -633,7 +676,7 @@ void Bus::write32(u32 address, u32 value) {
     }
 
     case REGION::BG_OBJ_PALETTE: {
-      *(uint32_t*)(&PALETTE_RAM[(address % 0x400)]) = value;
+      *(uint32_t*)(&ppu->PALETTE_RAM[(address % 0x400)]) = value;
       break;
     }
 
@@ -890,10 +933,8 @@ u8 Bus::io_read(u32 address) {
 
     case TM0CNT_L:
     case TM0CNT_L + 1: {
-      u32 ticks = ((cycles_elapsed + cpu->cycles_this_step) - tm0->start_time) + tm0->start_value;
-
-      if (tm0->ctrl.timer_start_stop) tm0->counter = tm0->counter + ticks;
       retval = read_byte(tm0->counter, address % 2);
+      // fmt::println("retval: {}", tm0->counter);
       break;
     }
     case TM0CNT_H:
@@ -906,7 +947,7 @@ u8 Bus::io_read(u32 address) {
     case TM1CNT_L + 1: {
       // retval = read_byte(tm1->counter, address % 2);
 
-      // u16 ticks = (cycles_elapsed - tm1->start_time + cpu->cycles_this_step) / tm1->get_divider_val();
+      // u16 ticks = (cycles_elapsed - tm1->start_time + cycles_elapsed) / tm1->get_divider_val();
 
       // tm1->counter = 0;
       retval = read_byte(tm1->counter, address % 2);
@@ -1572,17 +1613,10 @@ void Bus::io_write(u32 address, u8 value) {
       set_byte(tm0->ctrl.v, address % 2, value);
       bool started = tm0->ctrl.timer_start_stop;
 
-      if (stopped && started) {
+      if (stopped && started) {  // Timer goes from OFF TO ON (0->1)
         tm0->reload_counter();
-
-        tm0->start_time  = cycles_elapsed + cpu->cycles_this_step + 2;
-        tm0->start_value = tm0->reload_value;
-
-        // if (tm0->ctrl.timer_irq_enable) {
-        u64 diff_to_overflow = 0x10000 - tm0->start_value;
-        diff_to_overflow     = tm0->get_divider_val() * diff_to_overflow;
-        Scheduler::schedule(Scheduler::EventType::TIMER0_OVERFLOW, (cycles_elapsed + cpu->cycles_this_step + 2) + diff_to_overflow);
-        // }
+        tm0->start_time = cycles_elapsed + 2;
+        fmt::println("updated start time to value: {}", tm0->start_time);
       }
       break;
     }
@@ -1599,8 +1633,6 @@ void Bus::io_write(u32 address, u8 value) {
 
       if (stopped && started) {
         tm1->reload_counter();
-        // tm1->ctrl.v &= 0x7F;
-        // Scheduler::Schedule(Scheduler::EventType::TIMER1_START, cycles_elapsed + 2);
       }
       break;
     }
