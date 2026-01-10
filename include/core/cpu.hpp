@@ -3,7 +3,7 @@
 #include <spdlog/logger.h>
 
 #include "bus.hpp"
-#include "capstone/capstone.h"
+// #include "capstone/capstone.h"
 #include "common/defs.hpp"
 #include "instructions/arm.hpp"
 #include "registers.hpp"
@@ -61,7 +61,6 @@ struct ARM7TDMI {
     ASR,
     ROR,
   };
-
   Bus* bus = nullptr;
 
   bool flushed_pipeline = false;
@@ -70,7 +69,7 @@ struct ARM7TDMI {
     u32 fetch   = 0;
     u32 decode  = 0;
     u32 execute = 0;
-  } pipeline;
+  } pipeline = {};
 
   std::shared_ptr<spdlog::logger> cpu_logger = spdlog::stdout_color_mt("ARM7TDMI");
 
@@ -139,7 +138,7 @@ struct ARM7TDMI {
       return ARM_SOFTWARE_INTERRUPT;
     }
 
-    SPDLOG_DEBUG("[ARM7] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.r[15]);
+    SPDLOG_DEBUG("[ARM7] failed to decode: {:#010x} PC: {:#010x}", instr.opcode, regs.);
     return nullptr;
   };
 
@@ -241,8 +240,7 @@ struct ARM7TDMI {
   };
 
   void flush_pipeline();
-  u64 cycles_this_step;
-  u64 step();
+  u32 step();
 
   void print_pipeline() const;
   void execute(u32 opcode);

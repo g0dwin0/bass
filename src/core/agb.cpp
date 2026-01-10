@@ -1,5 +1,7 @@
 #include "agb.hpp"
 
+#include <cassert>
+
 #include "../../include/core/flash.hpp"
 #include "bus.hpp"
 #include "common/defs.hpp"
@@ -26,10 +28,11 @@ AGB::AGB() {
   bus.ch2 = dma_channels[2];
   bus.ch3 = dma_channels[3];
 
-  bus.tm0 = &timers[0];
-  bus.tm1 = &timers[1];
-  bus.tm2 = &timers[2];
-  bus.tm3 = &timers[3];
+  bus.tm0    = &timers[0];
+  bus.tm1    = &timers[1];
+  bus.tm2    = &timers[2];
+  bus.tm3    = &timers[3];
+  bus.timers = &timers;
 
   // Scheduler::schedule(Scheduler::EventType::HBLANK_START, 1006);
   // Scheduler::schedule(Scheduler::EventType::VBLANK, 197120);
@@ -47,18 +50,17 @@ bool AGB::start_timing_cond_met(DMAContext* ch) const {
     case DMA_START_TIMING::VBLANK: return ppu.display_fields.DISPSTAT.VBLANK_FLAG;
     case DMA_START_TIMING::HBLANK: return ppu.display_fields.DISPSTAT.HBLANK_FLAG;
     case DMA_START_TIMING::SPECIAL: {
-      return false;
+      // return false;
       switch (ch->id) {
-        case 0: return false;
+        case 0: assert(0);
         case 1: return false;  // FIFO req
         case 2: return false;  // FIFO req
         case 3: return false;
         default: assert(0);
       }
     }
+    default: assert(0); return false;
   }
-
-  assert(0);
 }
 
 void AGB::tick_timers(u64 cycles) {

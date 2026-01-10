@@ -45,18 +45,29 @@ struct Pak {
     }
   };
   ~Pak() {
+    if (info.cartridge_save_type == CartridgeType::UNKNOWN) return;
+
     if (!std::filesystem::exists("./saves")) {
       if (!std::filesystem::create_directory("./saves")) {
         spdlog::error("could not create save directory, will not save.");
       }
     }
 
-    if (info.cartridge_save_type == CartridgeType::UNKNOWN) return;
-
     std::ofstream save(fmt::format("saves/{:.4}.sav", info.game_code), std::ios::binary | std::ios::trunc);
 
     std::ostream_iterator<u8> output_iterator(save);
-    std::ranges::copy(SRAM, output_iterator);
+    
+    switch (info.cartridge_save_type) {
+      case CartridgeType::EEPROM: {
+        save.write((char*)eeprom.data.data(), sizeof(u64) * eeprom.data.size());
+        break;
+      }
+      case CartridgeType::SRAM:
+      case CartridgeType::FLASH:
+      case CartridgeType::FLASH512:
+      case CartridgeType::FLASH1M: std::ranges::copy(SRAM, output_iterator); break;
+      default: assert(0);
+    }
 
     save.close();
   }
@@ -68,7 +79,7 @@ struct Pak {
 
   FlashController flash_controller;
   EEPROMController eeprom;
-  
+
   struct {
     union {
       u8 header_bytes[192];
