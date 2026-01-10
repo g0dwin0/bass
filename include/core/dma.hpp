@@ -78,7 +78,7 @@ struct DMAContext {
 
   DMAContext(Bus* bus_ptr) : id(dma_ctx_id++), bus(bus_ptr) {
     assert(bus != nullptr);
-    assert(dma_ctx_id <= 4);
+    assert(id < 4);
     fmt::println("created dma channel {}", id);
   };
 

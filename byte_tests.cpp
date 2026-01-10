@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <tuple>
 #include "common/bytes.hpp"
-
+#include <print>
 // template <typename T>
 // void set_byte(T& r, u8 byte_idx, u8 v) {
 //   static_assert(std::is_arithmetic<T>::value, "Invalid type");
@@ -68,6 +68,7 @@ int main() {
 
   for (size_t i = 0; i < UNSIGNED_INTEGERS_READ.size(); i++) {
     const auto [initial, result, byte_index] = UNSIGNED_INTEGERS_READ[i];
+    std::println("Hi");
     printf("[IDX: %zu]\n", i);
     printf("\ninitial:    %08X\n", initial);
     printf("byte index: %d\n", byte_index);

@@ -52,7 +52,7 @@ std::string Registers::get_mode_string(BANK_MODE bm) {
 }
 
 u32& Registers::get_reg(u8 i) {
-  assert(i < 16);
+  // assert(i < 16);
 
   if (i < 8) {
     return r[i];
@@ -134,8 +134,6 @@ void Registers::load_spsr_to_cpsr() {
       CPSR.value = SPSR_und | 0x10;
       break;
     }
-    default: {
-      assert(0);
-    }
+    default: assert(0);
   }
 }

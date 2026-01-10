@@ -284,7 +284,11 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
 
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
-      if(address >= 0x0d000000 && pak->eeprom.bits_to_read != 0) return pak->eeprom.handle_read();
+      if (address >= 0x0d000000 && pak->eeprom.bits_to_read != 0) return pak->eeprom.handle_read();
+      if (address == 0x0d000000) {
+        // fmt::println("no EEPROM read queued, returning 1");
+        return 1;
+      }
 
       // game pak read (ws2);
       cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS2);
@@ -352,7 +356,7 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       if (cpu->regs.r[15] > 0x00003FFF) {
         v = bios_open_bus;
       } else {
-        v = *(uint32_t*)(&BIOS[address]);
+        v = *(u32*)(&BIOS[address]);
       };
       break;
     }
@@ -403,7 +407,7 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0));
       tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0));
 
-      v = *(uint32_t*)(&pak->data[address - 0x08000000]);
+      v = *(u32*)(&pak->data[address - 0x08000000]);
       break;
     }
 
@@ -415,7 +419,7 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
       tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS1));
       tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS1));
 
-      v = *(uint32_t*)(&pak->data[address - 0x0A000000]);
+      v = *(u32*)(&pak->data[address - 0x0A000000]);
       break;
     }
 
@@ -590,26 +594,12 @@ void Bus::write16(u32 address, u16 value) {
       break;
     }
 
-    
-
-        case REGION::PAK_WS0_0:
-    case REGION::PAK_WS0_1: {
-      fmt::println("[ws0] eeprom: {:#010x}", value);
-      break;
-    }
-        case REGION::PAK_WS1_0:
-    case REGION::PAK_WS1_1: {
-      fmt::println("[ws1] eeprom: {:#010x}", value);
-      break;
-    }
-
     case REGION::PAK_WS2_0:
     case REGION::PAK_WS2_1: {
-      fmt::println("[ws2] eeprom: {:#010x}", value & 0b1);
+      // fmt::println("[ws2] eeprom: {:#010x}", value & 0b1);
       pak->eeprom.handle_write(value & 0b1);
       break;
     }
-
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
@@ -658,12 +648,12 @@ void Bus::write32(u32 address, u32 value) {
 
   switch ((REGION)(address >> 24)) {
     case REGION::EWRAM: {
-      *(uint32_t*)(&EWRAM.at(address % 0x40000)) = value;
+      *(u32*)(&EWRAM.at(address % 0x40000)) = value;
       break;
     }
 
     case REGION::IWRAM: {
-      *(uint32_t*)(&IWRAM.at(address % 0x8000)) = value;
+      *(u32*)(&IWRAM.at(address % 0x8000)) = value;
       break;
     }
 
@@ -676,7 +666,7 @@ void Bus::write32(u32 address, u32 value) {
     }
 
     case REGION::BG_OBJ_PALETTE: {
-      *(uint32_t*)(&ppu->PALETTE_RAM[(address % 0x400)]) = value;
+      *(u32*)(&ppu->PALETTE_RAM[(address % 0x400)]) = value;
       break;
     }
 
@@ -685,12 +675,12 @@ void Bus::write32(u32 address, u32 value) {
 
       if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
 
-      *(uint32_t*)(&ppu->VRAM.at(norm_addr)) = value;
+      *(u32*)(&ppu->VRAM.at(norm_addr)) = value;
       break;
     }
 
     case REGION::OAM: {
-      *(uint32_t*)(&OAM[(address % 0x400)]) = value;
+      *(u32*)(&OAM[(address % 0x400)]) = value;
       ppu->state.oam_changed                = true;
       break;
     }
@@ -898,11 +888,10 @@ u8 Bus::io_read(u32 address) {
     case DMA1CNT_L + 1: return 0;
 
     case DMA2CNT_L:
-    case DMA2CNT_L + 1:
-      return 0;
+    case DMA2CNT_L + 1: return 0;
 
-      // case DMA3CNT_L:
-      // case DMA3CNT_L + 1: return 0;
+    case DMA3CNT_L:
+    case DMA3CNT_L + 1: return 0;
 
     case DMA0CNT_H:
     case DMA0CNT_H + 1: {
@@ -921,9 +910,6 @@ u8 Bus::io_read(u32 address) {
       retval = read_byte(ch2->dmacnt_h.v, address % 2);
       break;
     }
-
-    case DMA3CNT_L:
-    case DMA3CNT_L + 1: return 0;
 
     case DMA3CNT_H:
     case DMA3CNT_H + 1: {
@@ -998,10 +984,14 @@ u8 Bus::io_read(u32 address) {
       break;
     }
     case KEYCNT: bus_logger->debug("READING FROM UNIMPL KEYCNT"); break;
-    case RCNT: retval = 0x0; break;
-    case RCNT + 1:
+    case RCNT: {
+      retval = 0x0;
+      break;
+    }
+    case RCNT + 1: {
       retval = 0x80;
       break;
+    }
       // case RCNT: break;
 
     case JOYCNT: bus_logger->debug("READING FROM UNIMPL JOYCNT"); break;
@@ -1494,17 +1484,23 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
-    case DMA0CNT_L ... DMA0CNT_L + 1: {
+    case DMA0CNT_L: 
+    case DMA0CNT_L + 1: {
       set_byte(ch0->dmacnt_l.v, address % 0x2, value);
       break;
     }
     case DMA0CNT_H:
     case DMA0CNT_H + 1: {
+      // fmt::println("old dma0cnt_h: {:#010x}", ch0->dmacnt_h.v);
+
       bool stopped = !ch0->dmacnt_h.dma_enable;
       set_byte(ch0->dmacnt_h.v, address % 2, value);
       bool started = ch0->dmacnt_h.dma_enable;
+      // fmt::println("post dma0cnt_h: {:#010x}", ch0->dmacnt_h.v);
+      
       ch0->dmacnt_h.v &= 0xf7e0;
-
+// fmt::println("new dma0cnt_h: {:#010x}\n", ch0->dmacnt_h.v);
+      
       if (stopped && started) {
         ch0->internal_src       = ch0->src;
         ch0->internal_dst       = ch0->dst;
@@ -1528,7 +1524,8 @@ void Bus::io_write(u32 address, u8 value) {
       set_byte(ch1->dmacnt_l.v, address % 0x2, value);
       break;
     }
-    case DMA1CNT_H ... DMA1CNT_H + 1: {
+    case DMA1CNT_H:
+    case DMA1CNT_H + 1: {
       bool stopped = !ch1->dmacnt_h.dma_enable;
       set_byte(ch1->dmacnt_h.v, address % 2, value);
       bool started = ch1->dmacnt_h.dma_enable;
@@ -1633,6 +1630,7 @@ void Bus::io_write(u32 address, u8 value) {
 
       if (stopped && started) {
         tm1->reload_counter();
+        tm1->start_time = cycles_elapsed + 2;
       }
       break;
     }
@@ -1644,7 +1642,7 @@ void Bus::io_write(u32 address, u8 value) {
     }
     case TM2CNT_H:
     case TM2CNT_H + 1: {
-      bool stopped = tm2->ctrl.timer_start_stop == false;
+      bool stopped = !tm2->ctrl.timer_start_stop;
       set_byte(tm2->ctrl.v, address % 2, value);
       bool started = tm2->ctrl.timer_start_stop;
       // tm2->ctrl.v &= 0x7F;
@@ -1662,12 +1660,14 @@ void Bus::io_write(u32 address, u8 value) {
     }
     case TM3CNT_H:
     case TM3CNT_H + 1: {
-      bool stopped = tm3->ctrl.timer_start_stop == false;
+      bool stopped = !tm3->ctrl.timer_start_stop;
       set_byte(tm3->ctrl.v, address % 2, value);
       bool started = tm3->ctrl.timer_start_stop;
 
       if (stopped && started) {
         tm3->reload_counter();
+        tm3->start_time = cycles_elapsed + 2;
+
         // tm3->ctrl.v &= 0x7F;
 
         // Scheduler::Schedule(Scheduler::EventType::TIMER3_START, cycles_elapsed + 2);
@@ -1683,7 +1683,8 @@ void Bus::io_write(u32 address, u8 value) {
     case SIOMLT_SEND: break;
     case KEYINPUT: break;
     case KEYCNT: bus_logger->debug("WRITING TO UNIMPL KEYCNT"); break;
-    case RCNT: bus_logger->debug("WRITING TO UNIMPL RCNT"); break;
+    case RCNT ... RCNT + 1: break;
+
     case JOYCNT: bus_logger->debug("WRITING TO UNIMPL JOYCNT"); break;
     case JOY_RECV: bus_logger->debug("WRITING TO UNIMPL JOY_RECV"); break;
     case JOY_TRANS: bus_logger->debug("WRITING TO UNIMPL JOY_TRANS"); break;
