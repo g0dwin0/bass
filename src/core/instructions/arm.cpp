@@ -22,21 +22,19 @@ void ARM_BRANCH_LINK(ARM7TDMI* cpu, u32 x) {
 
   offset *= 4;
 
-  // fmt::println("ARM BRANCH LINK");
-
   if (link) {
     cpu->regs.get_reg(14) = cpu->regs.r[15] - 4;
   }
-  // fmt::println("hi from branch");
+  
   cpu->regs.r[15] += offset;
 
   cpu->regs.r[15] &= ~1;
   cpu->flush_pipeline();
+
   return;
 }
 void THUMB_ADD_CMP_MOV_HI(ARM7TDMI* cpu, u32 opcode) {
   u8 op = (opcode >> 8) & 0b11;
-  // fmt::println("HI");
 
   u8 Rd     = (opcode & 0b111);
   u8 Rs     = ((opcode >> 3) & 0b111);
@@ -55,6 +53,7 @@ void THUMB_ADD_CMP_MOV_HI(ARM7TDMI* cpu, u32 opcode) {
         cpu->regs.get_reg(Rd) &= ~1;
         cpu->flush_pipeline();
       }
+      
       break;
     }
     case 1: {  // CMP
@@ -2450,10 +2449,7 @@ void OP_MSR(ARM7TDMI* cpu, u32 opcode) {
       break;
     };
 
-    default: {
-      // cpu->cpu_logger->critical("INVALID RM PASSED: {}", Rm);
-      assert(0);
-    }
+    default: assert(0);
   }
 }
 

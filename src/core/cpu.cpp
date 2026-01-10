@@ -8,8 +8,8 @@
 
 #include "agb.hpp"
 #include "bus.hpp"
-#include "capstone/arm.h"
-#include "capstone/capstone.h"
+// #include "capstone/arm.h"
+// #include "capstone/capstone.h"
 #include "registers.hpp"
 
 ARM7TDMI::ARM7TDMI() {
@@ -100,7 +100,7 @@ inline void ARM7TDMI::handle_interrupts() {
 }
 
 u32 ARM7TDMI::step() {
-  u8 tmp = 0;
+  // u8 tmp = 0;
 
   if (regs.r[15] != align_by_current_mode(regs.r[15])) {
     fmt::println("something left PC unaligned -- addr: {:#010x}", regs.r[15]);
@@ -119,9 +119,9 @@ u32 ARM7TDMI::step() {
 
   regs.r[15] += regs.CPSR.STATE_BIT == THUMB_MODE ? 2 : 4;
 
-  tmp              = cycles_this_step;
-  cycles_this_step = 0;
-  return tmp;
+  // tmp              = cycles_this_step;
+  // cycles_this_step = 0;
+  return 0;
 }
 void ARM7TDMI::print_pipeline() const {
   fmt::println("============ PIPELINE ============");

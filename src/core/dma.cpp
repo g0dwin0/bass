@@ -17,7 +17,8 @@ void DMAContext::print_dma_info() {
 
 void DMAContext::process() {
   // print_dma_info();
-
+  // fmt::println("{}", id);
+  if(id == 0) print_dma_info();
   if (this->dmacnt_h.dma_repeat) {
     internal_word_size = dmacnt_l.word_count & WORD_COUNT_MASK[id];
 
@@ -99,15 +100,15 @@ void DMAContext::transfer32(u32 _src, u32 _dst, u32 word_count) {
   if (word_count == 0 && id == 3) word_count = 0x10000;
   // variables prefixed with `internal_` are values specific to the current dma
   // process, they are reloaded at the beginning of each new DMA
-
+  // if(id == 0)
   internal_src = align(_src, WORD);
   internal_dst = align(_dst, WORD);
 
   u32 value = 0;
 
+  if (id == 0) fmt::println("internal src: {:#010x}", internal_src);
   for (size_t idx = 0; idx < word_count; idx++) {
     if ((internal_src & DMA_SRC_MASK[id]) <= 0x1FFFFFF) {
-
       if (open_bus_size == OPEN_BUS_WIDTH::HALFWORD) {
         value = (dma_open_bus << 16) | dma_open_bus;
       } else {
@@ -121,15 +122,18 @@ void DMAContext::transfer32(u32 _src, u32 _dst, u32 word_count) {
       open_bus_size = OPEN_BUS_WIDTH::WORD;
     }
 
+    assert(id != 0);
     // if (!((internal_src & DMA_SRC_MASK[id]) >= 0X0E000000 && id == 0)) {
-      bus->write32(internal_dst & DMA_DST_MASK[id], value);
-    // }
+    if (id == 0) {
+      fmt::println("dma32({}) {:#010x} -> {:#010x}", id, internal_dst & DMA_DST_MASK[id], value);
+    }
+    bus->write32(internal_dst & DMA_DST_MASK[id], value);
 
     switch (dmacnt_h.dst_control) {
       case DST_CONTROL::INCREMENT: internal_dst += 4; break;
       case DST_CONTROL::DECREMENT: internal_dst -= 4; break;
       case DST_CONTROL::FIXED: break;
-      case DST_CONTROL::INCREMENT_RELOAD: break;
+      case DST_CONTROL::INCREMENT_RELOAD: internal_dst += 4; break;
     }
 
     if (src >= 0x08000000 && src < 0x0E000000) {

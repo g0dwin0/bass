@@ -58,7 +58,18 @@ void Pak::load_save() {
 
     auto save_vec = read_file(save_path);
 
-    std::ranges::copy(save_vec, SRAM.begin());
+    switch (info.cartridge_save_type) {
+      case CartridgeType::EEPROM: {
+        // std::memcpy(eeprom.data.data(), save_vec.data(), save_vec.size());
+        break;
+      }
+      case CartridgeType::SRAM:
+      case CartridgeType::FLASH:
+      case CartridgeType::FLASH512:
+      case CartridgeType::FLASH1M: std::ranges::copy(save_vec, SRAM.begin()); break;
+
+      case CartridgeType::UNKNOWN: break;
+    }
     spdlog::info("save file loaded");
   } else {
     spdlog::info("no save file found");

@@ -111,8 +111,8 @@ void Frontend::show_memory_viewer() {
       &agb->bus.EWRAM,
       &agb->bus.IWRAM,
       // &agb->bus.IO,
-      &agb->bus.PALETTE_RAM,
-      &agb->bus.ppu->VRAM,
+      &agb->ppu.PALETTE_RAM,
+      &agb->ppu.VRAM,
       &agb->bus.OAM,
       &agb->pak.data,
       &agb->pak.SRAM,
@@ -346,7 +346,7 @@ void Frontend::show_cpu_info() {
 
   ImGui::Text("CPU MODE: %s", agb->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
   ImGui::Text("OPERATING MODE: %s", mode_map.at(agb->cpu.regs.CPSR.MODE_BIT).c_str());
-  ImGui::Text("CYCLES ELAPSED: %lu", cycles_elapsed);
+  ImGui::Text("CYCLES ELAPSED: %llu", cycles_elapsed);
 
   ImGui::EndDisabled();
 
@@ -395,11 +395,28 @@ void Frontend::show_window_info() {
   ImGui::Text("WINDOW 1 ENABLED: %d", agb->ppu.display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG);
   ImGui::Text("OBJ WINDOW ENABLED: %d", agb->ppu.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG);
 
+  ImGui::SeparatorText("Window 0");
+  ImGui::Text("WINDOW 0: X1: %d", agb->ppu.display_fields.WIN0H.X1);
   ImGui::Text("WINDOW 0: X2: %d", agb->ppu.display_fields.WIN0H.X2);
+  ImGui::Text("WINDOW 0: Y1: %d", agb->ppu.display_fields.WIN0V.Y1);
   ImGui::Text("WINDOW 0: Y2: %d", agb->ppu.display_fields.WIN0V.Y2);
 
+  ImGui::SeparatorText("Window 1");
+  ImGui::Text("WINDOW 1: X1: %d", agb->ppu.display_fields.WIN1H.X1);
   ImGui::Text("WINDOW 1: X2: %d", agb->ppu.display_fields.WIN1H.X2);
+  ImGui::Text("WINDOW 1: Y1: %d", agb->ppu.display_fields.WIN1V.Y1);
   ImGui::Text("WINDOW 1: Y2: %d", agb->ppu.display_fields.WIN1V.Y2);
+  ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS).c_str());
+
+  ImGui::SeparatorText("WINOUT");
+  ImGui::Text("Outside Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS).c_str());
+  ImGui::Text("Outside OBJ Enable: %s", fmt::format("{}", +agb->ppu.display_fields.WINOUT.OUTSIDE_OBJ_ENABLE_BIT).c_str());
+
+  ImGui::SeparatorText("OBJ Window");
+
+  ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WINOUT.OBJ_WINDOW_BG_ENABLE_BITS).c_str());
+  ImGui::Text("OBJ Enable: %s", fmt::format("{}", +agb->ppu.display_fields.WINOUT.OBJ_WINDOW_OBJ_ENABLE_BIT).c_str());
+  // ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WINOUT.OBJ_WINDOW_BG_ENABLE_BITS).c_str());
 
   ImGui::SeparatorText("WININ");
   ImGui::Text("W0 BG0 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS & 1);
@@ -607,37 +624,37 @@ void Frontend::render_frame() {
   ImGui::NewFrame();
 
   // show_menu_bar();
-  // if (state.cpu_info_open) {
-  //   show_cpu_info();
-  // }
-  // if (state.ppu_info_open) {
-  //   show_ppu_info();
-  // }
-  // if (state.window_info_open) {
-  //   show_window_info();
-  // }
+  if (state.cpu_info_open) {
+    show_cpu_info();
+  }
+  if (state.ppu_info_open) {
+    show_ppu_info();
+  }
+  if (state.window_info_open) {
+    show_window_info();
+  }
 
-  // if (state.apu_window_open) {
-  //   show_audio_info();
-  // }
-  // if (state.memory_viewer_open) {
-  //   show_memory_viewer();
-  // }
+  if (state.apu_window_open) {
+    show_audio_info();
+  }
+  if (state.memory_viewer_open) {
+    show_memory_viewer();
+  }
 
-  // if (state.show_dma_menu) {
-  //   show_dma_info();
-  // }
-  // if (state.timer_window_open) {
-  //   show_timer_window();
-  // }
-  // if (state.blend_info_open) {
-  //   show_blend_info();
-  // }
+  if (state.show_dma_menu) {
+    show_dma_info();
+  }
+  if (state.timer_window_open) {
+    show_timer_window();
+  }
+  if (state.blend_info_open) {
+    show_blend_info();
+  }
 
-  // show_irq_status();
-  // show_tiles();
-  // show_backgrounds();
-  // show_viewport();
+  show_irq_status();
+  show_tiles();
+  show_backgrounds();
+  show_viewport();
 
   SDL_SetWindowTitle(window, fmt::format("{}fps", 1000 / Stopwatch::duration.count()).c_str());
 
@@ -647,14 +664,10 @@ void Frontend::render_frame() {
   SDL_SetRenderTarget(renderer, NULL);
   SDL_RenderClear(renderer);
 
-  SDL_UpdateTexture(state.background_textures[0], nullptr, agb->ppu.tile_map_texture_buffer_arr[0].data(), 512 * 4);
-  SDL_UpdateTexture(state.background_textures[1], nullptr, agb->ppu.tile_map_texture_buffer_arr[1].data(), 512 * 4);
-  SDL_UpdateTexture(state.background_textures[2], nullptr, agb->ppu.tile_map_texture_buffer_arr[2].data(), 512 * 4);
-  SDL_UpdateTexture(state.background_textures[3], nullptr, agb->ppu.tile_map_texture_buffer_arr[3].data(), 512 * 4);
-  SDL_UpdateTexture(state.background_affine_textures[0], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[0].data(), 1024 * 4);
-  SDL_UpdateTexture(state.background_affine_textures[1], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[1].data(), 1024 * 4);
-  SDL_UpdateTexture(state.background_affine_textures[2], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[2].data(), 1024 * 4);
-  SDL_UpdateTexture(state.background_affine_textures[3], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[3].data(), 1024 * 4);
+  for (size_t background_index = 0; background_index < 4; background_index++) {
+    SDL_UpdateTexture(state.background_textures[background_index], nullptr, agb->ppu.tile_map_texture_buffer_arr[background_index].data(), 512 * 4);
+    SDL_UpdateTexture(state.background_affine_textures[background_index], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[background_index].data(), 1024 * 4);
+  }
 
   SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop.data(), 512 * 4);
 
@@ -710,7 +723,7 @@ void Frontend::init_sdl() {
   // SDL_SetRenderVSync(renderer, 1);
 
   this->renderer = SDL_CreateRenderer(window, nullptr);
-  init_audio_device();
+  // init_audio_device();
   if (this->renderer == nullptr) {
     spdlog::error("failed to create renderer");
     assert(0);
@@ -733,17 +746,36 @@ void Frontend::init_sdl() {
   ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
   ImGui_ImplSDLRenderer3_Init(renderer);
   this->state.ppu_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
+  if(this->state.ppu_texture == NULL) {
+    fmt::println("Could not create texture: {}", SDL_GetError());
+  }
   this->state.tile_set_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
+   if(this->state.tile_set_texture == NULL) {
+    fmt::println("Could not create texture: {}", SDL_GetError());
+  }
   this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+  if(this->state.tile_map_texture == NULL) {
+    fmt::println("Could not create texture: {}", SDL_GetError());
+  }
   this->state.backdrop         = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+   if(this->state.backdrop == NULL) {
+    fmt::println("Could not create texture: {}", SDL_GetError());
+  }
   this->state.obj_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 256, 256);
+
   SDL_SetTextureScaleMode(state.ppu_texture, SDL_SCALEMODE_NEAREST);
 
   for (size_t bg_id = 0; bg_id < 4; bg_id++) {
     this->state.background_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+   if(state.background_textures[bg_id] == NULL) {
+    fmt::println("Could not create texture: {}", SDL_GetError());
+  }
   }
   for (size_t bg_id = 0; bg_id < 4; bg_id++) {
     this->state.background_affine_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 1024, 1024);
+   if(state.background_affine_textures[bg_id] == NULL) {
+    fmt::println("Could not create texture: {}", SDL_GetError());
+  }
   }
 };
 void Frontend::init_audio_device() {

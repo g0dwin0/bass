@@ -24,7 +24,9 @@ void Timer::tick(u64 cycles) {
   }
 
   for (u64 i = 0; i < cycles; i++) {
-    if (((cycles_elapsed + cycles) % get_divider_val()) == 0) {
+    // if (((cycles_elapsed + cycles) % get_divider_val()) == 0) {
+      if ((cycles_elapsed + cycles)) {
+      
       if (counter == 0xFFFF) {
         counter = reload_value;
         if (ctrl.timer_irq_enable) bus->request_interrupt(get_timer_interrupt());
@@ -54,9 +56,8 @@ std::string Timer::get_prescaler_string() const {
     case F_64: return "F/64";
     case F_256: return "F/256";
     case F_1024: return "F/1024";
+    default: assert(0);
   }
-
-  exit(-1);
 }
 
 u16 Timer::get_divider_val() const {

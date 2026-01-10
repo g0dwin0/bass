@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 4.2)
 project(bass CXX)
+set (CMAKE_CXX_STANDARD 23)
 
 file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS include/*.hpp include/common/*.hpp include/core/*.hpp include/frontend/*.hpp)
@@ -16,7 +17,7 @@ add_custom_target(version
 add_dependencies(${PROJECT_NAME} version)
 
 if (UNIX)
-    target_compile_options(${PROJECT_NAME} PRIVATE -g -std=c++20 -Werror -Wextra -Wall -Wconversion -fconstexpr-depth=9999999 -Wno-sign-conversion)
+    target_compile_options(${PROJECT_NAME} PRIVATE -g -std=c++20 -Werror -Wextra -Wall -Wconversion -fconstexpr-depth=999999999 -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-implicit-int-float-conversion -Wno-shorten-64-to-32 -Wno-float-conversion)
 elseif (WIN32)
     target_compile_options(${PROJECT_NAME} PRIVATE /g /utf-8 /std:c++20 /SUBSYSTEM:WINDOWS)
 endif ()
@@ -87,16 +88,16 @@ FetchContent_MakeAvailable(spdlog)
 
 include(FetchContent)
 
-#FetchContent_Declare(
-#    capstone
-#    GIT_REPOSITORY https://github.com/capstone-engine/capstone.git
-#    GIT_TAG next
-#)
+FetchContent_Declare(
+    capstone
+    GIT_REPOSITORY https://github.com/capstone-engine/capstone.git
+    GIT_TAG next
+)
 
 #FetchContent_MakeAvailable(capstone)
 
-set(CMAKE_CXX_FLAGS_RELWITHASSERTS "-O3 -g")
-set(CMAKE_C_FLAGS_RELWITHASSERTS "-O3 -g")
+set(CMAKE_CXX_FLAGS_RELWITHASSERTS "-O2 -g -std=c++20")
+set(CMAKE_C_FLAGS_RELWITHASSERTS "-O2 -g -std=c++20")
 
 set(CMAKE_EXE_LINKER_FLAGS_RELWITHASSERTS "${CMAKE_EXE_LINKER_FLAGS_RELEASE}")
 set(CMAKE_SHARED_LINKER_FLAGS_RELWITHASSERTS "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}")
