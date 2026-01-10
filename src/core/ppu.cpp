@@ -8,15 +8,21 @@
 #include "common/color_conversion.hpp"
 #include "common/defs.hpp"
 
-// TODO: use direct VRAM access instead of bus read function. this avoids cycle counting, and reduces overhead
-
 // 16 colors (each color being 2 bytes)
 static constexpr u8 BANK_SIZE                = 16 * 2;
 static constexpr u32 SCREEN_WIDTH            = 512;
 static constexpr u32 BITMAP_MODE_PAGE_OFFSET = 0xA000;
 
+// template<typename T>
+// T PPU::read_vram(u32 address) {
+//   u64 norm_addr = address & 0x1FFFFu;
+
+//   if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
+//   return *(T*)(&VRAM[(norm_addr)]);
+// }
+
 bool PPU::is_valid_obj(const OAM_Entry& oam_entry) {
-  if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED) return false;
+  if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED || oam_entry.obj_mode == OBJ_MODE::OBJ_WINDOW) return false;
   if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) return false;
   if (oam_entry.obj_disable_double_sz_flag) return false;  // TODO: when in mode 2, this is used as the double size flag, and thus this is not valid anymore
 
@@ -173,26 +179,32 @@ u8 PPU::get_obj_width(const OAM_Entry& c) {
   return -1;
 };
 
-u32 PPU::get_color_by_index(u8 x, u8 palette_num, COLOR_DEPTH color_depth) const {
+u32 PPU::get_color_by_index(u8 x, u8 palette_num, COLOR_DEPTH color_depth) {
   u16 color_index;
 
   if (color_depth == COLOR_DEPTH::BPP8) {
-    color_index = bus->read16(PALETTE_RAM_BG_BASE + (x * 2));
+    // color_index = bus->read16(PALETTE_RAM_BG_BASE + (x * 2));
+    color_index = read_palette_ram<u16>(PALETTE_RAM_BG_BASE + (x * 2));
+
   } else {
-    color_index = bus->read16(PALETTE_RAM_BG_BASE + (x * 2) + (0x20 * palette_num));
+    // color_index = bus->read16(PALETTE_RAM_BG_BASE + (x * 2) + (0x20 * palette_num));
+    color_index = read_palette_ram<u16>(PALETTE_RAM_BG_BASE + (x * 2) + (0x20 * palette_num));
   }
 
   return BGR555_TO_RGB888_LUT[color_index];
 }
 
-u32 PPU::get_obj_color_by_index(u8 palette_index, u8 bank_number, COLOR_DEPTH color_depth) const {
+u32 PPU::get_obj_color_by_index(u8 palette_index, u8 bank_number, COLOR_DEPTH color_depth) {
   u16 color_index = 0;
 
   if (color_depth == COLOR_DEPTH::BPP8) {
-    color_index = bus->read16(PALETTE_RAM_OBJ_BASE + (palette_index * 2));
+    // color_index = bus->read16(PALETTE_RAM_OBJ_BASE + (palette_index * 2));
+    color_index = read_palette_ram<u16>(PALETTE_RAM_OBJ_BASE + (palette_index * 2));
+
   } else {
     assert(palette_index <= 15);
-    color_index = bus->read16(PALETTE_RAM_OBJ_BASE + (palette_index * 2) + (BANK_SIZE * bank_number));
+    // color_index = bus->read16(PALETTE_RAM_OBJ_BASE + (palette_index * 2) + (BANK_SIZE * bank_number));
+    color_index = read_palette_ram<u16>(PALETTE_RAM_OBJ_BASE + (palette_index * 2) + (BANK_SIZE * bank_number));
   }
 
   return BGR555_TO_RGB888_LUT[color_index];
@@ -245,8 +257,13 @@ void PPU::load_tiles(u8 bg, const COLOR_DEPTH color_depth) {
   if (color_depth == COLOR_DEPTH::BPP4) {
     for (size_t tile_index = 0; tile_index < 1024; tile_index++) {
       for (size_t byte = 0; byte < 32; byte++) {
-        tile.at((byte * 2) + x)       = VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0x0F;         // X = 0
-        tile.at((byte * 2) + (x + 1)) = (VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0xF0) >> 4;  // X = 1
+        // tile.at((byte * 2) + x)       = VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0x0F;         // X = 0
+        // tile.at((byte * 2) + (x + 1)) = (VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0xF0) >> 4;  // X = 1
+
+        auto indexed_tile = rel_cbb + (tile_index * 0x20) + byte;
+
+        tile[((byte * 2) + x)]       = VRAM[indexed_tile] & 0x0F;         // X = 0
+        tile[((byte * 2) + (x + 1))] = (VRAM[indexed_tile] & 0xF0) >> 4;  // X = 1
       }
 
       tile_sets[bg][tile_index] = tile;
@@ -363,7 +380,8 @@ void PPU::step() {
               u32 dest = (tile_y * 64) + tile_x;
 
               tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                  .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
+                  // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
+                  .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
 
               };
             }
@@ -378,7 +396,8 @@ void PPU::step() {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * 32);
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
                   };
                 }
               }
@@ -394,7 +413,8 @@ void PPU::step() {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * (32 * 64));
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
                   };
                 }
               }
@@ -417,7 +437,9 @@ void PPU::step() {
                   }
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+
                   };
                 }
               }
@@ -513,17 +535,16 @@ void PPU::step() {
             continue;
           }
 
-          background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x).color       = tile_map_texture_buffer_arr[bg.bg_id][(complete_x_offset + complete_y_offset)];
-          background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x).prio        = bg.bg_prio;
-          background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x).bg_id       = bg.bg_id;
-          background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x).transparent = transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)];
-
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].color       = tile_map_texture_buffer_arr[bg.bg_id][(complete_x_offset + complete_y_offset)];
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].prio        = bg.bg_prio;
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].bg_id       = bg.bg_id;
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].transparent = transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)];
         }
       }
 
       if (!draw_sprites) {
         for (size_t x = 0; x < 240; x++) {
-          const auto bg_px = background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x);
+          const auto bg_px = background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x];
           db.write((LY * SYSTEM_DISPLAY_WIDTH) + x, bg_px.color);
         }
         break;
@@ -532,20 +553,24 @@ void PPU::step() {
       // process sprites
       // TODO: can just reinterpret cast the OAM
       // when it comes to repopulation, it is only necessary when OAM is written to, OR when >=
-      std::memcpy(entries.data(), bus->OAM.data(), 0x400); // TODO: expensive! find another way
-      repopulate_objs();  // TODO: a write to change 1 entry will lead to us re-populating the entire table -- re-populate by index
+      std::memcpy(entries.data(), bus->OAM.data(), 0x400);  // TODO: expensive! find another way
+      repopulate_objs();                                    // TODO: a write to change 1 entry will lead to us re-populating the entire table -- re-populate by index
 
       for (int entry_idx = 0; entry_idx < 128; entry_idx++) {
         const OAM_Entry& oam_entry = entries.at(entry_idx);
 
-        if (oam_entry.obj_disable_double_sz_flag) continue;          // obj is disabled
-        if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED) continue;    // obj has a probihibted mode
-        if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;  // obj is probihibted shape
+        if (oam_entry.obj_disable_double_sz_flag) continue;                                                      // obj is disabled
+        if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED || oam_entry.obj_mode == OBJ_MODE::OBJ_WINDOW) continue;  // obj has a probihibted mode
+        if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;                                              // obj is probihibted shape
+
+        // fmt::println("oam entry: {}", entry_idx);
 
         u16 y_relative_to_top_of_obj = (((i16)LY - (i16)oam_entry.y) + 256) % 256;
         if (y_relative_to_top_of_obj >= (get_obj_height(oam_entry) * 8)) continue;
 
         if (((oam_entry.y + (get_obj_height(oam_entry) * 8)) % 256) <= LY) continue;  // we've passed the last scanline
+
+        // fmt::println("index: {} type: {}", entry_idx, (u8)oam_entry.obj_mode);
 
         auto obj_width = get_obj_width(oam_entry);
         // auto obj_height = get_obj_height(oam_entry);
@@ -608,6 +633,7 @@ void PPU::step() {
           }
         }
       }
+
       break;
     }
 
@@ -628,7 +654,6 @@ void PPU::step() {
           display_fields.BG3CNT.color_depth,
       };
 
-
       // process non affine bgs
       for (u8 bg = 0; bg < 2; bg++) {
         // fmt::println("BG: {}", bg);
@@ -638,7 +663,7 @@ void PPU::step() {
 
         // load tiles into tilesets from charblocks
         load_tiles(bg, bg_bpp[bg]);  // only gets called when dispstat corresponding to bg changes
-       
+
         // Load screenblocks to our background tile map
         switch (screen_sizes[bg]) {
           case 0: {
@@ -653,7 +678,8 @@ void PPU::step() {
               u32 dest = (tile_y * 64) + tile_x;
 
               tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                  .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
+                  // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
+                  .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
 
               };
             }
@@ -668,7 +694,9 @@ void PPU::step() {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * 32);
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+
                   };
                 }
               }
@@ -684,7 +712,9 @@ void PPU::step() {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * (32 * 64));
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+
                   };
                 }
               }
@@ -707,7 +737,9 @@ void PPU::step() {
                   }
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+                      .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
+
                   };
                 }
               }
@@ -771,7 +803,9 @@ void PPU::step() {
           u32 dest = (tile_y * 64) + tile_x;
 
           affine_tile_maps[2][dest] = ScreenBlockEntryMode1{
-              .tile_index = bus->read8(absolute_sbb(2, 0) + (tile_x + tile_y * 32)),  // should be able to directly access vram, bus adds alot of overhead
+              // .tile_index = bus->read8(absolute_sbb(2, 0) + (tile_x + tile_y * 32)),  // should be able to directly access vram, bus adds alot of overhead
+              .tile_index = read_vram<u8>(absolute_sbb(2, 0) + (tile_x + tile_y * 32)),  // should be able to directly access vram, bus adds alot of overhead
+
           };
         }
 
@@ -889,9 +923,9 @@ void PPU::step() {
       for (int entry_idx = 0; entry_idx < 128; entry_idx++) {
         const OAM_Entry& oam_entry = entries.at(entry_idx);
 
-        if (oam_entry.obj_disable_double_sz_flag) continue;          // obj is disabled
-        if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED) continue;    // obj has a probihibted mode
-        if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;  // obj is probihibted shape
+        if (oam_entry.obj_disable_double_sz_flag) continue;                                                      // obj is disabled
+        if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED || oam_entry.obj_mode == OBJ_MODE::OBJ_WINDOW) continue;  // obj has a probihibted mode
+        if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;                                              // obj is probihibted shape
 
         u16 y_relative_to_top_of_obj = (((i16)LY - (i16)oam_entry.y) + 256) % 256;
         if (y_relative_to_top_of_obj >= (get_obj_height(oam_entry) * 8)) continue;
@@ -998,8 +1032,9 @@ u8 PPU::get_bg_prio(u8 bg) const {
     case 1: return display_fields.BG1CNT.BG_PRIORITY;
     case 2: return display_fields.BG2CNT.BG_PRIORITY;
     case 3: return display_fields.BG3CNT.BG_PRIORITY;
+    default: assert(0);
   }
-  assert(0);
+
   return -1;
 }
 
@@ -1011,4 +1046,104 @@ void PPU::reset_sprite_layer() {
     r.color    = 0;
     r.color_id = 0;
   }
+}
+
+void PPU::draw_window() {
+  // win 0
+  auto w0_x1 = display_fields.WIN0H.X1;  // left
+  auto w0_x2 = display_fields.WIN0H.X2;  // right
+  auto w0_y1 = display_fields.WIN0V.Y1;  // top
+  auto w0_y2 = display_fields.WIN0V.Y2;  // bottom, should be +1
+
+  // win 1
+  auto w1_x1 = display_fields.WIN1H.X1;  // left
+  auto w1_x2 = display_fields.WIN1H.X2;  // right
+  auto w1_y1 = display_fields.WIN1V.Y1;  // top
+  auto w1_y2 = display_fields.WIN1V.Y2;  // bottom, should be +1
+
+  if (w0_x2 > 240 || w0_x1 > w0_x2) w0_x2 = 240;
+  if (w0_y2 > 160 || w0_y1 > w0_y2) w0_y2 = 160;
+
+  if (w1_x2 > 240 || w1_x1 > w1_x2) w1_x2 = 240;
+  if (w1_y2 > 160 || w1_y1 > w1_y2) w1_y2 = 160;
+
+  if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG) {
+    for (u8 y = w0_y1; y < 160; y++) {
+      for (u8 x = w0_x1; x < 240; x++) {
+        if (y > w0_y2) continue;
+        if (x > w0_x2) continue;
+
+        db.write((y * 240) + x, 0x00000000);
+      }
+    }
+  }
+
+  // draw outside window
+
+  std::vector<Item> active_bgs = {};
+  const auto& dispcnt          = display_fields.DISPCNT;
+
+  u8 enabled_bg_bits = (u8)((dispcnt.SCREEN_DISPLAY_BG3 << 3) | (dispcnt.SCREEN_DISPLAY_BG2 << 2) | (dispcnt.SCREEN_DISPLAY_BG0 << 1) | dispcnt.SCREEN_DISPLAY_BG0);
+
+  fmt::println("enabled bg bits: {:08b}", enabled_bg_bits);
+  fmt::println("enabled w0 bits: {:08b}", +display_fields.WININ.WIN0_BG_ENABLE_BITS);
+  fmt::println("enabled w1 bits: {:08b}", +display_fields.WININ.WIN1_BG_ENABLE_BITS);
+  fmt::println("and: {:08b}", enabled_bg_bits & display_fields.WININ.WIN0_BG_ENABLE_BITS);
+
+  if (display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG) {
+    if ((enabled_bg_bits & display_fields.WININ.WIN0_BG_ENABLE_BITS) == 0) return;
+    
+    for (u8 y = w1_y1; y < 160; y++) {
+      for (u8 x = w1_x1; x < 240; x++) {
+        if (y > w1_y2) continue;
+        if (x > w1_x2) continue;
+
+        db.write((y * 240) + x, 0x00FF0000);
+      }
+    }
+  }
+
+  // u8 enabled_bgs = display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS &
+
+  return;
+  // determine priority
+  // for(int i = 0; i < 4; i++) {
+  //   if((enabled_bg_bits & (1 << i)) == 0) continue;
+
+  // }
+
+  // for (int bg = 3; bg >= 0; bg--) {
+  //   if (!background_enabled(bg)) {
+  //     continue;
+  //   }
+  //   active_bgs.emplace_back(static_cast<u8>(bg), get_bg_prio(bg));
+  // }
+
+  // std::ranges::stable_sort(active_bgs, [](const Item& a, const Item& b) {
+  //   if (a.bg_prio != b.bg_prio) return a.bg_prio > b.bg_prio;  // primary
+  //   return a.bg_id > b.bg_id;                                  // tiebreaker
+  // });
+
+  // for (const auto& bg : active_bgs) {
+  //   // fmt::println("BG ID: {}", bg.bg_id);
+  //   auto [x_offset, y_offset]               = get_text_bg_offset(bg.bg_id);
+  //   auto [x_render_offset, y_render_offset] = get_render_offset(screen_sizes[bg.bg_id]);
+  //   for (size_t x = 0; x < 240; x++) {
+  //     u32 complete_x_offset = (x + x_offset) % x_render_offset;
+  //     u32 complete_y_offset = ((LY + y_offset) % y_render_offset) * 512;
+
+  //     assert((complete_x_offset + complete_y_offset) < (512 * 512));
+
+  //     if (transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)]) {
+  //       continue;
+  //     }
+
+  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].color       = tile_map_texture_buffer_arr[bg.bg_id][(complete_x_offset + complete_y_offset)];
+  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].prio        = bg.bg_prio;
+  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].bg_id       = bg.bg_id;
+  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].transparent = transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)];
+  //   }
+  // }
+
+  // auto bg = get_composite_bg_from_enabled_layers();
 }

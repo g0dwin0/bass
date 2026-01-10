@@ -40,8 +40,13 @@ using TileMap         = std::array<ScreenBlockEntryMode0, 64 * 64>;
 using AffineTileMap   = std::array<ScreenBlockEntryMode1, 128 * 128>;
 using TransparencyMap = std::array<bool, 512 * 512>;
 
+static constexpr u32 VRAM_BASE            = 0x06000000;
+static constexpr u32 PALETTE_RAM_BG_BASE  = 0x05000000;
+static constexpr u32 PALETTE_RAM_OBJ_BASE = 0x05000200;
+static constexpr u32 SYSTEM_DISPLAY_WIDTH = 240;
+
 struct PPU {
-  PPU() : VRAM(0x18000) {
+  PPU() : VRAM(0x18000), PALETTE_RAM(0x400), window_0(256 * 256), window_1(256 * 256) {
     // initialize affine frame buffers
     for (auto& arr : tile_map_affine_texture_buffer_arr) {
       arr.resize(1024 * 1024);
@@ -54,17 +59,13 @@ struct PPU {
 
     backdrop.resize(512 * 512);
   }
-  static constexpr u32 VRAM_BASE            = 0x06000000;
-  static constexpr u32 PALETTE_RAM_BG_BASE  = 0x05000000;
-  static constexpr u32 PALETTE_RAM_OBJ_BASE = 0x05000200;
-  static constexpr u32 SYSTEM_DISPLAY_WIDTH = 240;
 
   std::shared_ptr<spdlog::logger> ppu_logger = spdlog::stdout_color_mt("PPU");
 
   Bus* bus = nullptr;
 
-  u32* disp_buf  = new u32[241 * 160];
-  u32* write_buf = new u32[241 * 160];
+  u32* disp_buf  = new u32[240 * 160];
+  u32* write_buf = new u32[240 * 160];
 
   struct State {  // track changes to ppu specific registers, for example the changing of the character/screen base blocks
     std::array<bool, 4> cbb_changed = {true, true, true, true};
@@ -325,8 +326,10 @@ struct PPU {
   std::array<OAM_Entry, 128> entries;
   std::array<OBJ, 128> objs;
   std::vector<u8> VRAM;
+  std::vector<u8> PALETTE_RAM;
 
   std::vector<u32> backdrop;
+  std::vector<u32> window_0, window_1;
 
   std::array<std::vector<u32>, 4> tile_map_texture_buffer_arr;
   std::array<std::vector<u32>, 4> tile_map_affine_texture_buffer_arr;
@@ -356,10 +359,11 @@ struct PPU {
       {3, "64x64"},
   };
 
-  [[nodiscard]] u32 get_color_by_index(u8 x, u8 palette_num, COLOR_DEPTH color_depth) const;
-  [[nodiscard]] u32 get_obj_color_by_index(u8 x, u8 palette_num, COLOR_DEPTH color_depth) const;
+  [[nodiscard]] u32 get_color_by_index(u8 x, u8 palette_num, COLOR_DEPTH color_depth);
+  [[nodiscard]] u32 get_obj_color_by_index(u8 x, u8 palette_num, COLOR_DEPTH color_depth);
 
   void step();
+  void draw_window();
   void load_tiles(u8 bg, COLOR_DEPTH color_depth);
 
   void draw_mode_0_scanline();
@@ -407,4 +411,17 @@ struct PPU {
       {COLOR_FX::BRIGHTNESS_INCREASE, "Brightness Increase"},
       {COLOR_FX::BRIGHTNESS_DECREASE, "Brightness Decrease"},
   };
+
+  template <typename T>
+  inline T read_vram(u32 address) {
+    u64 norm_addr = address & 0x1FFFFu;
+
+    if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
+    return *(T*)(&VRAM[(norm_addr)]);
+  }
+
+  template <typename T>
+  inline T read_palette_ram(u32 address) {
+    return *(T*)(&PALETTE_RAM[address % 0x400]);
+  }
 };
