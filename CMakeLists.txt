@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 4.2)
+cmake_minimum_required(VERSION 3.28)
 project(bass CXX)
-set (CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 23)
 
 file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS include/*.hpp include/common/*.hpp include/core/*.hpp include/frontend/*.hpp)
@@ -89,9 +89,9 @@ FetchContent_MakeAvailable(spdlog)
 include(FetchContent)
 
 FetchContent_Declare(
-    capstone
-    GIT_REPOSITORY https://github.com/capstone-engine/capstone.git
-    GIT_TAG next
+        capstone
+        GIT_REPOSITORY https://github.com/capstone-engine/capstone.git
+        GIT_TAG next
 )
 
 #FetchContent_MakeAvailable(capstone)

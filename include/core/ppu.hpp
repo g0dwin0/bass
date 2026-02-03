@@ -67,6 +67,8 @@ struct PPU {
   u32* disp_buf  = new u32[240 * 160];
   u32* write_buf = new u32[240 * 160];
 
+  u8 get_enabled_bg_bits() const;
+
   struct State {  // track changes to ppu specific registers, for example the changing of the character/screen base blocks
     std::array<bool, 4> cbb_changed = {true, true, true, true};
     bool oam_changed                = true;
@@ -265,7 +267,7 @@ struct PPU {
       };
     } MOSAIC = {};
 
-    u16 : 16;
+    // u16 : 16;
 
     union {
       u16 v = 0;
@@ -403,6 +405,10 @@ struct PPU {
 
   // affine related stuff
   std::tuple<u8, u8> get_affine_bg_tile_sizes(u8 bg_id);
+
+  // ============== Windowing ==============
+  // IN: background IDs
+  // OUT: backgrounds composition
 
   // blending stuff
   const std::unordered_map<COLOR_FX, std::string> special_fx_str_map = {

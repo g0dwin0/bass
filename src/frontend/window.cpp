@@ -239,36 +239,42 @@ void Frontend::show_audio_info() {
 void Frontend::show_dma_info() {
   ImGui::Begin("DMA Info");
 
-  ImGui::SeparatorText("DMA0");
-  auto& ch0 = agb->dma_channels[0];
-  ImGui::Text("SRC: %08X", ch0->src);
-  ImGui::Text("DST: %08X", ch0->dst);
-  ImGui::Text("INT SRC: %08X", ch0->internal_src);
-  ImGui::Text("INT DST: %08X", ch0->internal_dst);
-  ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
-  ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
-              ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
-  ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
-  ImGui::SeparatorText("DMA1");
-  ch0 = agb->dma_channels[1];
-  ImGui::Text("SRC: %08X", ch0->src);
-  ImGui::Text("DST: %08X", ch0->dst);
-  ImGui::Text("INT SRC: %08X", ch0->internal_src);
-  ImGui::Text("INT DST: %08X", ch0->internal_dst);
-  ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
-  ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
-              ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
-  ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
-  ImGui::SeparatorText("DMA2");
-  ch0 = agb->dma_channels[2];
-  ImGui::Text("SRC: %08X", ch0->src);
-  ImGui::Text("DST: %08X", ch0->dst);
-  ImGui::Text("INT SRC: %08X", ch0->internal_src);
-  ImGui::Text("INT DST: %08X", ch0->internal_dst);
-  ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
-  ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
-              ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
-  ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
+  // ImGui::SeparatorText("DMA0");
+  // auto& ch0 = agb->dma_channels[0];
+  // ImGui::Text("SRC: %08X", ch0->src);
+  // ImGui::Text("DST: %08X", ch0->dst);
+  // ImGui::Text("INT SRC: %08X", ch0->internal_src);
+  // ImGui::Text("INT DST: %08X", ch0->internal_dst);
+  // ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
+  // ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
+  //             ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
+  // ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
+  // ImGui::SeparatorText("DMA1");
+  // // ch0 = agb->dma_channels[1];
+  // ImGui::Text("SRC: %08X", ch0->src);
+  // ImGui::Text("DST: %08X", ch0->dst);
+  // ImGui::Text("INT SRC: %08X", ch0->internal_src);
+  // ImGui::Text("INT DST: %08X", ch0->internal_dst);
+  // ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
+  // ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
+  //             ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
+  // ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
+  // ImGui::SeparatorText("DMA2");
+  // // ch0 = agb->dma_channels[2];
+  // ImGui::Text("SRC: %08X", ch0->src);
+  // ImGui::Text("DST: %08X", ch0->dst);
+  // ImGui::Text("INT SRC: %08X", ch0->internal_src);
+  // ImGui::Text("INT DST: %08X", ch0->internal_dst);
+  // ImGui::Text("ACTIVE: %01X", ch0->dmacnt_h.dma_enable ? 1 : 0);
+  // ImGui::Text("COND: %s %s", TIMING_MAP.at(static_cast<DMA_START_TIMING>(ch0->dmacnt_h.start_timing)).c_str(),
+  //             ch0->dmacnt_h.start_timing == DMA_START_TIMING::SPECIAL ? SPECIAL_COND_MAP.at(ch0->id).c_str() : "");
+  // ImGui::Text("repeat: %d", ch0->dmacnt_h.dma_repeat);
+
+  if (ImGui::Button("SHOW DMA CHANNELS")) {
+    for (auto& ch : agb->dma_channels) {
+      fmt::println("ID: {}", ch->id);
+    }
+  }
   ImGui::End();
 }
 void Frontend::show_backgrounds() {
@@ -281,7 +287,7 @@ void Frontend::show_backgrounds() {
     if (!agb->ppu.background_enabled(bg_id)) continue;
     ImGui::Text("BG %d", bg_id);
   }
-  if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_ARRAYSIZE(backgrounds))) {
+  if (ImGui::Combo("Regions", &SelectedItem, backgrounds, IM_COUNTOF(backgrounds))) {
     fmt::println("switched to: {}", backgrounds[SelectedItem]);
   }
   switch (SelectedItem) {
@@ -346,7 +352,7 @@ void Frontend::show_cpu_info() {
 
   ImGui::Text("CPU MODE: %s", agb->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
   ImGui::Text("OPERATING MODE: %s", mode_map.at(agb->cpu.regs.CPSR.MODE_BIT).c_str());
-  ImGui::Text("CYCLES ELAPSED: %llu", cycles_elapsed);
+  ImGui::Text("CYCLES ELAPSED: %lu", cycles_elapsed);
 
   ImGui::EndDisabled();
 
@@ -400,31 +406,35 @@ void Frontend::show_window_info() {
   ImGui::Text("WINDOW 0: X2: %d", agb->ppu.display_fields.WIN0H.X2);
   ImGui::Text("WINDOW 0: Y1: %d", agb->ppu.display_fields.WIN0V.Y1);
   ImGui::Text("WINDOW 0: Y2: %d", agb->ppu.display_fields.WIN0V.Y2);
+  ImGui::Text("WINDOW 0: OBJ ENABLE: %d", agb->ppu.display_fields.WININ.WIN0_OBJ_ENABLE_BIT);
+  ImGui::Text("WINDOW 0: SPECIAL FX ENABLE: %d", agb->ppu.display_fields.WININ.WIN0_COLOR_SPECIAL_FX);
+
+  ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS).c_str());
+  ImGui::Text("(actual) Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS & agb->ppu.get_enabled_bg_bits()).c_str());
 
   ImGui::SeparatorText("Window 1");
   ImGui::Text("WINDOW 1: X1: %d", agb->ppu.display_fields.WIN1H.X1);
   ImGui::Text("WINDOW 1: X2: %d", agb->ppu.display_fields.WIN1H.X2);
   ImGui::Text("WINDOW 1: Y1: %d", agb->ppu.display_fields.WIN1V.Y1);
   ImGui::Text("WINDOW 1: Y2: %d", agb->ppu.display_fields.WIN1V.Y2);
-  ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS).c_str());
+  ImGui::Text("WINDOW 1: OBJ ENABLE: %d", agb->ppu.display_fields.WININ.WIN1_OBJ_ENABLE_BIT);
+  ImGui::Text("WINDOW 1: SPECIAL FX ENABLE: %d", agb->ppu.display_fields.WININ.WIN1_COLOR_SPECIAL_FX);
+  ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WININ.WIN1_BG_ENABLE_BITS).c_str());
+  ImGui::Text("(actual) Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WININ.WIN1_BG_ENABLE_BITS & agb->ppu.get_enabled_bg_bits()).c_str());
 
   ImGui::SeparatorText("WINOUT");
   ImGui::Text("Outside Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS).c_str());
-  ImGui::Text("Outside OBJ Enable: %s", fmt::format("{}", +agb->ppu.display_fields.WINOUT.OUTSIDE_OBJ_ENABLE_BIT).c_str());
+  ImGui::Text("Outside Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS).c_str());
+  ImGui::Text("Outside OBJ Enable: %s", fmt::format("{}", +agb->ppu.display_fields.WINOUT.OUTSIDE_OBJ_ENABLE_BIT & agb->ppu.get_enabled_bg_bits()).c_str());
 
   ImGui::SeparatorText("OBJ Window");
-
-  ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WINOUT.OBJ_WINDOW_BG_ENABLE_BITS).c_str());
-  ImGui::Text("OBJ Enable: %s", fmt::format("{}", +agb->ppu.display_fields.WINOUT.OBJ_WINDOW_OBJ_ENABLE_BIT).c_str());
-  // ImGui::Text("Enabled BGs: %s", fmt::format("{:04b}", +agb->ppu.display_fields.WINOUT.OBJ_WINDOW_BG_ENABLE_BITS).c_str());
+  ImGui::Text("OBJ Window Enable: %s", fmt::format("{}", +agb->ppu.display_fields.DISPCNT.OBJ_WINDOW_DISPLAY_FLAG).c_str());
 
   ImGui::SeparatorText("WININ");
   ImGui::Text("W0 BG0 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS & 1);
-  ImGui::Text("W0 BG1 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 1 & 1);
-  ImGui::Text("W0 BG2 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 2 & 1);
-  ImGui::Text("W0 BG3 ENABLED: %d", agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 3 & 1);
-
-  ImGui::SeparatorText("WINOUT");
+  ImGui::Text("W0 BG1 ENABLED: %d", (agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 1) & 1);
+  ImGui::Text("W0 BG2 ENABLED: %d", (agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 2) & 1);
+  ImGui::Text("W0 BG3 ENABLED: %d", (agb->ppu.display_fields.WININ.WIN0_BG_ENABLE_BITS >> 3) & 1);
 
   ImGui::End();
 }
@@ -656,7 +666,7 @@ void Frontend::render_frame() {
   show_backgrounds();
   show_viewport();
 
-  SDL_SetWindowTitle(window, fmt::format("{}fps", 1000 / Stopwatch::duration.count()).c_str());
+  // SDL_SetWindowTitle(window, fmt::format("{}fps", 1000 / Stopwatch::duration.count()).c_str());
 
   ImGui::Render();
   SDL_SetRenderScale(renderer, state.io->DisplayFramebufferScale.x, state.io->DisplayFramebufferScale.y);
@@ -669,9 +679,9 @@ void Frontend::render_frame() {
     SDL_UpdateTexture(state.background_affine_textures[background_index], nullptr, agb->ppu.tile_map_affine_texture_buffer_arr[background_index].data(), 1024 * 4);
   }
 
-  SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop.data(), 512 * 4);
+  SDL_UpdateTexture(state.backdrop, nullptr, agb->ppu.backdrop.data(), 512 * sizeof(u32));
 
-  SDL_UpdateTexture(state.ppu_texture, nullptr, agb->ppu.db.disp_buf, 240 * 4);
+  SDL_UpdateTexture(state.ppu_texture, nullptr, agb->ppu.db.disp_buf, 240 * sizeof(u32));
   SDL_RenderTexture(renderer, state.ppu_texture, &rect, NULL);
 
   ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
@@ -745,37 +755,37 @@ void Frontend::init_sdl() {
 
   ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
   ImGui_ImplSDLRenderer3_Init(renderer);
-  this->state.ppu_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
-  if(this->state.ppu_texture == NULL) {
+  this->state.ppu_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
+  if (this->state.ppu_texture == NULL) {
     fmt::println("Could not create texture: {}", SDL_GetError());
   }
   this->state.tile_set_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 240, 160);
-   if(this->state.tile_set_texture == NULL) {
+  if (this->state.tile_set_texture == NULL) {
     fmt::println("Could not create texture: {}", SDL_GetError());
   }
   this->state.tile_map_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
-  if(this->state.tile_map_texture == NULL) {
+  if (this->state.tile_map_texture == NULL) {
     fmt::println("Could not create texture: {}", SDL_GetError());
   }
-  this->state.backdrop         = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
-   if(this->state.backdrop == NULL) {
+  this->state.backdrop = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
+  if (this->state.backdrop == NULL) {
     fmt::println("Could not create texture: {}", SDL_GetError());
   }
-  this->state.obj_texture      = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 256, 256);
+  this->state.obj_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 256, 256);
 
   SDL_SetTextureScaleMode(state.ppu_texture, SDL_SCALEMODE_NEAREST);
 
   for (size_t bg_id = 0; bg_id < 4; bg_id++) {
     this->state.background_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 512, 512);
-   if(state.background_textures[bg_id] == NULL) {
-    fmt::println("Could not create texture: {}", SDL_GetError());
-  }
+    if (state.background_textures[bg_id] == NULL) {
+      fmt::println("Could not create texture: {}", SDL_GetError());
+    }
   }
   for (size_t bg_id = 0; bg_id < 4; bg_id++) {
     this->state.background_affine_textures[bg_id] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XBGR8888, SDL_TEXTUREACCESS_TARGET, 1024, 1024);
-   if(state.background_affine_textures[bg_id] == NULL) {
-    fmt::println("Could not create texture: {}", SDL_GetError());
-  }
+    if (state.background_affine_textures[bg_id] == NULL) {
+      fmt::println("Could not create texture: {}", SDL_GetError());
+    }
   }
 };
 void Frontend::init_audio_device() {

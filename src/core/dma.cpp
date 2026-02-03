@@ -17,8 +17,8 @@ void DMAContext::print_dma_info() {
 
 void DMAContext::process() {
   // print_dma_info();
-  // fmt::println("{}", id);
-  if(id == 0) print_dma_info();
+  
+  if(id == 0) fmt::println("{}", id);
   if (this->dmacnt_h.dma_repeat) {
     internal_word_size = dmacnt_l.word_count & WORD_COUNT_MASK[id];
 
@@ -48,6 +48,8 @@ void DMAContext::process() {
 bool DMAContext::enabled() const { return dmacnt_h.dma_enable; }
 
 void DMAContext::transfer16(u32 _src, u32 _dst, u32 word_count) {
+    if(id == 0) fmt::println("d{:#010x}", internal_src & DMA_SRC_MASK[id]);
+
   if (word_count == 0 && id != 3) word_count = 0x4000;
   if (word_count == 0 && id == 3) word_count = 0x10000;
 
@@ -61,6 +63,8 @@ void DMAContext::transfer16(u32 _src, u32 _dst, u32 word_count) {
   for (size_t idx = 0; idx < word_count; idx++) {
     idx == 0 ? access_type = ACCESS_TYPE::NON_SEQUENTIAL : access_type = ACCESS_TYPE::SEQUENTIAL;
     // fmt::println("dma{}: src address after mask: {:#010x}", id, (internal_src & DMA_SRC_MASK[id]));
+    
+
     if ((internal_src & DMA_SRC_MASK[id]) <= 0x1FFFFFF) {
       value = dma_open_bus & 0xFFFF;
     } else {
@@ -81,10 +85,10 @@ void DMAContext::transfer16(u32 _src, u32 _dst, u32 word_count) {
       case DST_CONTROL::INCREMENT_RELOAD: internal_dst += 2; break;
     }
 
-    if (src >= 0x08000000 && src < 0x0E000000) {
-      if (dmacnt_h.src_control == SRC_CONTROL::FIXED) internal_src += 2;
-      if (dmacnt_h.src_control == SRC_CONTROL::DECREMENT) internal_src += 4;
-    }
+    // if (src >= 0x08000000 && src < 0x0E000000) {
+    //   if (dmacnt_h.src_control == SRC_CONTROL::FIXED) internal_src += 2;
+    //   if (dmacnt_h.src_control == SRC_CONTROL::DECREMENT) internal_src += 4;
+    // }
 
     switch (dmacnt_h.src_control) {
       case SRC_CONTROL::INCREMENT: internal_src += 2; break;
@@ -101,6 +105,9 @@ void DMAContext::transfer32(u32 _src, u32 _dst, u32 word_count) {
   // variables prefixed with `internal_` are values specific to the current dma
   // process, they are reloaded at the beginning of each new DMA
   // if(id == 0)
+
+  if(id == 0) fmt::println("d{:#010x}", internal_src & DMA_SRC_MASK[id]);
+
   internal_src = align(_src, WORD);
   internal_dst = align(_dst, WORD);
 
@@ -122,7 +129,7 @@ void DMAContext::transfer32(u32 _src, u32 _dst, u32 word_count) {
       open_bus_size = OPEN_BUS_WIDTH::WORD;
     }
 
-    assert(id != 0);
+    // assert(id != 0);
     // if (!((internal_src & DMA_SRC_MASK[id]) >= 0X0E000000 && id == 0)) {
     if (id == 0) {
       fmt::println("dma32({}) {:#010x} -> {:#010x}", id, internal_dst & DMA_DST_MASK[id], value);

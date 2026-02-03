@@ -1067,83 +1067,68 @@ void PPU::draw_window() {
   if (w1_x2 > 240 || w1_x1 > w1_x2) w1_x2 = 240;
   if (w1_y2 > 160 || w1_y1 > w1_y2) w1_y2 = 160;
 
-  if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG) {
-    for (u8 y = w0_y1; y < 160; y++) {
-      for (u8 x = w0_x1; x < 240; x++) {
-        if (y > w0_y2) continue;
-        if (x > w0_x2) continue;
-
-        db.write((y * 240) + x, 0x00000000);
-      }
-    }
-  }
-
   // draw outside window
 
   std::vector<Item> active_bgs = {};
-  const auto& dispcnt          = display_fields.DISPCNT;
 
-  u8 enabled_bg_bits = (u8)((dispcnt.SCREEN_DISPLAY_BG3 << 3) | (dispcnt.SCREEN_DISPLAY_BG2 << 2) | (dispcnt.SCREEN_DISPLAY_BG0 << 1) | dispcnt.SCREEN_DISPLAY_BG0);
+  u8 enabled_bg_bits = get_enabled_bg_bits();
 
-  fmt::println("enabled bg bits: {:08b}", enabled_bg_bits);
-  fmt::println("enabled w0 bits: {:08b}", +display_fields.WININ.WIN0_BG_ENABLE_BITS);
-  fmt::println("enabled w1 bits: {:08b}", +display_fields.WININ.WIN1_BG_ENABLE_BITS);
-  fmt::println("and: {:08b}", enabled_bg_bits & display_fields.WININ.WIN0_BG_ENABLE_BITS);
+  u8 anded_win_out_bg = enabled_bg_bits & display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS;
+  u8 anded_win0_bg    = enabled_bg_bits & display_fields.WININ.WIN0_BG_ENABLE_BITS;
+  u8 anded_win1_bg    = enabled_bg_bits & display_fields.WININ.WIN1_BG_ENABLE_BITS;
 
-  if (display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG) {
-    if ((enabled_bg_bits & display_fields.WININ.WIN0_BG_ENABLE_BITS) == 0) return;
-    
-    for (u8 y = w1_y1; y < 160; y++) {
-      for (u8 x = w1_x1; x < 240; x++) {
-        if (y > w1_y2) continue;
-        if (x > w1_x2) continue;
-
-        db.write((y * 240) + x, 0x00FF0000);
+  if (anded_win_out_bg != 0) {  // TODO(perf): replace with memcpy (it's effectively just copying the composite bg)
+    for (u8 y = 0; y < 160; y++) {
+      for (u8 x = 0; x < 240; x++) {
+        for (int i = 0; i < 4; i++) {
+          if ((1 << i & anded_win_out_bg) != 0) {
+            if (!transparency_maps.at(i).at((y * 512) + x)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
+          }
+        }
       }
     }
   }
 
-  // u8 enabled_bgs = display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS &
+  if (display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG && anded_win1_bg != 0) {
+    for (u8 y = w1_y1; y < w1_y2; y++) {
+      for (u8 x = w1_x1; x < w1_x2; x++) {
+        for (int i = 0; i < 4; i++) {
+          if ((1 << i & anded_win1_bg) != 0) {
+            if (!transparency_maps.at(i).at((y * 512) + x)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
+          }
+        }
 
-  return;
-  // determine priority
-  // for(int i = 0; i < 4; i++) {
-  //   if((enabled_bg_bits & (1 << i)) == 0) continue;
+        if (display_fields.WININ.WIN1_OBJ_ENABLE_BIT) {
+          const auto& pix = sprite_layer.at(y * 256 + x);
+          if (pix.color_id != 0) db.write((y * 240) + x, pix.color);
+        }
+      }
+    }
+  }
 
-  // }
+  if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG && anded_win0_bg != 0) {
+    for (u8 y = w0_y1; y < w0_y2; y++) {
+      fmt::println("w0: {}", w0_y1);
+      fmt::println("w0: {}", w0_y2);
+      
+      // if(w0_y2 >= 227) {fmt::println("broke loop"); break;}
 
-  // for (int bg = 3; bg >= 0; bg--) {
-  //   if (!background_enabled(bg)) {
-  //     continue;
-  //   }
-  //   active_bgs.emplace_back(static_cast<u8>(bg), get_bg_prio(bg));
-  // }
+      for (u8 x = w0_x1; x < w0_x2; x++) {
+        for (int i = 0; i < 4; i++) {
+          if ((1 << i & anded_win0_bg) != 0) {
+            if (!transparency_maps.at(i).at((y * 512) + x)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
+          }
+        }
 
-  // std::ranges::stable_sort(active_bgs, [](const Item& a, const Item& b) {
-  //   if (a.bg_prio != b.bg_prio) return a.bg_prio > b.bg_prio;  // primary
-  //   return a.bg_id > b.bg_id;                                  // tiebreaker
-  // });
-
-  // for (const auto& bg : active_bgs) {
-  //   // fmt::println("BG ID: {}", bg.bg_id);
-  //   auto [x_offset, y_offset]               = get_text_bg_offset(bg.bg_id);
-  //   auto [x_render_offset, y_render_offset] = get_render_offset(screen_sizes[bg.bg_id]);
-  //   for (size_t x = 0; x < 240; x++) {
-  //     u32 complete_x_offset = (x + x_offset) % x_render_offset;
-  //     u32 complete_y_offset = ((LY + y_offset) % y_render_offset) * 512;
-
-  //     assert((complete_x_offset + complete_y_offset) < (512 * 512));
-
-  //     if (transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)]) {
-  //       continue;
-  //     }
-
-  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].color       = tile_map_texture_buffer_arr[bg.bg_id][(complete_x_offset + complete_y_offset)];
-  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].prio        = bg.bg_prio;
-  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].bg_id       = bg.bg_id;
-  //     background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].transparent = transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)];
-  //   }
-  // }
-
-  // auto bg = get_composite_bg_from_enabled_layers();
+        if (display_fields.WININ.WIN0_OBJ_ENABLE_BIT) {
+          const auto& pix = sprite_layer.at(y * 256 + x);
+          if (pix.color_id != 0) db.write((y * 240) + x, pix.color);
+        }
+      }
+    }
+  }
+}
+u8 PPU::get_enabled_bg_bits() const {
+  return static_cast<u8>((display_fields.DISPCNT.SCREEN_DISPLAY_BG3 << 3) | (display_fields.DISPCNT.SCREEN_DISPLAY_BG2 << 2) | (display_fields.DISPCNT.SCREEN_DISPLAY_BG0 << 1) |
+                         display_fields.DISPCNT.SCREEN_DISPLAY_BG0);
 }

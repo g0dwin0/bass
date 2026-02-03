@@ -28,6 +28,8 @@ AGB::AGB() {
   bus.ch2 = dma_channels[2];
   bus.ch3 = dma_channels[3];
 
+
+  // TODO: we already have access to the timer array, are the extra ones necessary?
   bus.tm0    = &timers[0];
   bus.tm1    = &timers[1];
   bus.tm2    = &timers[2];
@@ -38,8 +40,9 @@ AGB::AGB() {
   // Scheduler::schedule(Scheduler::EventType::VBLANK, 197120);
 }
 
-void AGB::check_for_dma() const {
+void AGB::check_for_dma() {
   for (auto& ch : dma_channels) {
+    // if(ch->id == 0) fmt::println("ch: {}", ch->id);
     if (ch->enabled() && start_timing_cond_met(ch.get())) ch->process();
   }
 };

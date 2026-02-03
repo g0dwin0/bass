@@ -249,7 +249,7 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
       break;
     }
     case REGION::BG_OBJ_PALETTE: {
-      return *(uint16_t*)(&ppu->PALETTE_RAM.at(address % 0x400));
+      return *(u16*)(&ppu->PALETTE_RAM.at(address % 0x400));
     }
 
     case REGION::VRAM: {
@@ -257,11 +257,11 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
       u64 norm_addr = address & 0x1FFFFu;
 
       if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
-      return *(uint16_t*)(&ppu->VRAM[(norm_addr)]);
+      return *(u16*)(&ppu->VRAM[(norm_addr)]);
     }
 
     case REGION::OAM: {
-      return *(uint16_t*)(&OAM[(address % 0x400)]);
+      return *(u16*)(&OAM[(address % 0x400)]);
     }
 
     case REGION::PAK_WS0_0:
@@ -269,7 +269,7 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
       // game pak read (ws0)
       cycles_elapsed += get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0);
       tick_timers(get_rom_cycles_by_waitstate(access_type, WAITSTATE::WS0));
-      v = *(uint16_t*)(&pak->data[address - 0x08000000]);
+      v = *(u16*)(&pak->data[address - 0x08000000]);
       break;
     }
 
@@ -484,7 +484,7 @@ void Bus::write8(u32 address, u8 value) {
 
     case REGION::BG_OBJ_PALETTE: {
       fmt::println("{:#010X} -- {:#010X}", address, value);
-      *(uint16_t*)&ppu->PALETTE_RAM.at((address % 0x400) & ~1) = value * 0x101;
+      *(u16*)&ppu->PALETTE_RAM.at((address % 0x400) & ~1) = value * 0x101;
 
       return;
     }
@@ -497,7 +497,7 @@ void Bus::write8(u32 address, u8 value) {
       if (max_addr >= 0x10000) return;
 
       // fmt::println("value:{:#04X}", value);
-      *(uint16_t*)&ppu->VRAM.at(max_addr & ~1) = value * 0x101;
+      *(u16*)&ppu->VRAM.at(max_addr & ~1) = value * 0x101;
       return;
     }
 
@@ -552,12 +552,12 @@ void Bus::write16(u32 address, u16 value) {
 
   switch ((REGION)(address >> 24)) {
     case REGION::EWRAM: {
-      *(uint16_t*)(&EWRAM[address % 0x40000]) = value;
+      *(u16*)(&EWRAM[address % 0x40000]) = value;
       break;
     }
 
     case REGION::IWRAM: {
-      *(uint16_t*)(&IWRAM[address % 0x8000]) = value;
+      *(u16*)(&IWRAM[address % 0x8000]) = value;
 
       break;
     }
@@ -572,7 +572,7 @@ void Bus::write16(u32 address, u16 value) {
 
     case REGION::BG_OBJ_PALETTE: {
       // BG/OBJ Palette RAM
-      *(uint16_t*)(&ppu->PALETTE_RAM[address % 0x400]) = value;
+      *(u16*)(&ppu->PALETTE_RAM[address % 0x400]) = value;
       break;
     }
 
@@ -583,13 +583,13 @@ void Bus::write16(u32 address, u16 value) {
 
       if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
 
-      *(uint16_t*)(&ppu->VRAM.at(norm_addr)) = value;
+      *(u16*)(&ppu->VRAM.at(norm_addr)) = value;
       break;
     }
 
     case REGION::OAM: {
       // OAM
-      *(uint16_t*)(&OAM.at(address % 0x400)) = value;
+      *(u16*)(&OAM.at(address % 0x400)) = value;
       ppu->state.oam_changed                 = true;
       break;
     }
@@ -681,7 +681,7 @@ void Bus::write32(u32 address, u32 value) {
 
     case REGION::OAM: {
       *(u32*)(&OAM[(address % 0x400)]) = value;
-      ppu->state.oam_changed                = true;
+      ppu->state.oam_changed           = true;
       break;
     }
 
@@ -1484,7 +1484,7 @@ void Bus::io_write(u32 address, u8 value) {
       break;
     }
 
-    case DMA0CNT_L: 
+    case DMA0CNT_L:
     case DMA0CNT_L + 1: {
       set_byte(ch0->dmacnt_l.v, address % 0x2, value);
       break;
@@ -1494,13 +1494,14 @@ void Bus::io_write(u32 address, u8 value) {
       // fmt::println("old dma0cnt_h: {:#010x}", ch0->dmacnt_h.v);
 
       bool stopped = !ch0->dmacnt_h.dma_enable;
+    
       set_byte(ch0->dmacnt_h.v, address % 2, value);
       bool started = ch0->dmacnt_h.dma_enable;
+
       // fmt::println("post dma0cnt_h: {:#010x}", ch0->dmacnt_h.v);
-      
       ch0->dmacnt_h.v &= 0xf7e0;
-// fmt::println("new dma0cnt_h: {:#010x}\n", ch0->dmacnt_h.v);
-      
+      // fmt::println("new dma0cnt_h: {:#010x}\n", ch0->dmacnt_h.v);
+
       if (stopped && started) {
         ch0->internal_src       = ch0->src;
         ch0->internal_dst       = ch0->dst;

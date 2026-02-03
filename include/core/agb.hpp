@@ -24,7 +24,7 @@ struct AGB {
   AGB();
   // ~AGB();
 
-  void check_for_dma() const;
+  void check_for_dma();
   void tick_timers(u64 cycles);
   void system_loop();
   void step();
