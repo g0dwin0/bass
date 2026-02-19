@@ -17,9 +17,9 @@ add_custom_target(version
 add_dependencies(${PROJECT_NAME} version)
 
 if (UNIX)
-    target_compile_options(${PROJECT_NAME} PRIVATE -g -std=c++20 -Werror -Wextra -Wall -Wconversion -fconstexpr-depth=999999999 -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-implicit-int-float-conversion -Wno-shorten-64-to-32 -Wno-float-conversion)
+    target_compile_options(${PROJECT_NAME} PRIVATE -g -std=c++23 -Werror -Wextra -Wall -Wconversion -fconstexpr-depth=999999999 -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-implicit-int-float-conversion -Wno-shorten-64-to-32 -Wno-float-conversion)
 elseif (WIN32)
-    target_compile_options(${PROJECT_NAME} PRIVATE /g /utf-8 /std:c++20 /SUBSYSTEM:WINDOWS)
+    target_compile_options(${PROJECT_NAME} PRIVATE /g /utf-8 /std:c++23 /SUBSYSTEM:WINDOWS)
 endif ()
 
 
@@ -96,8 +96,8 @@ FetchContent_Declare(
 
 #FetchContent_MakeAvailable(capstone)
 
-set(CMAKE_CXX_FLAGS_RELWITHASSERTS "-O2 -g -std=c++20")
-set(CMAKE_C_FLAGS_RELWITHASSERTS "-O2 -g -std=c++20")
+set(CMAKE_CXX_FLAGS_RELWITHASSERTS "-O2 -g -std=c++23")
+set(CMAKE_C_FLAGS_RELWITHASSERTS "-O2 -g -std=c++23")
 
 set(CMAKE_EXE_LINKER_FLAGS_RELWITHASSERTS "${CMAKE_EXE_LINKER_FLAGS_RELEASE}")
 set(CMAKE_SHARED_LINKER_FLAGS_RELWITHASSERTS "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}")
