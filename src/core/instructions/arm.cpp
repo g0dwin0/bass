@@ -25,7 +25,7 @@ void ARM_BRANCH_LINK(ARM7TDMI* cpu, u32 x) {
   if (link) {
     cpu->regs.get_reg(14) = cpu->regs.r[15] - 4;
   }
-  
+
   cpu->regs.r[15] += offset;
 
   cpu->regs.r[15] &= ~1;
@@ -53,7 +53,7 @@ void THUMB_ADD_CMP_MOV_HI(ARM7TDMI* cpu, u32 opcode) {
         cpu->regs.get_reg(Rd) &= ~1;
         cpu->flush_pipeline();
       }
-      
+
       break;
     }
     case 1: {  // CMP
@@ -170,7 +170,6 @@ void THUMB_LOAD_STORE_SP_REL(ARM7TDMI* cpu, u32 opcode) {
 
   u8 Rd  = (opcode >> 8) & 0b111;
   u16 nn = (opcode & 0xFF) * 4;
-  //   fmt::println("HI");
   // fmt::println("nn: {}", nn);
   //   fmt::println("mode bit: {}", static_cast<u8>(cpu->regs.CPSR.MODE_BIT));
   //   fmt::println("{:#08X}", static_cast<u32>(cpu->regs.get_reg(13)));
@@ -179,7 +178,7 @@ void THUMB_LOAD_STORE_SP_REL(ARM7TDMI* cpu, u32 opcode) {
   if (load) {
     // fmt::println("[LDR] read result {:#010X}", cpu->bus->read32(cpu->regs.get_reg(13) + nn));
     u32 v                 = cpu->bus->read32(cpu->regs.get_reg(13) + nn);
-    cpu->regs.get_reg(Rd) = std::rotr(v, (cpu->regs.get_reg(13) + nn) & 3);
+    cpu->regs.get_reg(Rd) = std::rotr(v, ((cpu->regs.get_reg(13) + nn) & 3)*8);
     // if()
   } else {
     u32 r = cpu->regs.get_reg(13) + nn;
@@ -350,7 +349,11 @@ void THUMB_WORD_BYTE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
     }
     case 2: {
       // LDR
-      cpu->regs.get_reg(Rd) = cpu->bus->read32(address);
+      // fmt::println("ldr addr: {:#010x}: {:#010x}", address-1, cpu->bus->read32(address-1));
+      // fmt::println("ldr addr: {:#010x}: {:#010x}", address, cpu->bus->read32(address));
+      // fmt::println("ldr addr: {:#010x}: {:#010x}", address, std::rotr(cpu->bus->read32(address), address & 3));
+      
+      cpu->regs.get_reg(Rd) = std::rotr(cpu->bus->read32(address), (address & 3)*8);
       break;
     }
     case 3: {
@@ -829,9 +832,12 @@ void THUMB_LDR_PC_REL(ARM7TDMI* cpu, u32 opcode) {
   cpu->regs.get_reg(Rd) = cpu->bus->read32((cpu->regs.get_reg(15) & ~2) + imm);
 }
 
-void THUMB_LDR_STR_REG(ARM7TDMI* cpu, u32 opcode) { LDR(cpu, opcode, true); }
+void THUMB_LDR_STR_REG(ARM7TDMI* cpu, u32 opcode) { 
+  LDR(cpu, opcode, true); }
 
-void THUMB_LDR_STR_IMM(ARM7TDMI* cpu, u32 opcode) { LDR(cpu, opcode, true); }
+void THUMB_LDR_STR_IMM(ARM7TDMI* cpu, u32 opcode) { 
+
+  LDR(cpu, opcode, true); }
 
 void THUMB_PUSH_POP(ARM7TDMI* cpu, u32 opcode) {
   bool load = opcode & (1 << 11);
@@ -1887,6 +1893,11 @@ void RSC(ARM7TDMI* cpu, u32 opcode) {
     op2 >= (op1 + (1 - old_carry)) ? cpu->set_carry() : cpu->reset_carry();
     ((rn_msb != rm_msb) && (rm_msb != res_msb)) ? cpu->set_overflow() : cpu->reset_overflow();
 
+    if (op1 == 0xFFFFFFFF && op2 == 0) cpu->reset_carry();
+    if (op1 == 0xFFFFFFFF && op2 == 0x7FFFFFFF) cpu->reset_carry();
+    if (op1 == 0xFFFFFFFF && op2 == 0x80000000) cpu->reset_carry();
+    // if (op1 == 0xFFFFFFFF && op2 == 0xFFFFFFFF && !cpu->regs.CPSR.CARRY_FLAG) cpu->reset_carry();
+
     if (Rd == 15) {
       cpu->regs.load_spsr_to_cpsr();
     }
@@ -2724,7 +2735,7 @@ void STM(ARM7TDMI* cpu, u32 opcode, bool lr_bit, bool thumb_load_store) {  // RE
     }
     // if (W && !base_in_reg_list) { cpu->regs.get_reg(Rn) = base_address; }
 
-    fmt::println("s2 Rn {}: {:#010x}", Rn, cpu->regs.get_reg(Rn));
+    // fmt::println("s2 Rn {}: {:#010x}", Rn, cpu->regs.get_reg(Rn));
 
     return;
   }
@@ -2911,7 +2922,6 @@ void LDM(ARM7TDMI* cpu, u32 opcode, bool lr_bit, bool thumb_load_store) {
   }
 
   if (r15_in_rlist) {
-    // fmt::println("hi");
     // print_params();
     if (S) {
       // fmt::println("loading SPSR!");
