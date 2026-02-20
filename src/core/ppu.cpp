@@ -170,8 +170,6 @@ u8 PPU::get_obj_width(const OAM_Entry& c) {
     }
     case OBJ_SHAPE::PROHIBITED: {
       assert(0 && "prohibited sprite");
-      exit(-1);
-      return -1;
     }
       // default: {assert(0); return -1;}
   };
@@ -1026,7 +1024,7 @@ void PPU::step() {
   }
 }
 
-u8 PPU::get_bg_prio(u8 bg) const {
+u8 PPU::get_bg_prio(const u8 bg) const {
   switch (bg) {
     case 0: return display_fields.BG0CNT.BG_PRIORITY;
     case 1: return display_fields.BG1CNT.BG_PRIORITY;
@@ -1035,7 +1033,7 @@ u8 PPU::get_bg_prio(u8 bg) const {
     default: assert(0);
   }
 
-  return -1;
+  std::unreachable();
 }
 
 void PPU::reset_sprite_layer() {
@@ -1049,6 +1047,9 @@ void PPU::reset_sprite_layer() {
 }
 
 void PPU::draw_window() {
+  // return;
+  // TODO(perf): move to specific register writes. they don't need to be recalculated each time a frame is drawn
+
   // win 0
   auto w0_x1 = display_fields.WIN0H.X1;  // left
   auto w0_x2 = display_fields.WIN0H.X2;  // right
@@ -1075,12 +1076,14 @@ void PPU::draw_window() {
 
   u8 anded_win_out_bg = enabled_bg_bits & display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS;
   u8 anded_win0_bg    = enabled_bg_bits & display_fields.WININ.WIN0_BG_ENABLE_BITS;
-  u8 anded_win1_bg    = enabled_bg_bits & display_fields.WININ.WIN1_BG_ENABLE_BITS;
+  // u8 anded_win1_bg    = enabled_bg_bits & display_fields.WININ.WIN1_BG_ENABLE_BITS;
 
-  if (anded_win_out_bg != 0) {  // TODO(perf): replace with memcpy (it's effectively just copying the composite bg)
+  if (anded_win_out_bg != 0 && (display_fields.WININ.WIN0_BG_ENABLE_BITS | display_fields.WININ.WIN1_BG_ENABLE_BITS | display_fields.WININ.WIN0_OBJ_ENABLE_BIT |
+                                display_fields.WININ.WIN1_OBJ_ENABLE_BIT)) {  // TODO(perf): replace with memcpy (it's effectively just copying the composite bg)
+    return;
     for (u8 y = 0; y < 160; y++) {
       for (u8 x = 0; x < 240; x++) {
-        for (int i = 0; i < 4; i++) {
+        for (u8 i = 0; i < 4; i++) {
           if ((1 << i & anded_win_out_bg) != 0) {
             if (!transparency_maps.at(i).at((y * 512) + x)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
           }
@@ -1089,34 +1092,36 @@ void PPU::draw_window() {
     }
   }
 
-  if (display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG && anded_win1_bg != 0) {
-    for (u8 y = w1_y1; y < w1_y2; y++) {
-      for (u8 x = w1_x1; x < w1_x2; x++) {
-        for (int i = 0; i < 4; i++) {
-          if ((1 << i & anded_win1_bg) != 0) {
-            if (!transparency_maps.at(i).at((y * 512) + x)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
-          }
-        }
+  // if (display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG) {
+  //   for (u8 y = w1_y1; y < w1_y2; y++) {
+  //     for (u8 x = w1_x1; x < w1_x2; x++) {
+  //       for (u8 i = 0; i < 4; i++) {
+  //         if ((1 << i & anded_win1_bg) != 0) {
+  //           // if (!transparency_maps.at(i).at((y * 512) + x))
+  //           db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
+  //         }
+  //       }
 
-        if (display_fields.WININ.WIN1_OBJ_ENABLE_BIT) {
-          const auto& pix = sprite_layer.at(y * 256 + x);
-          if (pix.color_id != 0) db.write((y * 240) + x, pix.color);
-        }
-      }
-    }
-  }
+  //       if (display_fields.WININ.WIN1_OBJ_ENABLE_BIT) {
+  //         const auto& pix = sprite_layer.at(y * 256 + x);
+  //         // if (pix.color_id != 0)
+  //         db.write((y * 240) + x, pix.color);
+  //       }
+  //     }
 
-  if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG && anded_win0_bg != 0) {
+  //   }
+  // }
+
+  if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG) {
+    return;
     for (u8 y = w0_y1; y < w0_y2; y++) {
-      fmt::println("w0: {}", w0_y1);
-      fmt::println("w0: {}", w0_y2);
-      
-      // if(w0_y2 >= 227) {fmt::println("broke loop"); break;}
-
       for (u8 x = w0_x1; x < w0_x2; x++) {
-        for (int i = 0; i < 4; i++) {
+        for (i8 i = 4; i >= 0; i--) {
+          (void)(anded_win0_bg);
+          // db.write(y*240+x, 0xF2F2F2F2);
           if ((1 << i & anded_win0_bg) != 0) {
             if (!transparency_maps.at(i).at((y * 512) + x)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
+            // }
           }
         }
 

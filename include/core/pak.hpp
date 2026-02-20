@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <filesystem>
 #include <regex>
 #include <vector>
@@ -56,7 +57,7 @@ struct Pak {
     std::ofstream save(fmt::format("saves/{:.4}.sav", info.game_code), std::ios::binary | std::ios::trunc);
 
     std::ostream_iterator<u8> output_iterator(save);
-    
+
     switch (info.cartridge_save_type) {
       case CartridgeType::EEPROM: {
         save.write((char*)eeprom.data.data(), sizeof(u64) * eeprom.data.size());

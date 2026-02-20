@@ -28,7 +28,6 @@ AGB::AGB() {
   bus.ch2 = dma_channels[2];
   bus.ch3 = dma_channels[3];
 
-
   // TODO: we already have access to the timer array, are the extra ones necessary?
   bus.tm0    = &timers[0];
   bus.tm1    = &timers[1];
@@ -56,13 +55,13 @@ bool AGB::start_timing_cond_met(DMAContext* ch) const {
       // return false;
       switch (ch->id) {
         case 0: assert(0);
-        case 1: return false;  // FIFO req
-        case 2: return false;  // FIFO req
+        case 1:  // FIFO req
+        case 2:  // FIFO req
         case 3: return false;
         default: assert(0);
       }
     }
-    default: assert(0); return false;
+    default: assert(0); std::unreachable();
   }
 }
 

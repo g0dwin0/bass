@@ -319,6 +319,7 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
 u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
   cycles_elapsed += 1;
   tick_timers(1);
+  // u8 word_alignment_offset = (address & 3);
 
   // Scheduler::step(1);
   u32 _address = address;
@@ -447,7 +448,7 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
   }
   // mem_logger->info("[R32] {} => {:#010x}", get_label(address), v);
-  // return std::rotr(v, misaligned_by);
+  // return std::rotr(v, word_alignment_offset);
   return v;
 #endif
 };
@@ -974,9 +975,10 @@ u8 Bus::io_read(u32 address) {
     case SIOMULTI2: bus_logger->debug("READING FROM SIOMULTI2 UNIMPL"); break;
     case SIOMULTI3: bus_logger->debug("READING FROM SIOMULTI3 UNIMPL"); break;
     case SIOCNT: {
-      // bus_logger->debug("READING FROM SIOCNT UNIMPL");
+      bus_logger->debug("READING FROM SIOCNT UNIMPL");
       break;
     }
+    
     case SIOMLT_SEND: break;
     case KEYINPUT:
     case KEYINPUT + 1: {
@@ -1676,11 +1678,11 @@ void Bus::io_write(u32 address, u8 value) {
 
       break;
     }
-    case SIODATA32: break;
-    case SIOMULTI1: break;
-    case SIOMULTI2: break;
-    case SIOMULTI3: break;
-    case SIOCNT: break;
+    // case SIODATA32: break;
+    // case SIOMULTI1: break;
+    // case SIOMULTI2: break;
+    // case SIOMULTI3: break;
+    case SIOCNT: {request_interrupt(INTERRUPT_TYPE::SERIAL_COMM); break;}
     case SIOMLT_SEND: break;
     case KEYINPUT: break;
     case KEYCNT: bus_logger->debug("WRITING TO UNIMPL KEYCNT"); break;

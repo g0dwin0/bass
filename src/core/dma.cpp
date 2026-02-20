@@ -17,8 +17,6 @@ void DMAContext::print_dma_info() {
 
 void DMAContext::process() {
   // print_dma_info();
-  
-  if(id == 0) fmt::println("{}", id);
   if (this->dmacnt_h.dma_repeat) {
     internal_word_size = dmacnt_l.word_count & WORD_COUNT_MASK[id];
 
@@ -48,8 +46,6 @@ void DMAContext::process() {
 bool DMAContext::enabled() const { return dmacnt_h.dma_enable; }
 
 void DMAContext::transfer16(u32 _src, u32 _dst, u32 word_count) {
-    if(id == 0) fmt::println("d{:#010x}", internal_src & DMA_SRC_MASK[id]);
-
   if (word_count == 0 && id != 3) word_count = 0x4000;
   if (word_count == 0 && id == 3) word_count = 0x10000;
 
@@ -106,14 +102,14 @@ void DMAContext::transfer32(u32 _src, u32 _dst, u32 word_count) {
   // process, they are reloaded at the beginning of each new DMA
   // if(id == 0)
 
-  if(id == 0) fmt::println("d{:#010x}", internal_src & DMA_SRC_MASK[id]);
+  // if(id == 0) fmt::println("d{:#010x}", internal_src & DMA_SRC_MASK[id]);
 
   internal_src = align(_src, WORD);
   internal_dst = align(_dst, WORD);
 
   u32 value = 0;
 
-  if (id == 0) fmt::println("internal src: {:#010x}", internal_src);
+  // if (id == 0) fmt::println("internal src: {:#010x}", internal_src);
   for (size_t idx = 0; idx < word_count; idx++) {
     if ((internal_src & DMA_SRC_MASK[id]) <= 0x1FFFFFF) {
       if (open_bus_size == OPEN_BUS_WIDTH::HALFWORD) {
@@ -129,11 +125,10 @@ void DMAContext::transfer32(u32 _src, u32 _dst, u32 word_count) {
       open_bus_size = OPEN_BUS_WIDTH::WORD;
     }
 
-    // assert(id != 0);
     // if (!((internal_src & DMA_SRC_MASK[id]) >= 0X0E000000 && id == 0)) {
-    if (id == 0) {
-      fmt::println("dma32({}) {:#010x} -> {:#010x}", id, internal_dst & DMA_DST_MASK[id], value);
-    }
+    // if (id == 0) {
+    //   fmt::println("dma32({}) {:#010x} -> {:#010x}", id, internal_dst & DMA_DST_MASK[id], value);
+    // }
     bus->write32(internal_dst & DMA_DST_MASK[id], value);
 
     switch (dmacnt_h.dst_control) {

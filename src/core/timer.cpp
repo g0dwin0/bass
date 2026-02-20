@@ -43,10 +43,10 @@ INTERRUPT_TYPE Timer::get_timer_interrupt() const {
     case 1: return INTERRUPT_TYPE::TIMER1_OVERFLOW;
     case 2: return INTERRUPT_TYPE::TIMER2_OVERFLOW;
     case 3: return INTERRUPT_TYPE::TIMER3_OVERFLOW;
-  };
+    default: assert(0);
+  }
 
-  throw std::runtime_error("bad id");
-  return INTERRUPT_TYPE::KEYPAD;
+  std::unreachable();
 }
 
 std::string Timer::get_prescaler_string() const {
@@ -57,8 +57,6 @@ std::string Timer::get_prescaler_string() const {
     case F_1024: return "F/1024";
     default: assert(0);
   }
-
-  return 0;
 }
 
 u16 Timer::get_divider_val() const {
@@ -69,6 +67,4 @@ u16 Timer::get_divider_val() const {
     case F_1024: return 1024;
     default: assert(0);
   }
-
-  return 0;
 }

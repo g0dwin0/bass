@@ -352,7 +352,7 @@ void Frontend::show_cpu_info() {
 
   ImGui::Text("CPU MODE: %s", agb->cpu.regs.CPSR.STATE_BIT ? "THUMB" : "ARM");
   ImGui::Text("OPERATING MODE: %s", mode_map.at(agb->cpu.regs.CPSR.MODE_BIT).c_str());
-  ImGui::Text("CYCLES ELAPSED: %lu", cycles_elapsed);
+  ImGui::Text("CYCLES ELAPSED: %llu", cycles_elapsed);
 
   ImGui::EndDisabled();
 
