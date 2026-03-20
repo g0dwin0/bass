@@ -11,6 +11,11 @@ enum struct OBJ_MODE : u8 { NORMAL, SEMI_TRANSPARENT, OBJ_WINDOW, PROHIBITED };
 enum struct OBJ_SHAPE : u8 { SQUARE, HORIZONTAL, VERTICAL, PROHIBITED };
 
 static constexpr u32 OBJ_DATA_OFFSET = 0x10000;
+// 16 colors (each color being 2 bytes)
+static constexpr u8 BANK_SIZE                = 16 * 2;
+static constexpr u32 SCREEN_WIDTH            = 512;
+static constexpr u32 BITMAP_MODE_PAGE_OFFSET = 0xA000;
+
 
 struct Item {
   u8 bg_id;    // primary key

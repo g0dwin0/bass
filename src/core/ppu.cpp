@@ -3,23 +3,11 @@
 #include <algorithm>
 #include <cassert>
 #include <ranges>
+#include <utility>
 
 #include "bus.hpp"
 #include "common/color_conversion.hpp"
 #include "common/defs.hpp"
-
-// 16 colors (each color being 2 bytes)
-static constexpr u8 BANK_SIZE                = 16 * 2;
-static constexpr u32 SCREEN_WIDTH            = 512;
-static constexpr u32 BITMAP_MODE_PAGE_OFFSET = 0xA000;
-
-// template<typename T>
-// T PPU::read_vram(u32 address) {
-//   u64 norm_addr = address & 0x1FFFFu;
-
-//   if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
-//   return *(T*)(&VRAM[(norm_addr)]);
-// }
 
 bool PPU::is_valid_obj(const OAM_Entry& oam_entry) {
   if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED || oam_entry.obj_mode == OBJ_MODE::OBJ_WINDOW) return false;
@@ -93,8 +81,7 @@ u8 PPU::get_obj_height(const OAM_Entry& c) {
         case 2: return 4;
         case 3: return 8;
         default: {
-          fmt::println("bad obj size");
-          exit(-1);
+          assert(0 && "bad obj size");
         }
       }
     }
@@ -105,8 +92,7 @@ u8 PPU::get_obj_height(const OAM_Entry& c) {
         case 2: return 2;
         case 3: return 4;
         default: {
-          fmt::println("bad obj size");
-          exit(-1);
+          assert(0 && "bad obj size");
         }
       }
     }
@@ -117,17 +103,18 @@ u8 PPU::get_obj_height(const OAM_Entry& c) {
         case 2: return 4;
         case 3: return 8;
         default: {
-          fmt::println("bad obj size");
-          exit(-1);
+          assert(0 && "bad obj size");
         }
       }
     }
     case OBJ_SHAPE::PROHIBITED: assert(0);
     default: {
-      fmt::println("bad obj shape");
-      exit(-1);
+      assert(0 && "bad obj shape");
     }
   };
+
+  assert(0);
+  std::unreachable();
 };
 
 u8 PPU::get_obj_width(const OAM_Entry& c) {
@@ -200,7 +187,7 @@ u32 PPU::get_obj_color_by_index(u8 palette_index, u8 bank_number, COLOR_DEPTH co
     color_index = read_palette_ram<u16>(PALETTE_RAM_OBJ_BASE + (palette_index * 2));
 
   } else {
-    assert(palette_index <= 15);
+    // assert(palette_index <= 15);
     // color_index = bus->read16(PALETTE_RAM_OBJ_BASE + (palette_index * 2) + (BANK_SIZE * bank_number));
     color_index = read_palette_ram<u16>(PALETTE_RAM_OBJ_BASE + (palette_index * 2) + (BANK_SIZE * bank_number));
   }
@@ -216,13 +203,12 @@ std::tuple<u16, u16> PPU::get_text_bg_offset(u8 bg_id) const {
     case 3: return {+display_fields.BG3HOFS.OFFSET, +display_fields.BG3VOFS.OFFSET};
   }
 
-  assert(0);
-  return {};
+  std::unreachable();
 }
 
 // WIDTH (X) - HEIGHT (Y)
 std::tuple<u16, u16> PPU::get_render_offset(u8 screen_size) {
-  assert(screen_size <= 3);
+  // assert(screen_size <= 3);
 
   switch (screen_size) {
     case 0: return {256, 256};
@@ -231,7 +217,7 @@ std::tuple<u16, u16> PPU::get_render_offset(u8 screen_size) {
     case 3: return {512, 512};
   }
 
-  return {};
+  std::unreachable();
 }
 std::tuple<u8, u8> PPU::get_affine_bg_tile_sizes(u8 bg_id) {
   switch (bg_id) {
@@ -241,8 +227,7 @@ std::tuple<u8, u8> PPU::get_affine_bg_tile_sizes(u8 bg_id) {
     case 3: return {128, 128};
   }
 
-  assert(0);
-  return {};
+  std::unreachable();
 }
 
 void PPU::load_tiles(u8 bg, const COLOR_DEPTH color_depth) {
@@ -255,13 +240,10 @@ void PPU::load_tiles(u8 bg, const COLOR_DEPTH color_depth) {
   if (color_depth == COLOR_DEPTH::BPP4) {
     for (size_t tile_index = 0; tile_index < 1024; tile_index++) {
       for (size_t byte = 0; byte < 32; byte++) {
-        // tile.at((byte * 2) + x)       = VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0x0F;         // X = 0
-        // tile.at((byte * 2) + (x + 1)) = (VRAM[rel_cbb + (tile_index * 0x20) + byte] & 0xF0) >> 4;  // X = 1
-
         auto indexed_tile = rel_cbb + (tile_index * 0x20) + byte;
 
-        tile[((byte * 2) + x)]       = VRAM[indexed_tile] & 0x0F;         // X = 0
-        tile[((byte * 2) + (x + 1))] = (VRAM[indexed_tile] & 0xF0) >> 4;  // X = 1
+        tile[((byte * 2) + x)]       = VRAM[indexed_tile] & 0x0F;
+        tile[((byte * 2) + (x + 1))] = (VRAM[indexed_tile] & 0xF0) >> 4;
       }
 
       tile_sets[bg][tile_index] = tile;
@@ -301,8 +283,6 @@ Tile PPU::get_obj_tile_by_tile_index(u16 tile_id, COLOR_DEPTH color_mode) {
 }
 
 inline u32 PPU::absolute_sbb(u8 bg, u8 map_x) {
-  // assert(bg < 4);
-
   switch (bg) {
     case 0: return VRAM_BASE + ((display_fields.BG0CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
     case 1: return VRAM_BASE + ((display_fields.BG1CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
@@ -311,7 +291,7 @@ inline u32 PPU::absolute_sbb(u8 bg, u8 map_x) {
   }
 
   assert(0);
-  return 0;
+  std::unreachable();
 }
 inline u32 PPU::relative_cbb(u8 bg) {
   switch (bg) {
@@ -527,7 +507,7 @@ void PPU::step() {
           u32 complete_x_offset = (x + x_offset) % x_render_offset;
           u32 complete_y_offset = ((LY + y_offset) % y_render_offset) * 512;
 
-          assert((complete_x_offset + complete_y_offset) < (512 * 512));
+          // assert((complete_x_offset + complete_y_offset) < (512 * 512));
 
           if (transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)]) {
             continue;
@@ -655,7 +635,7 @@ void PPU::step() {
       // process non affine bgs
       for (u8 bg = 0; bg < 2; bg++) {
         // fmt::println("BG: {}", bg);
-        if (!background_enabled(bg)) continue;
+        // if (!background_enabled(bg)) continue;
 
         auto [x_offset, y_offset] = get_text_bg_offset(bg);
 
@@ -1076,11 +1056,10 @@ void PPU::draw_window() {
 
   u8 anded_win_out_bg = enabled_bg_bits & display_fields.WINOUT.OUTSIDE_BG_ENABLE_BITS;
   u8 anded_win0_bg    = enabled_bg_bits & display_fields.WININ.WIN0_BG_ENABLE_BITS;
-  // u8 anded_win1_bg    = enabled_bg_bits & display_fields.WININ.WIN1_BG_ENABLE_BITS;
+  u8 anded_win1_bg    = enabled_bg_bits & display_fields.WININ.WIN1_BG_ENABLE_BITS;
 
   if (anded_win_out_bg != 0 && (display_fields.WININ.WIN0_BG_ENABLE_BITS | display_fields.WININ.WIN1_BG_ENABLE_BITS | display_fields.WININ.WIN0_OBJ_ENABLE_BIT |
                                 display_fields.WININ.WIN1_OBJ_ENABLE_BIT)) {  // TODO(perf): replace with memcpy (it's effectively just copying the composite bg)
-    return;
     for (u8 y = 0; y < 160; y++) {
       for (u8 x = 0; x < 240; x++) {
         for (u8 i = 0; i < 4; i++) {
@@ -1092,42 +1071,48 @@ void PPU::draw_window() {
     }
   }
 
-  // if (display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG) {
-  //   for (u8 y = w1_y1; y < w1_y2; y++) {
-  //     for (u8 x = w1_x1; x < w1_x2; x++) {
-  //       for (u8 i = 0; i < 4; i++) {
-  //         if ((1 << i & anded_win1_bg) != 0) {
-  //           // if (!transparency_maps.at(i).at((y * 512) + x))
-  //           db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
-  //         }
-  //       }
-
-  //       if (display_fields.WININ.WIN1_OBJ_ENABLE_BIT) {
-  //         const auto& pix = sprite_layer.at(y * 256 + x);
-  //         // if (pix.color_id != 0)
-  //         db.write((y * 240) + x, pix.color);
-  //       }
-  //     }
-
-  //   }
-  // }
-
-  if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG) {
-    return;
-    for (u8 y = w0_y1; y < w0_y2; y++) {
-      for (u8 x = w0_x1; x < w0_x2; x++) {
-        for (i8 i = 4; i >= 0; i--) {
-          (void)(anded_win0_bg);
-          // db.write(y*240+x, 0xF2F2F2F2);
-          if ((1 << i & anded_win0_bg) != 0) {
-            if (!transparency_maps.at(i).at((y * 512) + x)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
-            // }
+  if (display_fields.DISPCNT.WINDOW_1_DISPLAY_FLAG) {
+    for (u8 y = w1_y1; y < w1_y2; y++) {
+      for (u8 x = w1_x1; x < w1_x2; x++) {
+        for (u8 i = 0; i < 4; i++) {
+          if ((1 << i & anded_win1_bg) != 0) {
+            // if (!transparency_maps.at(i).at((y * 512) + x))
+            db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((y * 512) + x));
           }
         }
 
-        if (display_fields.WININ.WIN0_OBJ_ENABLE_BIT) {
+        if (display_fields.WININ.WIN1_OBJ_ENABLE_BIT) {
           const auto& pix = sprite_layer.at(y * 256 + x);
-          if (pix.color_id != 0) db.write((y * 240) + x, pix.color);
+          // if (pix.color_id != 0)
+          db.write((y * 240) + x, pix.color);
+        }
+      }
+    }
+  }
+
+  if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG) {
+    return;
+
+    for (i8 i = 4; i > 0; i--) {
+      auto [x_offset, y_offset]               = get_text_bg_offset(i);
+      auto [x_render_offset, y_render_offset] = get_render_offset(i);
+
+      for (u8 y = w0_y1; y < w0_y2; y++) {
+        for (u8 x = w0_x1; x < w0_x2; x++) {
+          u32 complete_x_offset = (x + x_offset) % x_render_offset;
+          u32 complete_y_offset = ((y + y_offset) % y_render_offset) * 512;
+
+          // (void)(anded_win0_bg);
+          // db.write(y*240+x, 0xF2F2F2F2);
+          if ((1 << i & anded_win0_bg) != 0) {
+            if (!transparency_maps.at(i).at(complete_x_offset + complete_y_offset)) db.write((y * 240) + x, tile_map_texture_buffer_arr.at(i).at((complete_y_offset) + complete_x_offset));
+            // }
+          }
+
+          if (display_fields.WININ.WIN0_OBJ_ENABLE_BIT) {
+            const auto& pix = sprite_layer.at(y * 256 + x);
+            if (pix.color_id != 0) db.write((y * 240) + x, pix.color);
+          }
         }
       }
     }
