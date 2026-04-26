@@ -76,11 +76,12 @@ struct Bus {
   std::array<Timer, 4>* timers;
   APU* apu = nullptr;
 
-  void tick_timers(u64 cycles) {
+  void tick_timers(const u64 cycles) {
     for (Timer& t : *timers) {
       t.tick(cycles);
     }
   }
+
   void request_interrupt(INTERRUPT_TYPE type);
 
   [[nodiscard]] u8 read8(u32 address, ACCESS_TYPE access_type = ACCESS_TYPE::NON_SEQUENTIAL);

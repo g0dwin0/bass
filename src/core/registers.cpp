@@ -38,7 +38,6 @@ u32 Registers::get_spsr(BANK_MODE m) {
   }
 }
 std::string Registers::get_mode_string(BANK_MODE bm) {
-  
   switch (bm) {
     case USER: return "USER";
     case SYSTEM: return "SYSTEM";
@@ -51,13 +50,12 @@ std::string Registers::get_mode_string(BANK_MODE bm) {
   }
 }
 
-u32& Registers::get_reg(u8 i) {
+u32& Registers::get_reg(const u8 i) {
   // assert(i < 16);
 
   if (i < 8) {
     return r[i];
   }
-
 
   switch ((CPSR.MODE_BIT | 0x10)) {
     case USER:

@@ -14,18 +14,11 @@ Timer::Timer() {
 }
 void Timer::reload_counter() { counter = reload_value; }
 
-void Timer::tick(u64 cycles) {
+void Timer::tick(const u64 cycles) {
   if (!ctrl.timer_start_stop) return;
-  // fmt::println("delta: {} -- cycle request: {}", (cycles_elapsed - (start_time + 2)), cycles);
-
-  if (!(start_time < cycles_elapsed)) {
-    // fmt::println("calculated delta: {}, start time: {}, cycles_elapsed: {}, cycles requested: {}", (start_time) - cycles_elapsed, start_time, cycles_elapsed, cycles);
-    return;
-  }
 
   for (u64 i = 0; i < cycles; i++) {
-    // if (((cycles_elapsed + cycles) % get_divider_val()) == 0) {
-    if ((cycles_elapsed + cycles)) {
+    if ((cycles_elapsed + cycles) % get_divider_val() == 0) {
       if (counter == 0xFFFF) {
         counter = reload_value;
         if (ctrl.timer_irq_enable) bus->request_interrupt(get_timer_interrupt());

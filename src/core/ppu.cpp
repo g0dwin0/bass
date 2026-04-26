@@ -231,7 +231,7 @@ std::tuple<u8, u8> PPU::get_affine_bg_tile_sizes(u8 bg_id) {
 }
 
 void PPU::load_tiles(u8 bg, const COLOR_DEPTH color_depth) {
-  ppu_logger->debug("loading tiles");
+  // ppu_logger->debug("loading tiles");
   // assert(color_depth < 2);
   u8 x = 0;
   Tile tile;

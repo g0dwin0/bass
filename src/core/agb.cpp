@@ -40,7 +40,7 @@ AGB::AGB() {
 }
 
 void AGB::check_for_dma() {
-  for (auto& ch : dma_channels) {
+  for (const auto& ch : dma_channels) {
     // if(ch->id == 0) fmt::println("ch: {}", ch->id);
     if (ch->enabled() && start_timing_cond_met(ch.get())) ch->process();
   }
@@ -54,7 +54,7 @@ bool AGB::start_timing_cond_met(DMAContext* ch) const {
     case DMA_START_TIMING::SPECIAL: {
       // return false;
       switch (ch->id) {
-        case 0: assert(0);
+        case 0: return false;
         case 1:  // FIFO req
         case 2:  // FIFO req
         case 3: return false;

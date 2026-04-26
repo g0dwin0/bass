@@ -1,6 +1,4 @@
 #pragma once
-#include <cassert>
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -23,7 +21,7 @@ const std::unordered_map<EEPROM_MODE, std::string> eeprom_str = {
 struct EEPROMController {
   EEPROMController() : data(0x400) {
     cmd_bit_vec.reserve(128);
-    
+
     // for(const auto& e : data) {
     //   assert(e == 0);
     // }
@@ -38,10 +36,9 @@ struct EEPROMController {
 
   // const u8 ADDRESS_SIZE = 14;
   const u8 ADDRESS_SIZE = 14;
-  
 
-  size_t selected_block  = 0;
-  size_t bits_to_read    = 0;
+  size_t selected_block = 0;
+  size_t bits_to_read   = 0;
   // size_t BLOCK_SIZE      = 8;
   // size_t BLOCK_SIZE_BITS = 64;
 

@@ -591,7 +591,7 @@ void Bus::write16(u32 address, u16 value) {
     case REGION::OAM: {
       // OAM
       *(u16*)(&OAM.at(address % 0x400)) = value;
-      ppu->state.oam_changed                 = true;
+      ppu->state.oam_changed            = true;
       break;
     }
 
@@ -703,7 +703,7 @@ void Bus::write32(u32 address, u32 value) {
 #endif
 }
 
-u8 Bus::io_read(u32 address) {
+u8 Bus::io_read(const u32 address) {
   u8 retval = 0x0;
 
   switch (address) {
@@ -721,6 +721,7 @@ u8 Bus::io_read(u32 address) {
     case DISPSTAT + 1: {
       retval = read_byte(ppu->display_fields.DISPSTAT.v, address % 2);
       // bus_logger->info("disp stat read");
+      return retval;
       break;
     }
     case VCOUNT:
@@ -932,11 +933,6 @@ u8 Bus::io_read(u32 address) {
 
     case TM1CNT_L:
     case TM1CNT_L + 1: {
-      // retval = read_byte(tm1->counter, address % 2);
-
-      // u16 ticks = (cycles_elapsed - tm1->start_time + cycles_elapsed) / tm1->get_divider_val();
-
-      // tm1->counter = 0;
       retval = read_byte(tm1->counter, address % 2);
       break;
     }
@@ -948,8 +944,7 @@ u8 Bus::io_read(u32 address) {
 
     case TM2CNT_L:
     case TM2CNT_L + 1: {
-      tm2->counter = 0;
-      retval       = read_byte(tm2->counter, address % 2);
+      retval = read_byte(tm2->counter, address % 2);
       break;
     }
     case TM2CNT_H:
@@ -960,8 +955,7 @@ u8 Bus::io_read(u32 address) {
 
     case TM3CNT_L:
     case TM3CNT_L + 1: {
-      tm3->counter = 0;
-      retval       = read_byte(tm3->counter, address % 2);
+      retval = read_byte(tm3->counter, address % 2);
       break;
     }
     case TM3CNT_H:
@@ -974,28 +968,29 @@ u8 Bus::io_read(u32 address) {
     case SIOMULTI1: bus_logger->debug("READING FROM SIOMULTI1 UNIMPL"); break;
     case SIOMULTI2: bus_logger->debug("READING FROM SIOMULTI2 UNIMPL"); break;
     case SIOMULTI3: bus_logger->debug("READING FROM SIOMULTI3 UNIMPL"); break;
-    case SIOCNT: {
-      bus_logger->debug("READING FROM SIOCNT UNIMPL");
+    case SIOCNT:
+    case SIOCNT + 1: {
+      retval = 0;
       break;
     }
-    
-    case SIOMLT_SEND: break;
+
+    case SIOMLT_SEND:
+    case SIOMLT_SEND + 1: {
+      retval = 0;
+      break;
+    }
+      // break;
     case KEYINPUT:
     case KEYINPUT + 1: {
       retval = read_byte(keypad_input.KEYINPUT.v, address % 2);
       break;
     }
     case KEYCNT: bus_logger->debug("READING FROM UNIMPL KEYCNT"); break;
-    case RCNT: {
+    case RCNT:
+    case RCNT + 1: {
       retval = 0x0;
       break;
     }
-    case RCNT + 1: {
-      retval = 0x80;
-      break;
-    }
-      // case RCNT: break;
-
     case JOYCNT: bus_logger->debug("READING FROM UNIMPL JOYCNT"); break;
     case JOY_RECV: bus_logger->debug("READING FROM UNIMPL JOY_RECV"); break;
     case JOY_TRANS: bus_logger->debug("READING FROM UNIMPL JOY_TRANS"); break;
@@ -1003,6 +998,7 @@ u8 Bus::io_read(u32 address) {
     case IE:
     case IE + 1: {
       retval = read_byte(interrupt_control.IE.v, address % 2);
+      // if (address % 2 != 0) fmt::println("IE: {:#010x}", interrupt_control.IE.v);
       break;
     }
     case IF:
@@ -1043,7 +1039,7 @@ u8 Bus::io_read(u32 address) {
     case UNKNOWN15A:
     case UNKNOWN15A + 1:
     case UNKNOWN302:
-    case UNKNOWN302 + 1: return 0x00;
+    case UNKNOWN302 + 1: retval = 0x00;
 
     case POSTFLG:
       break;
@@ -1052,10 +1048,10 @@ u8 Bus::io_read(u32 address) {
     default: {
       // fmt::println("misaligned/partial read {:#08x} - [{}]", address, get_label(address));
       // assert(0);
-      return cpu->pipeline.fetch >> (address & 1) * 8;
+      retval = cpu->pipeline.fetch >> (address & 1) * 8;
     }
   }
-  // fmt::println("[IO READ] {} => {:#010x}", get_label(address), retval);
+  // bus_logger->info("[IO READ] {} => {:#010x}", get_label(address), retval);
   return retval;
 }
 void Bus::io_write(u32 address, u8 value) {
@@ -1496,7 +1492,7 @@ void Bus::io_write(u32 address, u8 value) {
       // fmt::println("old dma0cnt_h: {:#010x}", ch0->dmacnt_h.v);
 
       bool stopped = !ch0->dmacnt_h.dma_enable;
-    
+
       set_byte(ch0->dmacnt_h.v, address % 2, value);
       bool started = ch0->dmacnt_h.dma_enable;
 
@@ -1678,15 +1674,11 @@ void Bus::io_write(u32 address, u8 value) {
 
       break;
     }
-    // case SIODATA32: break;
-    // case SIOMULTI1: break;
-    // case SIOMULTI2: break;
-    // case SIOMULTI3: break;
-    case SIOCNT: {request_interrupt(INTERRUPT_TYPE::SERIAL_COMM); break;}
     case SIOMLT_SEND: break;
     case KEYINPUT: break;
     case KEYCNT: bus_logger->debug("WRITING TO UNIMPL KEYCNT"); break;
-    case RCNT ... RCNT + 1: break;
+    case RCNT:
+    case RCNT + 1: break;
 
     case JOYCNT: bus_logger->debug("WRITING TO UNIMPL JOYCNT"); break;
     case JOY_RECV: bus_logger->debug("WRITING TO UNIMPL JOY_RECV"); break;

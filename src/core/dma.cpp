@@ -59,7 +59,6 @@ void DMAContext::transfer16(u32 _src, u32 _dst, u32 word_count) {
   for (size_t idx = 0; idx < word_count; idx++) {
     idx == 0 ? access_type = ACCESS_TYPE::NON_SEQUENTIAL : access_type = ACCESS_TYPE::SEQUENTIAL;
     // fmt::println("dma{}: src address after mask: {:#010x}", id, (internal_src & DMA_SRC_MASK[id]));
-    
 
     if ((internal_src & DMA_SRC_MASK[id]) <= 0x1FFFFFF) {
       value = dma_open_bus & 0xFFFF;
@@ -81,10 +80,10 @@ void DMAContext::transfer16(u32 _src, u32 _dst, u32 word_count) {
       case DST_CONTROL::INCREMENT_RELOAD: internal_dst += 2; break;
     }
 
-    // if (src >= 0x08000000 && src < 0x0E000000) {
-    //   if (dmacnt_h.src_control == SRC_CONTROL::FIXED) internal_src += 2;
-    //   if (dmacnt_h.src_control == SRC_CONTROL::DECREMENT) internal_src += 4;
-    // }
+    if (src >= 0x08000000 && src < 0x0E000000) {
+      if (dmacnt_h.src_control == SRC_CONTROL::FIXED) internal_src += 2;
+      if (dmacnt_h.src_control == SRC_CONTROL::DECREMENT) internal_src += 4;
+    }
 
     switch (dmacnt_h.src_control) {
       case SRC_CONTROL::INCREMENT: internal_src += 2; break;

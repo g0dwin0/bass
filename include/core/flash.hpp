@@ -23,11 +23,11 @@ struct FlashController {
   FLASH_MODE mode = FLASH_MODE::NONE;   // the flash command to be processed
   FLASH_STEP step = FLASH_STEP::READY;  // the step of the user (e.g. READY -> CMD_1 -> CMD_2)
 
-  u8 device_id;
-  u8 manufacturer_id;
+  u8 device_id{};
+  u8 manufacturer_id{};
   u8 mem_bank = 0;
 
-  std::vector<u8> *SRAM;
+  std::vector<u8> *SRAM{};
   void print_flash_info();
   void handle_write(u32 address, u8 value);
   u8 handle_read(u32 address);
