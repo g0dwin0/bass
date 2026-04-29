@@ -30,8 +30,6 @@ void ARM_BRANCH_LINK(ARM7TDMI* cpu, u32 x) {
 
   cpu->regs.r[15] &= ~1;
   cpu->flush_pipeline();
-
-  return;
 }
 void THUMB_ADD_CMP_MOV_HI(ARM7TDMI* cpu, u32 opcode) {
   u8 op = (opcode >> 8) & 0b11;
@@ -178,7 +176,7 @@ void THUMB_LOAD_STORE_SP_REL(ARM7TDMI* cpu, u32 opcode) {
   if (load) {
     // fmt::println("[LDR] read result {:#010X}", cpu->bus->read32(cpu->regs.get_reg(13) + nn));
     u32 v                 = cpu->bus->read32(cpu->regs.get_reg(13) + nn);
-    cpu->regs.get_reg(Rd) = std::rotr(v, ((cpu->regs.get_reg(13) + nn) & 3)*8);
+    cpu->regs.get_reg(Rd) = std::rotr(v, ((cpu->regs.get_reg(13) + nn) & 3) * 8);
     // if()
   } else {
     u32 r = cpu->regs.get_reg(13) + nn;
@@ -190,7 +188,7 @@ void THUMB_LOAD_STORE_SP_REL(ARM7TDMI* cpu, u32 opcode) {
 }
 
 void THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
-  //   0: STRH Rd,[Rb,Ro]  ;store 16bit data          HALFWORD[Rb+Ro] = Rd
+  // 0: STRH Rd,[Rb,Ro]  ;store 16bit data          HALFWORD[Rb+Ro] = Rd
   // 1: LDSB Rd,[Rb,Ro]  ;load sign-extended 8bit   Rd = BYTE[Rb+Ro]
   // 2: LDRH Rd,[Rb,Ro]  ;load zero-extended 16bit  Rd = HALFWORD[Rb+Ro]
   // 3: LDSH Rd,[Rb,Ro]  ;load sign-extended 16bit  Rd = HALFWORD[Rb+Ro]
@@ -272,6 +270,7 @@ void THUMB_HALFWORD_IMM_OFFSET(ARM7TDMI* cpu, u32 opcode) {
     case 1: {
       // LDRH
       // fmt::println("LDRH");
+      // fmt::println("opcode: {:#010x}", opcode);
       address += offset;
       u32 value             = cpu->bus->read16(address);
       cpu->regs.get_reg(Rd) = std::rotr(value, (address & 1) * 8);
@@ -324,10 +323,10 @@ void THUMB_WORD_BYTE_IMM_OFFSET(ARM7TDMI* cpu, u32 opcode) {
 }
 
 void THUMB_WORD_BYTE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
-  // 0: STR  Rd,[Rb,#nn]  ;store 32bit data   WORD[Rb+nn] = Rd
-  // 1: LDR  Rd,[Rb,#nn]  ;load  32bit data   Rd = WORD[Rb+nn]
-  // 2: STRB Rd,[Rb,#nn]  ;store  8bit data   BYTE[Rb+nn] = Rd
-  // 3: LDRB Rd,[Rb,#nn]  ;load   8bit data   Rd = BYTE[Rb+nn]
+  // 0: STRH Rd,[Rb,Ro]  ;store 16bit data          HALFWORD[Rb+Ro] = Rd
+  // 1: LDSB Rd,[Rb,Ro]  ;load sign-extended 8bit   Rd = BYTE[Rb+Ro]
+  // 2: LDRH Rd,[Rb,Ro]  ;load zero-extended 16bit  Rd = HALFWORD[Rb+Ro]
+  // 3: LDSH Rd,[Rb,Ro]  ;load sign-extended 16bit  Rd = HALFWORD[Rb+Ro]
   u8 op               = (opcode >> 10) & 0b11;
   u8 Rd               = opcode & 0b111;
   u8 Rn               = (opcode >> 3) & 0b111;  // Rb
@@ -352,8 +351,8 @@ void THUMB_WORD_BYTE_REG_OFFSET(ARM7TDMI* cpu, u32 opcode) {
       // fmt::println("ldr addr: {:#010x}: {:#010x}", address-1, cpu->bus->read32(address-1));
       // fmt::println("ldr addr: {:#010x}: {:#010x}", address, cpu->bus->read32(address));
       // fmt::println("ldr addr: {:#010x}: {:#010x}", address, std::rotr(cpu->bus->read32(address), address & 3));
-      
-      cpu->regs.get_reg(Rd) = std::rotr(cpu->bus->read32(address), (address & 3)*8);
+
+      cpu->regs.get_reg(Rd) = std::rotr(cpu->bus->read32(address), (address & 3) * 8);
       break;
     }
     case 3: {
@@ -832,12 +831,9 @@ void THUMB_LDR_PC_REL(ARM7TDMI* cpu, u32 opcode) {
   cpu->regs.get_reg(Rd) = cpu->bus->read32((cpu->regs.get_reg(15) & ~2) + imm);
 }
 
-void THUMB_LDR_STR_REG(ARM7TDMI* cpu, u32 opcode) { 
-  LDR(cpu, opcode, true); }
+void THUMB_LDR_STR_REG(ARM7TDMI* cpu, u32 opcode) { LDR(cpu, opcode, true); }
 
-void THUMB_LDR_STR_IMM(ARM7TDMI* cpu, u32 opcode) { 
-
-  LDR(cpu, opcode, true); }
+void THUMB_LDR_STR_IMM(ARM7TDMI* cpu, u32 opcode) { LDR(cpu, opcode, true); }
 
 void THUMB_PUSH_POP(ARM7TDMI* cpu, u32 opcode) {
   bool load = opcode & (1 << 11);
@@ -1911,6 +1907,7 @@ void RSC(ARM7TDMI* cpu, u32 opcode) {
   }
 }
 void LDR(ARM7TDMI* cpu, u32 opcode, bool pc_relative) {
+  if (opcode == 0x00006001) fmt::println("hit");
   bool I                   = opcode & (1 << 25);
   bool P                   = opcode & (1 << 24);
   bool U                   = opcode & (1 << 23);

@@ -10,7 +10,7 @@
 #include "common/defs.hpp"
 
 bool PPU::is_valid_obj(const OAM_Entry& oam_entry) {
-  if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED || oam_entry.obj_mode == OBJ_MODE::OBJ_WINDOW) return false;
+  if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED) return false;
   if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) return false;
   if (oam_entry.obj_disable_double_sz_flag) return false;  // TODO: when in mode 2, this is used as the double size flag, and thus this is not valid anymore
 
@@ -27,8 +27,8 @@ void PPU::repopulate_objs() {
 
     Tile current_tile;
 
-    u16 obj_height = get_obj_height(entry);  // height of OBJ in tiles
-    u16 obj_width  = get_obj_width(entry);   // width of OBJ in tiles
+    const u16 obj_height = get_obj_height(entry);  // height of OBJ in tiles
+    const u16 obj_width  = get_obj_width(entry);   // width of OBJ in tiles
 
     u32 current_charname = 0;  // Tile ID
 
@@ -164,22 +164,20 @@ u8 PPU::get_obj_width(const OAM_Entry& c) {
   return -1;
 };
 
-u32 PPU::get_color_by_index(u8 x, u8 palette_num, COLOR_DEPTH color_depth) {
+u32 PPU::get_color_by_index(const u8 x, const u8 palette_num, const COLOR_DEPTH color_depth) {
   u16 color_index;
 
   if (color_depth == COLOR_DEPTH::BPP8) {
-    // color_index = bus->read16(PALETTE_RAM_BG_BASE + (x * 2));
     color_index = read_palette_ram<u16>(PALETTE_RAM_BG_BASE + (x * 2));
 
   } else {
-    // color_index = bus->read16(PALETTE_RAM_BG_BASE + (x * 2) + (0x20 * palette_num));
     color_index = read_palette_ram<u16>(PALETTE_RAM_BG_BASE + (x * 2) + (0x20 * palette_num));
   }
 
   return BGR555_TO_RGB888_LUT[color_index];
 }
 
-u32 PPU::get_obj_color_by_index(u8 palette_index, u8 bank_number, COLOR_DEPTH color_depth) {
+u32 PPU::get_obj_color_by_index(const u8 palette_index, const u8 bank_number, const COLOR_DEPTH color_depth) {
   u16 color_index = 0;
 
   if (color_depth == COLOR_DEPTH::BPP8) {
@@ -201,23 +199,19 @@ std::tuple<u16, u16> PPU::get_text_bg_offset(u8 bg_id) const {
     case 1: return {+display_fields.BG1HOFS.OFFSET, +display_fields.BG1VOFS.OFFSET};
     case 2: return {+display_fields.BG2HOFS.OFFSET, +display_fields.BG2VOFS.OFFSET};
     case 3: return {+display_fields.BG3HOFS.OFFSET, +display_fields.BG3VOFS.OFFSET};
+    default: assert(0);
   }
-
-  std::unreachable();
 }
 
 // WIDTH (X) - HEIGHT (Y)
 std::tuple<u16, u16> PPU::get_render_offset(u8 screen_size) {
-  // assert(screen_size <= 3);
-
   switch (screen_size) {
     case 0: return {256, 256};
     case 1: return {512, 256};
     case 2: return {256, 512};
     case 3: return {512, 512};
+    default: assert(0);
   }
-
-  std::unreachable();
 }
 std::tuple<u8, u8> PPU::get_affine_bg_tile_sizes(u8 bg_id) {
   switch (bg_id) {
@@ -225,9 +219,8 @@ std::tuple<u8, u8> PPU::get_affine_bg_tile_sizes(u8 bg_id) {
     case 1: return {32, 32};
     case 2: return {64, 64};
     case 3: return {128, 128};
+    default: assert(0);
   }
-
-  std::unreachable();
 }
 
 void PPU::load_tiles(u8 bg, const COLOR_DEPTH color_depth) {
@@ -259,8 +252,10 @@ void PPU::load_tiles(u8 bg, const COLOR_DEPTH color_depth) {
   }
 }
 
-Tile PPU::get_obj_tile_by_tile_index(u16 tile_id, COLOR_DEPTH color_mode) {
+Tile PPU::get_obj_tile_by_tile_index(const u16 tile_id, const COLOR_DEPTH color_mode) {
   // u8 x = 0;
+  // TODO: we construct a new tile each time, we know that obj tiles are fixed. there are FIXED amount of tiles; this is a waste, because we also need to do a copy at the end, just use an existing
+  // array of tiles instead of having to allocate, and then copy each time
   Tile tile;
 
   switch (color_mode) {
@@ -293,26 +288,64 @@ inline u32 PPU::absolute_sbb(u8 bg, u8 map_x) {
   assert(0);
   std::unreachable();
 }
-inline u32 PPU::relative_cbb(u8 bg) {
-  switch (bg) {
-    case 0: return (display_fields.BG0CNT.CHAR_BASE_BLOCK * 0X4000);
-    case 1: return (display_fields.BG1CNT.CHAR_BASE_BLOCK * 0X4000);
-    case 2: return (display_fields.BG2CNT.CHAR_BASE_BLOCK * 0X4000);
-    case 3: return (display_fields.BG3CNT.CHAR_BASE_BLOCK * 0X4000);
-  }
-  assert(0);
-  return 0x0;
-}
-bool PPU::background_enabled(u8 bg_id) {
+inline u32 PPU::relative_cbb(const u8 bg_id) {
   switch (bg_id) {
-    case 0: return (display_fields.DISPCNT.SCREEN_DISPLAY_BG0);
-    case 1: return (display_fields.DISPCNT.SCREEN_DISPLAY_BG1);
-    case 2: return (display_fields.DISPCNT.SCREEN_DISPLAY_BG2);
-    case 3: return (display_fields.DISPCNT.SCREEN_DISPLAY_BG3);
+    case 0: return display_fields.BG0CNT.CHAR_BASE_BLOCK * 0X4000;
+    case 1: return display_fields.BG1CNT.CHAR_BASE_BLOCK * 0X4000;
+    case 2: return display_fields.BG2CNT.CHAR_BASE_BLOCK * 0X4000;
+    case 3: return display_fields.BG3CNT.CHAR_BASE_BLOCK * 0X4000;
+    default: assert(0);
+  }
+}
+bool PPU::background_enabled(const u8 bg_id) const {
+  switch (bg_id) {
+    case 0: return display_fields.DISPCNT.SCREEN_DISPLAY_BG0;
+    case 1: return display_fields.DISPCNT.SCREEN_DISPLAY_BG1;
+    case 2: return display_fields.DISPCNT.SCREEN_DISPLAY_BG2;
+    case 3: return display_fields.DISPCNT.SCREEN_DISPLAY_BG3;
+    default: assert(0);
+  }
+}
+void PPU::draw_backdrop_on_ly(const u8& LY) {
+  for (size_t x = 0; x < 240; x++) {
+    backdrop[(LY * SYSTEM_DISPLAY_WIDTH) + x] = get_color_by_index(0, 0, COLOR_DEPTH::BPP4);
+    auto& bg_pixel                            = background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x);
+
+    bg_pixel.prio  = 5;
+    bg_pixel.color = get_color_by_index(0, 0, COLOR_DEPTH::BPP4);
+  }
+}
+std::vector<BG_INFO> PPU::get_active_bg_by_prios() const {
+  std::vector<BG_INFO> active_bgs = {};
+
+  // determine priority
+  for (int bg = 3; bg >= 0; bg--) {
+    if (!background_enabled(bg)) {
+      continue;
+    }
+    active_bgs.emplace_back(static_cast<u8>(bg), get_bg_prio(bg));
   }
 
-  assert(0);
-  return false;
+  std::ranges::stable_sort(active_bgs, [](const BG_INFO& a, const BG_INFO& b) {
+    if (a.bg_prio != b.bg_prio) return a.bg_prio > b.bg_prio;  // primary
+    return a.bg_id > b.bg_id;                                  // tiebreaker
+  });
+  return active_bgs;
+}
+void PPU::vertical_flip(Tile& tile) {
+  Tile tb;
+
+  for (size_t row = 0; row < 8; row++) {   for (size_t pix_n = 0; pix_n < 8; pix_n++) {
+      tb[(row * 8) + pix_n] = tile[((7 - row) * 8) + pix_n];
+    }
+  }
+
+  tile = tb;
+}
+void PPU::horizontal_flip(Tile& tile) {
+  for (size_t row = 0; row < 8; row++) {
+    std::reverse(tile.begin() + (row * 8), (tile.begin() + 8 + (row * 8)));
+  }
 }
 void PPU::step() {
   // TODO: This should be a scanline renderer, at the start of each scanline 1 scanline should be written to the framebuffer.
@@ -337,13 +370,12 @@ void PPU::step() {
 
       // process bgs
       for (u8 bg = 0; bg < 4; bg++) {
+        load_tiles(bg, bg_bpp[bg]);  // only gets called when dispstat corresponding to bg changes
         if (!background_enabled(bg)) continue;
 
         auto [x_offset, y_offset] = get_text_bg_offset(bg);
 
         // load tiles into tilesets from charblocks
-
-        load_tiles(bg, bg_bpp[bg]);  // only gets called when dispstat corresponding to bg changes
 
         // Load screenblocks to our background tile map
         switch (screen_sizes[bg]) {
@@ -358,9 +390,7 @@ void PPU::step() {
               u32 dest = (tile_y * 64) + tile_x;
 
               tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                  // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
                   .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),  // should be able to directly access vram, bus adds alot of overhead
-
               };
             }
             break;
@@ -374,7 +404,6 @@ void PPU::step() {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * 32);
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
                       .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
                   };
                 }
@@ -391,7 +420,6 @@ void PPU::step() {
                   u32 dest = (tile_y * 64) + tile_x + (map_x * (32 * 64));
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
                       .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
                   };
                 }
@@ -415,16 +443,15 @@ void PPU::step() {
                   }
 
                   tile_maps[bg][dest] = ScreenBlockEntryMode0{
-                      // .v = bus->read16(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
                       .v = read_vram<u16>(absolute_sbb(bg, map_x) + ((tile_x + (tile_y * 32)) * 2)),
-
                   };
                 }
               }
-            };
+            }
             // assert(0);
             break;
           }
+          default: assert(0);
         }
 
         auto [x_render_offset, y_render_offset] = get_render_offset(screen_sizes[bg]);
@@ -438,29 +465,15 @@ void PPU::step() {
           Tile tile                          = tile_sets[bg][entry.tile_index];
 
           // OBJ are now flipped on a individual level, but the order of OBJ is what needs to be flipped, (including the OBJ being flipped)
-          if (entry.VERTICAL_FLIP) {
-            Tile tb;
-
-            for (size_t row = 0; row < 8; row++) {  // TODO: move into func
-              for (size_t pix_n = 0; pix_n < 8; pix_n++) {
-                tb[(row * 8) + pix_n] = tile[((7 - row) * 8) + pix_n];
-              }
-            }
-
-            tile = tb;
-          }
-          if (entry.HORIZONTAL_FLIP) {
-            for (size_t row = 0; row < 8; row++) {  // TODO: move into func
-              std::reverse(tile.begin() + (row * 8), (tile.begin() + 8 + (row * 8)));
-            }
-          }
+          if (entry.VERTICAL_FLIP) vertical_flip(tile);
+          if (entry.HORIZONTAL_FLIP) horizontal_flip(tile);
 
           // setting up tile map
           for (size_t x = 0; x < 8; x++) {
             auto clr = get_color_by_index(tile[(y * 8) + x], entry.PAL_BANK, bg_bpp[bg]);
 
             // Palette Index = 0 -- if so save entry in the transparency map. Used during composition
-            transparency_maps[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = ((tile[(y * 8) + x] == 0));
+            transparency_maps[bg][(tile_y * (SCREEN_WIDTH * 8) + (y * SCREEN_WIDTH) + (tile_x * 8) + x)] = tile[(y * 8) + x] == 0;
 
             tile_map_texture_buffer_arr[bg][((tile_y * (SCREEN_WIDTH * 8)) + (y * SCREEN_WIDTH) + ((tile_x * 8) + x))] = clr;
           }
@@ -474,49 +487,27 @@ void PPU::step() {
 
       const bool draw_sprites = display_fields.DISPCNT.SCREEN_DISPLAY_OBJ;
 
-      // ====================================  composition ====================================
-      std::vector<Item> active_bgs = {};
+      // ==================================== composition ====================================
 
-      // determine priority
-      for (int bg = 3; bg >= 0; bg--) {
-        if (!background_enabled(bg)) {
-          continue;
-        }
-        active_bgs.emplace_back(static_cast<u8>(bg), get_bg_prio(bg));
-      }
+      std::vector<BG_INFO> active_bgs = get_active_bg_by_prios();
 
-      std::ranges::stable_sort(active_bgs, [](const Item& a, const Item& b) {
-        if (a.bg_prio != b.bg_prio) return a.bg_prio > b.bg_prio;  // primary
-        return a.bg_id > b.bg_id;                                  // tiebreaker
-      });
+      draw_backdrop_on_ly(LY);
 
-      // draw backdrop
-      for (size_t x = 0; x < 240; x++) {
-        backdrop[(LY * SYSTEM_DISPLAY_WIDTH) + x] = get_color_by_index(0, 0, COLOR_DEPTH::BPP4);
-        auto& bg_pixel                            = background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x);
-
-        bg_pixel.prio  = 5;
-        bg_pixel.color = get_color_by_index(0, 0, COLOR_DEPTH::BPP4);
-      }
-
-      for (const auto& bg : active_bgs) {
-        // fmt::println("BG ID: {}", bg.bg_id);
-        auto [x_offset, y_offset]               = get_text_bg_offset(bg.bg_id);
-        auto [x_render_offset, y_render_offset] = get_render_offset(screen_sizes[bg.bg_id]);
+      for (const auto& [bg_id, bg_prio] : active_bgs) {
+        auto [x_offset, y_offset]               = get_text_bg_offset(bg_id);
+        auto [x_render_offset, y_render_offset] = get_render_offset(screen_sizes[bg_id]);
         for (size_t x = 0; x < 240; x++) {
           u32 complete_x_offset = (x + x_offset) % x_render_offset;
           u32 complete_y_offset = ((LY + y_offset) % y_render_offset) * 512;
 
-          // assert((complete_x_offset + complete_y_offset) < (512 * 512));
-
-          if (transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)]) {
+          if (transparency_maps[bg_id][(complete_x_offset + complete_y_offset)]) {
             continue;
           }
 
-          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].color       = tile_map_texture_buffer_arr[bg.bg_id][(complete_x_offset + complete_y_offset)];
-          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].prio        = bg.bg_prio;
-          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].bg_id       = bg.bg_id;
-          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].transparent = transparency_maps[bg.bg_id][(complete_x_offset + complete_y_offset)];
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].color       = tile_map_texture_buffer_arr[bg_id][(complete_x_offset + complete_y_offset)];
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].prio        = bg_prio;
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].bg_id       = bg_id;
+          background_layer[(LY * SYSTEM_DISPLAY_WIDTH) + x].transparent = transparency_maps[bg_id][(complete_x_offset + complete_y_offset)];
         }
       }
 
@@ -529,19 +520,15 @@ void PPU::step() {
       }
 
       // process sprites
-      // TODO: can just reinterpret cast the OAM
-      // when it comes to repopulation, it is only necessary when OAM is written to, OR when >=
       std::memcpy(entries.data(), bus->OAM.data(), 0x400);  // TODO: expensive! find another way
       repopulate_objs();                                    // TODO: a write to change 1 entry will lead to us re-populating the entire table -- re-populate by index
 
-      for (int entry_idx = 0; entry_idx < 128; entry_idx++) {
+      for (size_t entry_idx = 0; entry_idx < 128; entry_idx++) {
         const OAM_Entry& oam_entry = entries.at(entry_idx);
 
         if (oam_entry.obj_disable_double_sz_flag) continue;                                                      // obj is disabled
-        if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED || oam_entry.obj_mode == OBJ_MODE::OBJ_WINDOW) continue;  // obj has a probihibted mode
-        if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;                                              // obj is probihibted shape
-
-        // fmt::println("oam entry: {}", entry_idx);
+        if (oam_entry.obj_mode == OBJ_MODE::PROHIBITED || oam_entry.obj_mode == OBJ_MODE::OBJ_WINDOW) continue;  // obj has a prohibited mode
+        if (oam_entry.obj_shape == OBJ_SHAPE::PROHIBITED) continue;                                              // obj is prohibited shape
 
         u16 y_relative_to_top_of_obj = (((i16)LY - (i16)oam_entry.y) + 256) % 256;
         if (y_relative_to_top_of_obj >= (get_obj_height(oam_entry) * 8)) continue;
@@ -588,26 +575,22 @@ void PPU::step() {
       for (size_t x = 0; x < 240; x++) {
         // BG ID = 0 -- OBJ PRIO = 1 // BG GETS DRAWN OVER OBJ
         const auto& bg_px  = background_layer.at((LY * SYSTEM_DISPLAY_WIDTH) + x);
-        const auto& obj_px = sprite_layer.at((LY * 256) + x);
+        const auto& obj_px = sprite_layer.at(LY * 256 + x);
 
         // lower number wins
         if (obj_px.prio > bg_px.prio) {  // draw bg
           db.write((LY * SYSTEM_DISPLAY_WIDTH) + x, bg_px.color);
-          // if (bg_px.transparent && bg_px.prio == 0) db.write((LY * MAIN_VIEWPORT_PITCH) + x, Colors::RED);
-          // if (bg_px.transparent && bg_px.prio == 1) db.write((LY * MAIN_VIEWPORT_PITCH) + x, Colors::GREEN);
-          // if (bg_px.transparent && bg_px.prio == 2) db.write((LY * MAIN_VIEWPORT_PITCH) + x, Colors::BLUE);
-          // if (bg_px.transparent && bg_px.prio == 3) db.write((LY * MAIN_VIEWPORT_PITCH) + x, Colors::BLUE + 0x2000);
+
           if (bg_px.transparent) {
-            db.write((LY * SYSTEM_DISPLAY_WIDTH) + x, sprite_layer.at((LY * 256) + x).color);
+            db.write((LY * SYSTEM_DISPLAY_WIDTH) + x, sprite_layer.at(LY * 256 + x).color);
           }
 
         } else {
-          if (!(sprite_layer.at((LY * 256) + x).transparent)) {
-            // auto s_c = sprite_layer.at((LY * 256) + x).color;
-            db.write((LY * SYSTEM_DISPLAY_WIDTH) + x, sprite_layer.at((LY * 256) + x).color);
-            // if (s_c) db.write((LY * MAIN_VIEWPORT_PITCH) + x, 0x1231231);
+          if (!sprite_layer.at(LY * 256 + x).transparent) {
+            db.write(LY * SYSTEM_DISPLAY_WIDTH + x, sprite_layer.at(LY * 256 + x).color);
+
           } else {
-            db.write((LY * SYSTEM_DISPLAY_WIDTH) + x, bg_px.color);
+            db.write(LY * SYSTEM_DISPLAY_WIDTH + x, bg_px.color);
           }
         }
       }
@@ -738,6 +721,7 @@ void PPU::step() {
           Tile tile                          = tile_sets[bg][entry.tile_index];
 
           // OBJ are now flipped on a individual level, but the order of OBJ is what needs to be flipped, (including the OBJ being flipped)
+
           if (entry.VERTICAL_FLIP) {
             Tile tb;
 
@@ -749,6 +733,7 @@ void PPU::step() {
 
             tile = tb;
           }
+
           if (entry.HORIZONTAL_FLIP) {
             for (size_t row = 0; row < 8; row++) {  // TODO: move into func
               std::reverse(tile.begin() + (row * 8), (tile.begin() + 8 + (row * 8)));
@@ -770,7 +755,7 @@ void PPU::step() {
 
       // process affine bg
       if (background_enabled(2)) {
-        u8 tile_y = (LY) % 256 / 8;
+        u8 tile_y = LY % 256 / 8;
         // fmt::println("HI");
         load_tiles(2, COLOR_DEPTH::BPP8);  // only gets called when dispstat corresponding to bg changes
 
@@ -813,7 +798,7 @@ void PPU::step() {
       const bool draw_sprites = display_fields.DISPCNT.SCREEN_DISPLAY_OBJ;
 
       // ====================================  composition ====================================
-      std::vector<Item> active_bgs = {};
+      std::vector<BG_INFO> active_bgs = {};
 
       // determine priority
       for (int bg = 2; bg >= 0; bg--) {
@@ -823,7 +808,7 @@ void PPU::step() {
         active_bgs.emplace_back(static_cast<u8>(bg), get_bg_prio(bg));
       }
 
-      std::ranges::stable_sort(active_bgs, [](const Item& a, const Item& b) {
+      std::ranges::stable_sort(active_bgs, [](const BG_INFO& a, const BG_INFO& b) {
         if (a.bg_prio != b.bg_prio) return a.bg_prio > b.bg_prio;  // primary
         return a.bg_id > b.bg_id;                                  // tiebreaker
       });
@@ -855,7 +840,7 @@ void PPU::step() {
 
           if (bg.bg_id == 2) {
             complete_x_offset = (x + latched_bg2x) % 1024;
-            complete_y_offset = ((LY + y_offset)) * 512;
+            complete_y_offset = (LY + y_offset) * 512;
 
             // complete_x_offset = (x) % 1024;
             // complete_y_offset = ((LY + y_offset)) * 512;
@@ -974,7 +959,7 @@ void PPU::step() {
     case MODE_3: {
       // fmt::println("MODE_3");
       for (size_t i = 0, j = 0; i < (240 * 160); i++, j += 2) {
-        db.write(i, BGR555_TO_RGB888_LUT[(VRAM.at(j)) | (VRAM.at(j + 1) << 8)]);
+        db.write(i, BGR555_TO_RGB888_LUT.at((VRAM.at(j)) | (VRAM.at(j + 1) << 8)));
       }
 
       // db.swap_buffers();
@@ -1050,7 +1035,7 @@ void PPU::draw_window() {
 
   // draw outside window
 
-  std::vector<Item> active_bgs = {};
+  std::vector<BG_INFO> active_bgs = {};
 
   u8 enabled_bg_bits = get_enabled_bg_bits();
 
@@ -1091,9 +1076,7 @@ void PPU::draw_window() {
   }
 
   if (display_fields.DISPCNT.WINDOW_0_DISPLAY_FLAG) {
-    return;
-
-    for (i8 i = 4; i > 0; i--) {
+    for (i8 i = 3; i > 0; i--) {
       auto [x_offset, y_offset]               = get_text_bg_offset(i);
       auto [x_render_offset, y_render_offset] = get_render_offset(i);
 

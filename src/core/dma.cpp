@@ -12,11 +12,12 @@ void DMAContext::print_dma_info() {
   dma_logger->info("word count: {:#010x}", dmacnt_l.word_count);
   dma_logger->info("word size: {}", dmacnt_h.transfer_type == TRANSFER_SIZE::HALFWORD ? "16bits" : "32bits");
   dma_logger->info("repeating?: {}", dmacnt_h.dma_repeat ? "Yes" : "No");
+  dma_logger->info("IRQ AT END?: {}", dmacnt_h.irq_at_end ? "Yes" : "No");
   dma_logger->info("===================================");
 }
 
 void DMAContext::process() {
-  // print_dma_info();
+  print_dma_info();
   if (this->dmacnt_h.dma_repeat) {
     internal_word_size = dmacnt_l.word_count & WORD_COUNT_MASK[id];
 
@@ -70,6 +71,7 @@ void DMAContext::transfer16(u32 _src, u32 _dst, u32 word_count) {
     }
 
     if (!((src & DMA_SRC_MASK[id]) >= 0X0E000000 && id == 0)) {
+      // fmt::println("[16] {:#010x} -> {:#010x}", internal_dst & DMA_DST_MASK[id], value);
       bus->write16(internal_dst & DMA_DST_MASK[id], value);
     }
 

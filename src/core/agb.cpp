@@ -52,16 +52,15 @@ bool AGB::start_timing_cond_met(DMAContext* ch) const {
     case DMA_START_TIMING::VBLANK: return ppu.display_fields.DISPSTAT.VBLANK_FLAG;
     case DMA_START_TIMING::HBLANK: return ppu.display_fields.DISPSTAT.HBLANK_FLAG;
     case DMA_START_TIMING::SPECIAL: {
-      // return false;
       switch (ch->id) {
         case 0: return false;
-        case 1:  // FIFO req
-        case 2:  // FIFO req
+        case 1: return false;
+        case 2: return false;
         case 3: return false;
         default: assert(0);
       }
     }
-    default: assert(0); std::unreachable();
+    default: assert(0);
   }
 }
 

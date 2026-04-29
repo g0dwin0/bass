@@ -175,10 +175,10 @@ struct ARM7TDMI {
       return THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET;
     }
 
-    if ((opcode & 0b1111'011000) == 0b0101011000) {
+    if ((opcode & 0b1111'0'11000) == 0b0101'0'11000) {
       return THUMB_SIGN_EXTENDED_LOAD_STORE_REG_OFFSET;
     }
-
+    
     if ((opcode & 0b1111'0'11'000) == 0b0101000000 || (opcode & 0b1111011000) == 0b0101010000) {
       return THUMB_WORD_BYTE_REG_OFFSET;
     }

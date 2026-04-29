@@ -34,6 +34,9 @@ void ARM7TDMI::flush_pipeline() {
     pipeline.decode = bus->read16(regs.r[15], ACCESS_TYPE::NON_SEQUENTIAL);
     pipeline.fetch  = bus->read16(regs.r[15] + 2, ACCESS_TYPE::SEQUENTIAL);
 
+    if (regs.r[15] <= 0x3FFF) bus->bios_open_bus = pipeline.decode;
+    if (regs.r[15] + 2 <= 0x3FFF) bus->bios_open_bus = pipeline.fetch;
+
     regs.r[15] += 2;
   }
   return;
@@ -72,7 +75,24 @@ u32 ARM7TDMI::handle_shifts(bool I, bool R, u8 Rm, u8 Rs, u8 shift_type, u32 imm
 u32 ARM7TDMI::fetch(u32 address) {
   u32 opcode = regs.CPSR.STATE_BIT == THUMB_MODE ? bus->read16(address) : bus->read32(address);
 
-  if (regs.r[15] <= 0x3FFF) bus->bios_open_bus = opcode;
+  if (regs.r[15] <= 0x3FFF) {
+    if (regs.CPSR.STATE_BIT == THUMB_MODE) {
+      // fmt::println("opc: {:#010x} - addr: {:#010x}", opcode, address);
+      // fmt::println("opc: {:#010x} - addr: {:#010x}", bus->read16(address - 2), address - 2);
+
+      if ((address & 2) == 0) {
+        bus->bios_open_bus &= ~0xFFFF;
+        bus->bios_open_bus |= opcode;
+      } else {
+        bus->bios_open_bus &= ~0xFFFF0000;
+        bus->bios_open_bus |= opcode << 16;
+      }
+      // bus->bios_open_bus = opcode;
+
+    } else {
+      bus->bios_open_bus = opcode;
+    }
+  }
   return opcode;
 }
 
@@ -154,8 +174,9 @@ void ARM7TDMI::execute(u32 opcode) {
     // assert(0);
     return;
   }
-
+  // cpu_logger->info("executing: {:#010x}", opcode);
   func(this, opcode);
+  // cpu_logger->info("done");
 }
 
 bool ARM7TDMI::check_condition(Condition cond) const {

@@ -82,9 +82,7 @@ struct DMAContext {
     fmt::println("created dma channel {}", id);
   };
 
-  ~DMAContext() {
-    fmt::println("destroyed dma channel {}", id);
-  }
+  ~DMAContext() { fmt::println("destroyed dma channel {}", id); }
 
   std::shared_ptr<spdlog::logger> dma_logger = spdlog::stdout_color_mt(fmt::format("DMA{}", id));
 

@@ -16,8 +16,7 @@ static constexpr u8 BANK_SIZE                = 16 * 2;
 static constexpr u32 SCREEN_WIDTH            = 512;
 static constexpr u32 BITMAP_MODE_PAGE_OFFSET = 0xA000;
 
-
-struct Item {
+struct BG_INFO {
   u8 bg_id;    // primary key
   u8 bg_prio;  // first tiebreaker
 };
@@ -74,10 +73,13 @@ struct PPU {
 
   u8 get_enabled_bg_bits() const;
 
+  static void vertical_flip(Tile& tile);
+  static void horizontal_flip(Tile& tile);
+
   struct State {  // track changes to ppu specific registers, for example the changing of the character/screen base blocks
-    std::array<bool, 4> cbb_changed = {true, true, true, true};
-    bool oam_changed                = true;
-    bool mapping_mode_changed       = true;
+    // std::array<bool, 4> cbb_changed = {true, true, true, true};
+    bool oam_changed          = true;
+    bool mapping_mode_changed = true;
 
   } state;
 
@@ -377,7 +379,9 @@ struct PPU {
 
   std::tuple<u16, u16> get_affine_bg_size(u8 bg_id);
 
-  bool background_enabled(u8 bg_id);
+  bool background_enabled(u8 bg_id) const;
+  void draw_backdrop_on_ly(const u8& LY);
+  std::vector<BG_INFO> get_active_bg_by_prios() const;
 
   u8 get_bg_prio(u8) const;
 
@@ -406,10 +410,10 @@ struct PPU {
 
   // Returns tuple containing BGxHOFS, BGxVOFS (in that order)
   std::tuple<u16, u16> get_text_bg_offset(u8 bg_id) const;
-  std::tuple<u16, u16> get_render_offset(u8 screen_size);
+  static std::tuple<u16, u16> get_render_offset(u8 screen_size);
 
   // affine related stuff
-  std::tuple<u8, u8> get_affine_bg_tile_sizes(u8 bg_id);
+  static std::tuple<u8, u8> get_affine_bg_tile_sizes(u8 bg_id);
 
   // ============== Windowing ==============
   // IN: background IDs
