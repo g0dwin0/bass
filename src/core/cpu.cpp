@@ -154,8 +154,7 @@ void ARM7TDMI::print_pipeline() const {
 
 void ARM7TDMI::execute(u32 opcode) {
   u16 shifted_opcode;
-  // fmt::println("execute?");
-  FuncPtr func = nullptr;
+  FuncPtr func;
   if (regs.CPSR.STATE_BIT == ARM_MODE) {
     // fmt::println("ARM OPCODE: {:08X}", opcode);
     shifted_opcode = static_cast<u16>((opcode & 0xff00000) >> 16 | (opcode & 0b11110000) >> 4);
@@ -233,7 +232,6 @@ bool ARM7TDMI::check_condition(Condition cond) const {
   }
 
   assert(0);
-  return -1;
 }
 
 void ARM7TDMI::print_registers() const {
@@ -245,7 +243,7 @@ void ARM7TDMI::print_registers() const {
   fmt::println("r15 (PC): {:#010x}\n", regs.r[15]);
 }
 
-std::string ARM7TDMI::get_shift_string(u8 shift_type) const {
+std::string ARM7TDMI::get_shift_string(const u8 shift_type) const {
   assert(shift_type < 4);
 
   switch (shift_type) {

@@ -277,18 +277,16 @@ Tile PPU::get_obj_tile_by_tile_index(const u16 tile_id, const COLOR_DEPTH color_
   return tile;
 }
 
-inline u32 PPU::absolute_sbb(u8 bg, u8 map_x) {
+inline u32 PPU::absolute_sbb(u8 bg, u8 map_x) const {
   switch (bg) {
     case 0: return VRAM_BASE + ((display_fields.BG0CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
     case 1: return VRAM_BASE + ((display_fields.BG1CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
     case 2: return VRAM_BASE + ((display_fields.BG2CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
     case 3: return VRAM_BASE + ((display_fields.BG3CNT.SCREEN_BASE_BLOCK + map_x) * 0X800);
+    default: assert(0);
   }
-
-  assert(0);
-  std::unreachable();
 }
-inline u32 PPU::relative_cbb(const u8 bg_id) {
+inline u32 PPU::relative_cbb(const u8 bg_id) const {
   switch (bg_id) {
     case 0: return display_fields.BG0CNT.CHAR_BASE_BLOCK * 0X4000;
     case 1: return display_fields.BG1CNT.CHAR_BASE_BLOCK * 0X4000;
@@ -335,7 +333,8 @@ std::vector<BG_INFO> PPU::get_active_bg_by_prios() const {
 void PPU::vertical_flip(Tile& tile) {
   Tile tb;
 
-  for (size_t row = 0; row < 8; row++) {   for (size_t pix_n = 0; pix_n < 8; pix_n++) {
+  for (size_t row = 0; row < 8; row++) {
+    for (size_t pix_n = 0; pix_n < 8; pix_n++) {
       tb[(row * 8) + pix_n] = tile[((7 - row) * 8) + pix_n];
     }
   }
@@ -348,8 +347,6 @@ void PPU::horizontal_flip(Tile& tile) {
   }
 }
 void PPU::step() {
-  // TODO: This should be a scanline renderer, at the start of each scanline 1 scanline should be written to the framebuffer.
-  //       At VBLANK, the framebuffer should be copied by whatever frontend and drawn onto the screen.
   switch (display_fields.DISPCNT.BG_MODE) {
     case MODE_0: {
       const auto& LY = display_fields.VCOUNT.LY;

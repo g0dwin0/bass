@@ -1,6 +1,8 @@
 #include "bus.hpp"
 
-#include <cstdio>
+#include <execinfo.h>
+
+#include <iostream>
 
 #include "common/align.hpp"
 #include "common/bytes.hpp"
@@ -64,6 +66,9 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
     }
 
     case REGION::EWRAM: {
+      // cycles_elapsed += get_wram_waitstates();
+      // tick_timers(get_wram_waitstates());
+
       v = EWRAM.at(address % 0x40000);
       break;
     }
@@ -90,12 +95,12 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
         norm_addr -= 0x8000;
       }
 
-      v = *(uint8_t*)(&ppu->VRAM.at((norm_addr)));
+      v = ppu->VRAM[norm_addr];
       break;
     }
 
     case REGION::OAM: {
-      return OAM.at(address % 0x400);
+      return OAM[address % 0x400];
     }
 
     case REGION::PAK_WS0_0:
@@ -136,8 +141,7 @@ u8 Bus::read8(u32 address, ACCESS_TYPE access_type) {
     }
 
     default: {
-      // fmt::println("[R8] unused/oob memory read: {:#X}", address);
-      // return 0xFF;
+      mem_logger->error("[R8] unused/oob memory read: {:#X}", address);
       return cpu->pipeline.fetch >> (address & 1) * 8;
     }
   }
@@ -186,19 +190,9 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
         v = cpu->pipeline.fetch;
         break;
       }
-      if (cpu->regs.r[15] > 0x00003FFF) {  // BIOS only readable when PC in BIOS range
-        //         v = std::rotr(bios_open_bus, 0);
-        (void)word_alignment_offset;
-
-        u8 a = bios_open_bus & 0xFF;
-        u8 b = (bios_open_bus >> 8) & 0xFF;
-        u8 c = (bios_open_bus >> 16) & 0xFF;
-        u8 d = (bios_open_bus >> 24) & 0xFF;
-
-        (void)a;
-        (void)b;
-        (void)c;
-        (void)d;
+      if (cpu->regs.r[15] > 0x00003FFF) {
+        // v = bios_open_bus >> ((address & 2) * 8);
+        fmt::println("[16] {:#010x} - {:#010x}", address, bios_open_bus);
 
         switch (word_alignment_offset) {
           case 0: {
@@ -207,6 +201,7 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
           }
           case 1: {
             v = std::rotr((u16)bios_open_bus, 16);
+            // v = bios_open_bus >> 16;
             break;
           }
           case 2: {
@@ -229,15 +224,15 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
     }
 
     case REGION::EWRAM: {
-      cycles_elapsed += 2;  // 3/3/6 -- mem access already accounts for 1
-      tick_timers(2);
-      v = *(u16*)(&EWRAM[address % 0x40000]);
+      // cycles_elapsed += 2;  // 3/3/6 -- mem access already accounts for 1
+      // tick_timers(2);
+      v = *(u16*)&EWRAM[address % 0x40000];
       break;
     }
 
     case REGION::IWRAM: {
-      cycles_elapsed += 1;
-      tick_timers(1);
+      // cycles_elapsed += 1;
+      // tick_timers(1);
       v = *(u16*)(&IWRAM[address % 0x8000]);
       break;
     }
@@ -253,15 +248,14 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
     }
 
     case REGION::VRAM: {
-      // fmt::println("HIT VRAM");
       u64 norm_addr = address & 0x1FFFFu;
 
       if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
-      return *(u16*)(&ppu->VRAM[(norm_addr)]);
+      return *(u16*)&ppu->VRAM[norm_addr];
     }
 
     case REGION::OAM: {
-      return *(u16*)(&OAM[(address % 0x400)]);
+      return *(u16*)&OAM[(address % 0x400)];
     }
 
     case REGION::PAK_WS0_0:
@@ -299,23 +293,22 @@ u16 Bus::read16(u32 address, ACCESS_TYPE access_type) {
 
     case REGION::SRAM_0:
     case REGION::SRAM_1: {
-      return pak->SRAM.at(_address % 0x8000) * 0x0101;
-      // if(_address >= 0x0E000000) fmt::println("{:#010x}: {:#010x} m: {} -> {:#010x}", _address, v, misaligned_by, std::rotr(v, misaligned_by));
+      v = pak->SRAM.at(_address % 0x8000) * 0x0101;
       break;
     }
 
     default: {
+      mem_logger->error("[R16] unhandled read! {} => {:#010x}", get_label(address), v);
       v = cpu->pipeline.fetch;
       break;
     }
   }
 
   return v;
-  // return static_cast<u16>(std::rotr(v, misaligned_by));
   // bus_logger->info("[R16] {:#010X} => {:#010x}", address, v);
 
 #endif
-};
+}
 u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
   cycles_elapsed += 1;
   tick_timers(1);
@@ -347,7 +340,6 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
 
 #else
 
-  // SPDLOG_DEBUG("[R32] {:#010x}", address);
   u32 v = 0;
 
   switch (static_cast<REGION>(address >> 24)) {
@@ -358,14 +350,13 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
         v = bios_open_bus;
       } else {
         v = *(u32*)(&BIOS[address]);
-      };
+      }
       break;
     }
 
     case REGION::EWRAM: {
-      cycles_elapsed += 4;
-      tick_timers(4);
-      // get_wram_waitstates();
+      // cycles_elapsed += get_wram_waitstates();
+      // tick_timers(get_wram_waitstates());
       v = *(u32*)(&EWRAM[address % 0x40000]);
       break;
     }
@@ -383,21 +374,24 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     case REGION::BG_OBJ_PALETTE: {
+      cycles_elapsed += 1;
+      tick_timers(1);
       v = *(u32*)(&ppu->PALETTE_RAM[address % 0x400]);
       break;
     }
 
     case REGION::VRAM: {
+      cycles_elapsed += 1;
+      tick_timers(1);
       u64 max_addr = address & 0x1FFFFu;
-
       if (max_addr >= 0x18000) max_addr -= 0x8000u;
 
-      v = *(u32*)(&ppu->VRAM.at(max_addr));
+      v = *(u32*)&ppu->VRAM.at(max_addr);
       break;
     }
 
     case REGION::OAM: {
-      v = *(u32*)(&OAM[address % 0x400]);
+      v = *(u32*)&OAM[address % 0x400];
       break;
     }
 
@@ -405,10 +399,10 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     case REGION::PAK_WS0_1: {
       cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0);
       cycles_elapsed += get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0);
+
       tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::NON_SEQUENTIAL, WAITSTATE::WS0));
       tick_timers(get_rom_cycles_by_waitstate(ACCESS_TYPE::SEQUENTIAL, WAITSTATE::WS0));
-
-      v = *(u32*)(&pak->data[address - 0x08000000]);
+      v = *(u32*)&pak->data[address - 0x08000000];
       break;
     }
 
@@ -443,12 +437,12 @@ u32 Bus::read32(u32 address, [[gnu::unused]] ACCESS_TYPE access_type) {
     }
 
     default: {
+      mem_logger->error("[R32] unhandled read! {} => {:#010x}", get_label(address), v);
       v = cpu->pipeline.fetch;
       break;
     }
   }
   // mem_logger->info("[R32] {} => {:#010x}", get_label(address), v);
-  // return std::rotr(v, word_alignment_offset);
   return v;
 #endif
 };
@@ -468,6 +462,8 @@ void Bus::write8(u32 address, u8 value) {
   tick_timers(1);
   switch ((REGION)(address >> 24)) {
     case REGION::EWRAM: {
+      // cycles_elapsed += get_wram_waitstates();
+      // tick_timers(get_wram_waitstates());
       EWRAM.at(address % 0x40000) = value;
       break;
     }
@@ -491,6 +487,8 @@ void Bus::write8(u32 address, u8 value) {
     }
 
     case REGION::VRAM: {
+      tick_timers(1);
+      cycles_elapsed += 1;
       u64 max_addr = address & 0x1FFFFu;
 
       if (max_addr >= 0x18000) max_addr -= 0x8000u;
@@ -514,8 +512,7 @@ void Bus::write8(u32 address, u8 value) {
     }
 
     default: {
-      // spdlog::warn("[W8] unused/oob memory write: {:#X}", address);
-
+      spdlog::error("[W8] unused/oob memory write: {:#X}", address);
       return;
       // break;
     }
@@ -553,6 +550,8 @@ void Bus::write16(u32 address, u16 value) {
 
   switch ((REGION)(address >> 24)) {
     case REGION::EWRAM: {
+      // cycles_elapsed += get_wram_waitstates();
+      // tick_timers(get_wram_waitstates());
       *(u16*)(&EWRAM[address % 0x40000]) = value;
       break;
     }
@@ -578,8 +577,6 @@ void Bus::write16(u32 address, u16 value) {
     }
 
     case REGION::VRAM: {
-      // if (address >= 0x06018000 && ppu->display_fields.DISPCNT.BG_MODE >= 3) return;
-
       u64 norm_addr = address & 0x1FFFFu;
 
       if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
@@ -609,6 +606,8 @@ void Bus::write16(u32 address, u16 value) {
     }
 
     default: {
+      mem_logger->error("[W16] unhandled wr! {} => {:#010x}", get_label(address), value);
+      // v = cpu->pipeline.fetch;
       // fmt::println("unused/oob memory write: {:#X}", address);
       return;
       // break;
@@ -648,13 +647,19 @@ void Bus::write32(u32 address, u32 value) {
 #else
 
   switch ((REGION)(address >> 24)) {
+    case REGION::BIOS: {
+      return;
+    }
+
     case REGION::EWRAM: {
+      // cycles_elapsed += get_wram_waitstates();
+      // tick_timers(get_wram_waitstates());
       *(u32*)(&EWRAM.at(address % 0x40000)) = value;
       break;
     }
 
     case REGION::IWRAM: {
-      *(u32*)(&IWRAM.at(address % 0x8000)) = value;
+      *(u32*)&IWRAM.at(address % 0x8000) = value;
       break;
     }
 
@@ -672,11 +677,13 @@ void Bus::write32(u32 address, u32 value) {
     }
 
     case REGION::VRAM: {
+      tick_timers(1);
+      cycles_elapsed += 1;
       u64 norm_addr = address & 0x1FFFFu;
 
       if (norm_addr >= 0x18000) norm_addr -= 0x8000u;
 
-      *(u32*)(&ppu->VRAM.at(norm_addr)) = value;
+      *(u32*)&ppu->VRAM.at(norm_addr) = value;
       break;
     }
 
@@ -693,9 +700,8 @@ void Bus::write32(u32 address, u32 value) {
     }
 
     default: {
-      // fmt::println("[W32] unused/oob memory write: {:#010x}", address);
-      return;
-      // break;
+      mem_logger->info("[W32] unused/oob memory write: {:#010x}", address);
+      break;
     }
   }
     // mem_logger->info("[W32] {} => {:#010x}", get_label(address), value);
@@ -776,6 +782,7 @@ u8 Bus::io_read(const u32 address) {
     case SOUND1CNT_L:
     case SOUND1CNT_L + 1: {
       retval = read_byte(apu->sound_registers.SOUND1CNT_L.v, address % 0x2);
+      return retval;
       break;
     }
 
@@ -784,42 +791,53 @@ u8 Bus::io_read(const u32 address) {
     case SOUND1CNT_X + 2:
     case SOUND1CNT_X + 3: {
       retval = read_byte(apu->sound_registers.SOUND1CNT_X.v, address % 0x4);
+      return retval;
+
       break;
     }
 
     case SOUND2CNT_L:
     case SOUND2CNT_L + 1: {
       retval = read_byte(apu->sound_registers.SOUND2CNT_L.v, address % 0x2);
+      return retval;
       break;
     }
 
     case SOUND3CNT_L:
     case SOUND3CNT_L + 1: {
       retval = read_byte(apu->sound_registers.SOUND3CNT_L.v, address % 0x2);
+      return retval;
+
       break;
     }
 
     case SOUND1CNT_H:
     case SOUND1CNT_H + 1: {
       retval = read_byte(apu->sound_registers.SOUND1CNT_H.v, address % 2);
+      return retval;
       break;
     }
 
     case SOUND2CNT_H:
     case SOUND2CNT_H + 1: {
       retval = read_byte(apu->sound_registers.SOUND2CNT_H.v, address % 2);
+      return retval;
+
       break;
     }
 
     case SOUND3CNT_H:
     case SOUND3CNT_H + 1: {
       retval = read_byte(apu->sound_registers.SOUND3CNT_H.v, address % 2);
+      return retval;
       break;
     }
 
     case SOUND3CNT_X:
     case SOUND3CNT_X + 1: {
       retval = read_byte(apu->sound_registers.SOUND3CNT_X.v, address % 2);
+      return retval;
+
       break;
     }
 
@@ -828,24 +846,28 @@ u8 Bus::io_read(const u32 address) {
     case SOUND4CNT_L + 2:
     case SOUND4CNT_L + 3: {
       retval = read_byte(apu->sound_registers.SOUND4CNT_L.v, address % 4);
+      return retval;
       break;
     }
 
     case SOUND4CNT_H:
     case SOUND4CNT_H + 1: {
       retval = read_byte(apu->sound_registers.SOUND4CNT_H.v, address % 2);
+      return retval;
       break;
     }
 
     case SOUNDCNT_L:
     case SOUNDCNT_L + 1: {
       retval = read_byte(apu->sound_registers.SOUNDCNT_L.v, address % 2);
+      return retval;
       break;
     }
 
     case SOUNDCNT_H:
     case SOUNDCNT_H + 1: {
       retval = read_byte(apu->sound_registers.SOUNDCNT_H.v, address % 2);
+      return retval;
       break;
     }
 
@@ -854,6 +876,8 @@ u8 Bus::io_read(const u32 address) {
     case SOUNDCNT_X + 2:
     case SOUNDCNT_X + 3: {
       retval = read_byte(apu->sound_registers.SOUNDCNT_X.v, address % 4);
+
+      return retval;
       break;
     }
 
@@ -904,12 +928,15 @@ u8 Bus::io_read(const u32 address) {
     case DMA1CNT_H:
     case DMA1CNT_H + 1: {
       retval = read_byte(ch1->dmacnt_h.v, address % 2);
+      return retval;
       break;
     }
 
     case DMA2CNT_H:
     case DMA2CNT_H + 1: {
       retval = read_byte(ch2->dmacnt_h.v, address % 2);
+      return retval;
+
       break;
     }
 
@@ -983,6 +1010,8 @@ u8 Bus::io_read(const u32 address) {
     case KEYINPUT:
     case KEYINPUT + 1: {
       retval = read_byte(keypad_input.KEYINPUT.v, address % 2);
+
+      return retval;
       break;
     }
     case KEYCNT: bus_logger->debug("READING FROM UNIMPL KEYCNT"); break;
@@ -999,11 +1028,13 @@ u8 Bus::io_read(const u32 address) {
     case IE + 1: {
       retval = read_byte(interrupt_control.IE.v, address % 2);
       // if (address % 2 != 0) fmt::println("IE: {:#010x}", interrupt_control.IE.v);
+      return retval;
       break;
     }
     case IF:
     case IF + 1: {
       retval = read_byte(interrupt_control.IF.v, address % 2);
+      return retval;
       break;
     }
     case WAITCNT:
@@ -1019,6 +1050,8 @@ u8 Bus::io_read(const u32 address) {
     case IME + 2:
     case IME + 3: {
       retval = read_byte(interrupt_control.IME.v, address % 4);
+      return retval;
+
       break;
     }
 
@@ -1084,12 +1117,9 @@ void Bus::io_write(u32 address, u8 value) {
       if (address == DISPSTAT) {
         value = (value & 0b11111000);
         ppu->display_fields.DISPSTAT.v |= value;
-        // set_byte(ppu->display_fields.DISPSTAT.v, address % 2, );
       } else {
         set_byte(ppu->display_fields.DISPSTAT.v, address % 2, value);
       }
-
-      // bus_logger->debug("NEW DISPSTAT: {:#010x}", ppu->display_fields.DISPSTAT.v, address);
       break;
     }
 
@@ -1330,7 +1360,6 @@ void Bus::io_write(u32 address, u8 value) {
       // bus_logger->debug("WRITING TO SOUND1CNT_H UNIMPL");
 
       apu->sound_registers.SOUND2CNT_H.v &= 0X4000;
-
       break;
     }
 
@@ -1377,6 +1406,7 @@ void Bus::io_write(u32 address, u8 value) {
       set_byte(apu->sound_registers.SOUND4CNT_H.v, address % 4, value);
       apu->sound_registers.SOUND4CNT_H.v &= 0x40FF;
 
+      return;
       break;
     }
     case SOUNDCNT_L: {
@@ -1410,9 +1440,10 @@ void Bus::io_write(u32 address, u8 value) {
     case SOUNDCNT_X + 1:
     case SOUNDCNT_X + 2:
     case SOUNDCNT_X + 3: {
-      if (address != SOUNDCNT_X) break;
+      if (address == SOUNDCNT_X) {
+        set_byte(apu->sound_registers.SOUNDCNT_X.v, 0, value & (1 << 7));
+      }
 
-      set_byte(apu->sound_registers.SOUNDCNT_X.v, address % 4, value & (1 << 7));
       break;
     }
 
@@ -1611,8 +1642,8 @@ void Bus::io_write(u32 address, u8 value) {
 
       if (stopped && started) {  // Timer goes from OFF TO ON (0->1)
         tm0->reload_counter();
-        tm0->start_time = cycles_elapsed + 2;
-        fmt::println("updated start time to value: {}", tm0->start_time);
+        tm0->start_delay = 2;
+        // fmt::println("updated start time to value: {}", tm0->start_time);
       }
       break;
     }
@@ -1623,49 +1654,13 @@ void Bus::io_write(u32 address, u8 value) {
     }
     case TM1CNT_H:
     case TM1CNT_H + 1: {
-      bool stopped = tm1->ctrl.timer_start_stop == false;
+      bool stopped = !tm1->ctrl.timer_start_stop;
       set_byte(tm1->ctrl.v, address % 2, value);
       bool started = tm1->ctrl.timer_start_stop;
 
       if (stopped && started) {
         tm1->reload_counter();
-        tm1->start_time = cycles_elapsed + 2;
-      }
-      break;
-    }
-    case TM2CNT_L:
-    case TM2CNT_L + 1: {
-      set_byte(tm2->reload_value, address % 2, value);
-
-      break;
-    }
-    case TM2CNT_H:
-    case TM2CNT_H + 1: {
-      bool stopped = !tm2->ctrl.timer_start_stop;
-      set_byte(tm2->ctrl.v, address % 2, value);
-      bool started = tm2->ctrl.timer_start_stop;
-      // tm2->ctrl.v &= 0x7F;
-
-      if (stopped && started) {
-        tm2->reload_counter();
-        // Scheduler::Schedule(Scheduler::EventType::TIMER2_START, cycles_elapsed + 2);
-      }
-      break;
-    }
-    case TM3CNT_L:
-    case TM3CNT_L + 1: {
-      set_byte(tm3->reload_value, address % 2, value);
-      break;
-    }
-    case TM3CNT_H:
-    case TM3CNT_H + 1: {
-      bool stopped = !tm3->ctrl.timer_start_stop;
-      set_byte(tm3->ctrl.v, address % 2, value);
-      bool started = tm3->ctrl.timer_start_stop;
-
-      if (stopped && started) {
-        tm3->reload_counter();
-        tm3->start_time = cycles_elapsed + 2;
+        tm1->start_delay = 2;
 
         // tm3->ctrl.v &= 0x7F;
 
@@ -1687,9 +1682,7 @@ void Bus::io_write(u32 address, u8 value) {
     case IE:
     case IE + 1: {
       set_byte(interrupt_control.IE.v, address % 2, value);
-      // if (old_ie == interrupt_control.IE.v) break;
-      // bus_logger->debug("WROTE {:#010x} to IE - [{:#010x}]", value, address);
-      // bus_logger->debug("NEW IE: {:#010x}", interrupt_control.IE.v, address);
+      return;
       break;
     }
     case IF ... IF + 1: {
@@ -1698,15 +1691,14 @@ void Bus::io_write(u32 address, u8 value) {
       } else {
         interrupt_control.IF.v &= ~(value << 8);  // zero out upper bits of reg
       }
-      // bus_logger->debug("WROTE {:#010x} to IF - [{:#010x}]", value, address);
-      // bus_logger->debug("NEW IF: {:#010x}", interrupt_control.IF.v, address);
+      return;
       break;
     }
 
     case IME ... IME + 3: {
       if (address != IME) return;
-      interrupt_control.IME.v = (value & 0b1);
-      // bus_logger->debug("new IME: {:#010x} - [{:#010x}]", interrupt_control.IME.v, address);B
+      interrupt_control.IME.v = value & 0b1;
+      return;
       break;
     }
     case POSTFLG: {
@@ -1728,11 +1720,16 @@ void Bus::io_write(u32 address, u8 value) {
 
     default: {
       bus_logger->debug("misaligned write: {:#010x}", address);
+      break;
     }
   }
+
+  if (address >= 0x4000060 && address <= 0x40000A4) return;
+  // bus_logger->info("[IO WRITE] {} => {:#010x}", get_label(address), value);
+
 #endif
 }
-u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTATE ws) {
+u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTATE ws) const {
   switch (access_type) {
     case ACCESS_TYPE::SEQUENTIAL: {
       switch (ws) {
@@ -1740,22 +1737,22 @@ u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTA
           switch (system_control.WAITCNT.WS0_SECOND_ACCESS) {
             case 0: return 2;
             case 1: return 1;
+            default: assert(0);
           }
-          break;
         }
         case WAITSTATE::WS1: {
           switch (system_control.WAITCNT.WS1_SECOND_ACCESS) {
             case 0: return 4;
             case 1: return 1;
+            default: assert(0);
           }
-          break;
         }
         case WAITSTATE::WS2: {
           switch (system_control.WAITCNT.WS2_SECOND_ACCESS) {
             case 0: return 8;
             case 1: return 1;
+            default: assert(0);
           }
-          break;
         }
       }
       break;
@@ -1768,8 +1765,8 @@ u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTA
             case 1: return 3;
             case 2: return 2;
             case 3: return 8;
+            default: assert(0);
           }
-          break;
         }
         case WAITSTATE::WS1: {
           switch (system_control.WAITCNT.WS1_FIRST_ACCESS) {
@@ -1777,8 +1774,8 @@ u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTA
             case 1: return 3;
             case 2: return 2;
             case 3: return 8;
+            default: assert(0);
           }
-          break;
         }
         case WAITSTATE::WS2: {
           switch (system_control.WAITCNT.WS2_FIRST_ACCESS) {
@@ -1786,16 +1783,15 @@ u8 Bus::get_rom_cycles_by_waitstate(const ACCESS_TYPE access_type, const WAITSTA
             case 1: return 3;
             case 2: return 2;
             case 3: return 8;
+            default: assert(0);
           }
-          break;
         }
       }
-      break;
+      assert(0);
     }
-    default: {
-      break;
-    }
+    default: assert(0);
   }
-  return 255;
+
+  assert(0);
 }
-u8 Bus::get_wram_waitstates() { return 1 + (15 - system_control.wait_control_wram); }
+u8 Bus::get_wram_waitstates() const { return (15 - system_control.wait_control_wram); }

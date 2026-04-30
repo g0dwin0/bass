@@ -27,9 +27,9 @@ struct APU {
       u16 v;
 
       struct {
-        u8 num_sweep_shift                        : 3;
+        u16 num_sweep_shift                       : 3;
         SWEEP_FREQ_DIRECTION sweep_freq_direction : 1;
-        u8 sweep_time                             : 3;
+        u16 sweep_time                            : 3;
         u16                                       : 9;
       };
 
@@ -92,9 +92,9 @@ struct APU {
 
       struct {
         u16 sample_rate : 11;
-        u8              : 3;
-        u8 length_flag  : 1;
-        u8 initial      : 1;
+        u16             : 3;
+        u16 length_flag : 1;
+        u16 initial     : 1;
         u16             : 16;
       };
 
@@ -117,14 +117,14 @@ struct APU {
     union {
       u32 v;
 
-      struct {
-        u8 dividing_ratio        : 3;
-        u8 counter_step_width    : 1;
-        u8 shift_clock_frequency : 3;
-        u8                       : 6;
-        u8 length_flag           : 1;
-        u8 initial               : 1;
-        u16                      : 16;
+      struct X {
+        u16 dividing_ratio        : 3;
+        u16 counter_step_width    : 1;
+        u16 shift_clock_frequency : 3;
+        u16                       : 6;
+        u16 length_flag           : 1;
+        u16 initial               : 1;
+        u16                       : 16;
       };
 
     } SOUND4CNT_H;

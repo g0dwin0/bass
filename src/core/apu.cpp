@@ -1,8 +1,5 @@
 #include "apu.hpp"
 
-#include <algorithm>
-#include <cassert>
-
 #include "bus.hpp"
 #include "common.hpp"
 #include "frontend/window.hpp"
@@ -129,7 +126,7 @@ void APU::tick(u32 cycles) {
     sample_rate += SAMPLE_RATE;
   }
 }
-void APU::sample(FIFO_CHANNEL ch) {
+void APU::sample(const FIFO_CHANNEL ch) {
   // assert(stream != nullptr);
   i8 l = 0;
   i8 r = 0;

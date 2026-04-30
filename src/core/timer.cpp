@@ -16,8 +16,11 @@ void Timer::reload_counter() { counter = reload_value; }
 
 void Timer::tick(const u64 cycles) {
   if (!ctrl.timer_start_stop) return;
-
   for (u64 i = 0; i < cycles; i++) {
+    if (start_delay != 0) {
+      start_delay--;
+      continue;
+    }
     if ((cycles_elapsed + cycles) % get_divider_val() == 0) {
       if (counter == 0xFFFF) {
         counter = reload_value;
@@ -38,8 +41,6 @@ INTERRUPT_TYPE Timer::get_timer_interrupt() const {
     case 3: return INTERRUPT_TYPE::TIMER3_OVERFLOW;
     default: assert(0);
   }
-
-  std::unreachable();
 }
 
 std::string Timer::get_prescaler_string() const {

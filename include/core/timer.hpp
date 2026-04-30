@@ -10,7 +10,7 @@ struct Bus;
 struct Timer {
   Timer();
 
-  u64 start_time  = 0;
+  u64 start_delay  = 0;
   u16 start_value = 0;
   bool use_delta = false;
   

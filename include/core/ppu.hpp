@@ -405,8 +405,8 @@ struct PPU {
 
   // ======= text mode =======
 
-  u32 absolute_sbb(u8 bg, u8 map_x = 0);
-  u32 relative_cbb(u8 bg);
+  u32 absolute_sbb(u8 bg, u8 map_x = 0) const;
+  u32 relative_cbb(u8 bg) const;
 
   // Returns tuple containing BGxHOFS, BGxVOFS (in that order)
   std::tuple<u16, u16> get_text_bg_offset(u8 bg_id) const;
